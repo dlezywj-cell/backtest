@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略系统 (最终完整版)</title>
+    <title>估值杠杆策略 (最终完整版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -13,59 +13,56 @@
 
         /* === 卡片框架 === */
         .card { background: var(--card); border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 12px; overflow: hidden; transition: all 0.3s; }
-        .card-header { padding: 12px 15px; background: #fff; border-bottom: 1px solid transparent; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 15px; user-select: none; }
-        
-        .header-title { flex: 1; cursor: pointer; display: flex; align-items: center; gap: 5px; }
-        .arrow { transition: transform 0.3s; color: #999; font-size: 12px; }
-        .card.open .arrow { transform: rotate(180deg); }
-        .card.open .card-header { border-bottom-color: var(--border); }
+        .card-header { padding: 12px 15px; background: #fff; border-bottom: 1px solid transparent; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 15px; user-select: none; cursor: pointer;}
+        .header-title { flex: 1; display: flex; align-items: center; gap: 5px; }
         .card-body { display: none; padding: 15px; }
         .card.open .card-body { display: block; }
+        .card.open .card-header { border-bottom-color: var(--border); }
+        .arrow { font-size: 12px; color: #999; transition: transform 0.3s; }
+        .card.open .arrow { transform: rotate(180deg); }
 
-        /* === 表单组件 === */
+        /* === 表单与按钮 === */
         .form-row { display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-end; }
         .form-group { flex: 1; min-width: 0; }
-        .form-group label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .form-group input { width: 100%; box-sizing: border-box; padding: 10px 8px; border: 1px solid #ddd; border-radius: 6px; outline: none; font-size: 14px; -webkit-appearance: none; background: #fff; }
-        .form-group input:focus { border-color: var(--primary); }
-        .form-group input[readonly] { background: #f5f5f5; color: #888; }
-
-        /* === 按钮样式 === */
-        .action-bar { display: flex; gap: 8px; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px; }
-        .btn { border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 10px; transition: opacity 0.2s; }
+        .form-group label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; }
+        .form-group input { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
+        
+        /* 按钮样式组 */
+        .btn { border: none; border-radius: 6px; padding: 10px; color: #fff; cursor: pointer; font-weight: 500; display:flex; align-items:center; justify-content:center; transition: opacity 0.2s; }
         .btn:active { opacity: 0.8; }
         .btn:disabled { background: #ccc !important; cursor: not-allowed; }
-        
-        .btn-purple { background: #6f42c1; flex: 1; }
-        .btn-orange { background: #fd7e14; flex: 1; }
-        .btn-green { background: #28a745; flex: 2; font-weight: bold; font-size: 14px; }
-        .btn-blue { background: #007bff; }
-        .btn-yellow { background: #ffc107; color: #333; }
-        .btn-red { background: #dc3545; }
+        .btn-blue { background: #007bff; } 
+        .btn-green { background: #28a745; } 
+        .btn-red { background: #dc3545; } 
+        .btn-purple { background: #6f42c1; }
+        .btn-orange { background: #fd7e14; }
         .btn-gray { background: #6c757d; }
-        .btn-icon { width: 40px; padding: 0; height: 40px; margin-bottom: 1px; flex: none; }
-
-        /* === 列表与按钮组 === */
-        .table-wrap { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 10px 12px; background: #f8f9fa; color: #666; font-size: 12px; white-space: nowrap; }
-        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; vertical-align: middle; }
-        tr.active-row { background-color: var(--selected); }
-        tr:not(.active-row):hover { background-color: #fafafa; }
-        
-        .btn-group { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
-        .btn-sm { width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 12px; }
+        .btn-sm { padding: 4px 8px; font-size: 12px; border-radius: 4px; margin-left: 4px; }
 
         /* === 统计与图表 === */
-        .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin-bottom: 15px; margin-top: 10px; }
+        .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin-bottom: 15px; }
         .stat-item { background: #f8f9fa; padding: 8px; border-radius: 6px; }
-        .stat-val { font-size: 15px; font-weight: bold; }
-        .stat-lbl { font-size: 10px; color: #888; margin-top: 2px; }
+        .stat-val { font-size: 16px; font-weight: bold; }
+        .stat-lbl { font-size: 11px; color: #888; }
         .win { color: #d32f2f; } .loss { color: #2e7d32; }
-
         #chart-box { width: 100%; height: 450px; }
+
+        /* === 调试面板 === */
+        #debug-panel { background: #fff3cd; color: #856404; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 12px; margin-bottom: 15px; display: none; border: 1px solid #ffeeba; }
         
-        /* 模态框 */
+        /* === 表格 === */
+        table { width: 100%; border-collapse: collapse; }
+        td, th { padding: 12px; border-bottom: 1px solid #eee; text-align: left; font-size: 13px; }
+        tr.active-row { background: var(--selected); }
+        
+        /* === 日志表格样式 === */
+        .log-table th { background: #f8f9fa; color: #666; font-size: 12px; }
+        .log-table td { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; }
+        .badge { padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #fff; font-weight: normal; }
+        .bg-red { background: #d32f2f; }
+        .bg-green { background: #2e7d32; }
+        
+        /* === 模态框 === */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; }
         .modal-box { background: #fff; padding: 20px; border-radius: 12px; width: 85%; max-width: 320px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
     </style>
@@ -73,110 +70,92 @@
 <body>
 <div class="container">
 
-<!-- === 第一部分：配置 === -->
+<!-- 配置卡片 -->
 <div class="card open" id="card-config">
-    <div class="card-header">
-        <div class="header-title" onclick="toggleCard('card-config')">
-            <span>⚙️ 策略配置</span>
-            <span class="arrow">▼</span>
-        </div>
+    <div class="card-header" onclick="toggleCard('card-config')">
+        <div class="header-title"><span>⚙️ 策略配置</span></div>
+        <span class="arrow">▼</span>
     </div>
     <div class="card-body">
         <div class="form-row">
-            <div class="form-group" style="flex: 2;">
-                <label>股票名称</label>
-                <input type="text" id="inName" placeholder="如: 茅台" onkeydown="if(event.keyCode==13) searchStock()">
-            </div>
-            <button class="btn btn-blue btn-icon" id="btn-search" onclick="searchStock()">🔍</button>
-            <div class="form-group" style="flex: 1.2;">
-                <label>代码</label>
-                <input type="text" id="inCode" readonly placeholder="自动">
-            </div>
+            <div class="form-group" style="flex:2"><label>股票名称</label><input type="text" id="inName" placeholder="如: 银轮股份"></div>
+            <button class="btn btn-blue" style="margin-bottom:1px; width:40px;" onclick="searchStock()">🔍</button>
+            <div class="form-group" style="flex:1.5"><label>代码 (自动)</label><input type="text" id="inCode" readonly></div>
         </div>
         <div class="form-row">
-            <div class="form-group">
-                <label>最低市值(亿)</label>
-                <input type="number" id="inMin" placeholder="16000">
-            </div>
-            <div class="form-group">
-                <label>最高市值(亿)</label>
-                <input type="number" id="inMax" placeholder="25000">
-            </div>
+            <div class="form-group"><label>最低市值(亿)</label><input type="number" id="inMin" placeholder="240"></div>
+            <div class="form-group"><label>最高市值(亿)</label><input type="number" id="inMax" placeholder="320"></div>
         </div>
-        <div class="action-bar">
-            <button class="btn btn-purple" id="btn-pull" onclick="syncFromGithub()">☁️ 拉取</button>
-            <button class="btn btn-orange" id="btn-push" onclick="uploadToGithub()">🚀 保存</button>
-            <button class="btn btn-green" onclick="saveStock()">💾 添加到列表</button>
+        <!-- 恢复了按钮组 -->
+        <div style="display:flex; gap:10px; margin-top:15px; border-top:1px solid #eee; padding-top:15px;">
+            <button class="btn btn-purple" style="flex:1" id="btn-pull" onclick="syncFromGithub()">☁️ 拉取</button>
+            <button class="btn btn-orange" style="flex:1" id="btn-push" onclick="uploadToGithub()">🚀 保存</button>
+            <button class="btn btn-green" style="flex:1" onclick="saveStock()">💾 存本地</button>
         </div>
     </div>
 </div>
 
-<!-- === 第二部分：监控列表 === -->
+<!-- 列表卡片 -->
 <div class="card open" id="card-list">
-    <div class="card-header">
-        <div class="header-title" onclick="toggleCard('card-list')">
-            <span>📋 监控列表 <span id="list-badge" style="font-weight:normal; font-size:12px; color:#666;">(0)</span></span>
-            <span class="arrow">▼</span>
-        </div>
+    <div class="card-header" onclick="toggleCard('card-list')">
+        <div class="header-title"><span>📋 监控列表</span></div>
+        <span class="arrow">▼</span>
     </div>
-    <div class="card-body" style="padding:0;">
-        <div class="table-wrap">
-            <table id="stock-table">
-                <thead>
-                    <tr>
-                        <th>股票信息</th>
-                        <th>市值范围(亿)</th>
-                        <th style="text-align:right; width:80px;">操作</th>
-                    </tr>
-                </thead>
-                <tbody id="stock-tbody"></tbody>
-            </table>
-        </div>
-        <div style="padding:10px; text-align:center; font-size:12px; color:#999; border-top:1px solid #eee;">
-            点击行选中，点击 ✏️ 修改，点击 🗑️ 删除
-        </div>
+    <div class="card-body" style="padding:0">
+        <div style="overflow-x:auto"><table id="stock-table"><tbody id="stock-tbody"></tbody></table></div>
     </div>
 </div>
 
-<!-- === 第三部分：回测结果 === -->
+<!-- 结果卡片 -->
 <div class="card open" id="card-result">
-    <div class="card-header">
-        <div class="header-title" onclick="toggleCard('card-result')">
-            <span id="res-title">📊 回测结果</span>
-            <span class="arrow">▼</span>
-        </div>
-        <button class="btn btn-blue" id="btn-run" style="flex:none; width:80px; padding:6px;" onclick="runSelectedBacktest()" disabled>▶ 运行</button>
+    <div class="card-header" onclick="toggleCard('card-result')">
+        <div class="header-title"><span id="res-title">📊 回测结果</span></div>
+        <span class="arrow">▼</span>
     </div>
     <div class="card-body">
-        <div class="form-row" style="background:#f8f9fa; padding:10px; border-radius:6px; margin-bottom:0;">
-            <div class="form-group">
-                <label>开始日期</label>
-                <input type="date" id="inStartDate">
-            </div>
-            <div class="form-group">
-                <label>结束日期</label>
-                <input type="date" id="inEndDate">
-            </div>
+        <div class="form-row" style="background:#f8f9fa; padding:10px; border-radius:6px; margin-top:0;">
+            <div class="form-group"><label>开始日期</label><input type="date" id="inStartDate"></div>
+            <div class="form-group"><label>结束日期</label><input type="date" id="inEndDate"></div>
+            <button class="btn btn-blue" id="btn-run" style="margin-bottom:1px; padding:0 20px;" onclick="runSelectedBacktest()" disabled>▶ 运行</button>
         </div>
+
+        <div id="debug-panel"></div>
 
         <div class="stat-grid">
-            <div class="stat-item">
-                <div class="stat-val" id="val-ret">--</div>
-                <div class="stat-lbl">策略收益</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-val" id="val-stock">--</div>
-                <div class="stat-lbl">股价涨跌</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-val" id="val-lev">--</div>
-                <div class="stat-lbl">平均杠杆</div>
-            </div>
+            <div class="stat-item"><div class="stat-val" id="val-ret">--</div><div class="stat-lbl">策略收益</div></div>
+            <div class="stat-item"><div class="stat-val" id="val-stock">--</div><div class="stat-lbl">股价涨跌</div></div>
+            <div class="stat-item"><div class="stat-val" id="val-lev">--</div><div class="stat-lbl">平均杠杆</div></div>
         </div>
         
         <div id="chart-box"></div>
     </div>
 </div>
+
+<!-- 交易日志卡片 -->
+<div class="card" id="card-log">
+    <div class="card-header" onclick="toggleCard('card-log')">
+        <div class="header-title"><span>📜 交易日志</span><span id="log-count" style="font-weight:normal; font-size:12px; color:#666; margin-left:5px;">(0)</span></div>
+        <span class="arrow">▼</span>
+    </div>
+    <div class="card-body" style="padding:0;">
+        <div style="max-height: 400px; overflow-y: auto;">
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th>日期</th>
+                        <th>动作</th>
+                        <th>变动</th>
+                        <th>原因</th>
+                    </tr>
+                </thead>
+                <tbody id="log-tbody">
+                    <tr><td colspan="4" style="text-align:center; color:#999;">暂无数据</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 </div>
 
 <!-- Token Modal -->
@@ -199,123 +178,25 @@
     let myChart = null;
     let selectedIndex = -1;
 
-    // === 初始化 ===
     function initDates() {
-        const toDateStr = (d) => d.toISOString().split('T')[0];
-        const today = new Date();
-        const lastYear = new Date();
-        lastYear.setFullYear(today.getFullYear() - 1);
-        document.getElementById('inEndDate').value = toDateStr(today);
-        document.getElementById('inStartDate').value = toDateStr(lastYear);
+        const d = new Date();
+        document.getElementById('inEndDate').value = d.toISOString().split('T')[0];
+        d.setFullYear(d.getFullYear() - 1);
+        document.getElementById('inStartDate').value = d.toISOString().split('T')[0];
     }
     initDates();
     renderTable();
 
-    // === 界面交互逻辑 ===
-    function toggleCard(id) {
-        const card = document.getElementById(id);
-        card.classList.toggle('open');
-        if(id === 'card-result' && card.classList.contains('open') && myChart) setTimeout(() => myChart.resize(), 100);
+    function toggleCard(id) { 
+        const el = document.getElementById(id);
+        el.classList.toggle('open');
+        if(id === 'card-result' && el.classList.contains('open') && myChart) setTimeout(()=>myChart.resize(), 100);
     }
 
-    function searchStock() {
-        const name = document.getElementById('inName').value.trim();
-        if(!name) return;
-        const btn = document.getElementById('btn-search');
-        if(btn) btn.innerHTML = '...';
-
-        const script = document.createElement('script');
-        window.handleSearch = function(data) {
-            if(btn) btn.innerHTML = '🔍';
-            if(data?.QuotationCodeTable?.Data?.length) {
-                const r = data.QuotationCodeTable.Data[0];
-                let suffix = r.MarketType == "1" ? ".SH" : (r.MarketType == "2" ? ".SZ" : ".HK");
-                if (r.Code.length == 6 && !r.MarketType) suffix = r.Code.startsWith('6') ? ".SH" : ".SZ";
-                document.getElementById('inCode').value = r.Code + suffix;
-                document.getElementById('inName').value = r.Name; 
-            } else { alert("未找到"); }
-            script.remove();
-        };
-        script.src = `https://searchapi.eastmoney.com/api/suggest/get?input=${encodeURIComponent(name)}&type=14&token=D43BF722C8E33BD5D50F639205545E43&cb=handleSearch`;
-        document.body.appendChild(script);
-    }
-
-    function saveStock() {
-        const code = document.getElementById('inCode').value;
-        const name = document.getElementById('inName').value;
-        const min = parseFloat(document.getElementById('inMin').value);
-        const max = parseFloat(document.getElementById('inMax').value);
-        if(!code || !name || isNaN(min) || isNaN(max)) { alert("请完整填写"); return; }
-        const idx = stocks.findIndex(s => s.code === code);
-        const item = { code, name, minCap: min, maxCap: max };
-        if(idx >= 0) { stocks[idx] = item; alert("已更新配置"); } else { stocks.push(item); alert("已添加"); }
-        localStorage.setItem('gridStocks', JSON.stringify(stocks));
-        selectedIndex = idx >= 0 ? idx : stocks.length - 1;
-        updateUI();
-    }
-
-    function selectRow(i) {
-        selectedIndex = i;
-        updateUI();
-        const card = document.getElementById('card-result');
-        if(!card.classList.contains('open')) toggleCard('card-result');
-        document.getElementById('res-title').innerText = `📊 待回测: ${stocks[i].name}`;
-    }
-
-    function editStock(i, e) {
-        e.stopPropagation();
-        const s = stocks[i];
-        document.getElementById('inName').value = s.name;
-        document.getElementById('inCode').value = s.code;
-        document.getElementById('inMin').value = s.minCap;
-        document.getElementById('inMax').value = s.maxCap;
-        const card = document.getElementById('card-config');
-        if(!card.classList.contains('open')) toggleCard('card-config');
-        card.scrollIntoView({ behavior: 'smooth' });
-    }
-
-    function delStock(i, e) {
-        e.stopPropagation();
-        if(confirm('确定删除此股票配置?')) {
-            stocks.splice(i, 1);
-            localStorage.setItem('gridStocks', JSON.stringify(stocks));
-            if(selectedIndex === i) selectedIndex = -1;
-            if(selectedIndex > i) selectedIndex--;
-            updateUI();
-        }
-    }
-
-    function updateUI() {
-        renderTable();
-        const btn = document.getElementById('btn-run');
-        if(selectedIndex >= 0) { btn.disabled = false; btn.innerText = "▶ 运行"; } 
-        else { btn.disabled = true; btn.innerText = "请选股票"; }
-    }
-
-    function renderTable() {
-        const tb = document.getElementById('stock-tbody');
-        document.getElementById('list-badge').innerText = `(${stocks.length})`;
-        if(stocks.length === 0) { tb.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>'; return; }
-        tb.innerHTML = stocks.map((s, i) => `
-            <tr class="${i === selectedIndex ? 'active-row' : ''}" onclick="selectRow(${i})" style="cursor:pointer;">
-                <td style="white-space: nowrap;">
-                    <span style="font-weight:600; font-size:14px;">${s.name}</span>
-                    <span style="color:#999; font-size:12px; margin-left:4px;">${s.code}</span>
-                </td>
-                <td style="font-family:monospace; color:#007bff; font-size:13px;">${s.minCap}-${s.maxCap}</td>
-                <td style="text-align:right">
-                    <div class="btn-group">
-                        <button class="btn btn-yellow btn-sm" onclick="editStock(${i}, event)">✏️</button>
-                        <button class="btn btn-red btn-sm" onclick="delStock(${i}, event)">🗑️</button>
-                    </div>
-                </td>
-            </tr>
-        `).join('');
-    }
-
-    // === GitHub Logic ===
+    // === GitHub 逻辑 ===
     function safeB64ToUtf8(str) { return decodeURIComponent(escape(window.atob(str.replace(/\s/g, '')))); }
     function utf8ToB64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
+    
     async function uploadToGithub() {
         let token = localStorage.getItem("github_token");
         if (!token) { document.getElementById('token-modal').style.display='flex'; return; }
@@ -329,6 +210,7 @@
         } catch (e) { alert("❌ " + e.message); if(e.message.includes("401")) localStorage.removeItem("github_token"); } 
         finally { btn.innerText = origin; btn.disabled = false; }
     }
+    
     async function syncFromGithub() {
         let token = localStorage.getItem("github_token");
         const btn = document.getElementById('btn-pull'); const origin = btn.innerText; btn.innerText = "⏳"; btn.disabled = true;
@@ -343,320 +225,403 @@
                 const raw = await fetch(`https://raw.githubusercontent.com/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${GITHUB_CONFIG.path}?t=${Date.now()}`); 
                 if(!raw.ok) throw new Error("云端无数据"); data = await raw.json(); 
             }
-            if(Array.isArray(data) && confirm(`覆盖本地 ${stocks.length} 条数据?`)) { stocks = data; localStorage.setItem('gridStocks', JSON.stringify(stocks)); selectedIndex = -1; updateUI(); }
+            if(Array.isArray(data) && confirm(`覆盖本地 ${stocks.length} 条数据?`)) { stocks = data; localStorage.setItem('gridStocks', JSON.stringify(stocks)); selectedIndex = -1; renderTable(); }
         } catch (e) { alert("❌ " + e.message); } finally { btn.innerText = origin; btn.disabled = false; }
     }
+    
     function saveToken() {
         const t = document.getElementById('gh-token-input').value.trim();
         if(t) { localStorage.setItem('github_token', t); document.getElementById('token-modal').style.display='none'; uploadToGithub(); }
     }
 
-    // === 策略回测核心逻辑 (1:1 Python Logic) ===
+    // === 股票搜索 ===
+    function searchStock() {
+        const val = document.getElementById('inName').value;
+        if(!val) return;
+        const s = document.createElement('script');
+        s.src = `https://searchapi.eastmoney.com/api/suggest/get?input=${encodeURIComponent(val)}&type=14&token=D43BF722C8E33BD5D50F639205545E43&cb=handleSearch`;
+        window.handleSearch = (d) => {
+            if(d?.QuotationCodeTable?.Data?.[0]) {
+                let r = d.QuotationCodeTable.Data[0];
+                let suffix = (r.MarketType == "1" || r.Code.startsWith('6')) ? ".SH" : ".SZ";
+                document.getElementById('inCode').value = r.Code + suffix;
+                document.getElementById('inName').value = r.Name;
+            } else alert("未找到");
+            s.remove();
+        }
+        document.body.appendChild(s);
+    }
+
+    function saveStock() {
+        const code = document.getElementById('inCode').value;
+        const name = document.getElementById('inName').value;
+        const min = parseFloat(document.getElementById('inMin').value);
+        const max = parseFloat(document.getElementById('inMax').value);
+        if(!code || isNaN(min)) return alert("请填写完整");
+        
+        const item = { code, name, minCap: min, maxCap: max };
+        const idx = stocks.findIndex(s => s.code === code);
+        if(idx >= 0) stocks[idx] = item; else stocks.push(item);
+        localStorage.setItem('gridStocks', JSON.stringify(stocks));
+        renderTable();
+        alert("已保存到本地列表");
+    }
+
+    function renderTable() {
+        const tb = document.getElementById('stock-tbody');
+        tb.innerHTML = stocks.map((s, i) => `
+            <tr class="${i===selectedIndex?'active-row':''}" onclick="selectRow(${i})" style="cursor:pointer">
+                <td><b>${s.name}</b> <span style="color:#999;font-size:12px">${s.code}</span></td>
+                <td>${s.minCap} - ${s.maxCap}亿</td>
+                <td style="text-align:right"><button class="btn btn-red btn-sm" onclick="delStock(${i}, event)">删</button></td>
+            </tr>
+        `).join('');
+    }
+
+    function selectRow(i) {
+        selectedIndex = i;
+        renderTable();
+        const s = stocks[i];
+        document.getElementById('inName').value = s.name;
+        document.getElementById('inCode').value = s.code;
+        document.getElementById('inMin').value = s.minCap;
+        document.getElementById('inMax').value = s.maxCap;
+        document.getElementById('btn-run').disabled = false;
+        document.getElementById('res-title').innerText = "📊 待回测: " + s.name;
+    }
+
+    function delStock(i, e) {
+        e.stopPropagation();
+        if(!confirm("确认删除？")) return;
+        stocks.splice(i, 1);
+        localStorage.setItem('gridStocks', JSON.stringify(stocks));
+        selectedIndex = -1;
+        renderTable();
+    }
+
+    // === 核心回测逻辑 ===
     async function runSelectedBacktest() {
         if(selectedIndex < 0) return;
         const s = stocks[selectedIndex];
         const btn = document.getElementById('btn-run');
-        const oldTxt = btn.innerText; btn.innerText = "⏳..."; btn.disabled = true;
+        const debugBox = document.getElementById('debug-panel');
         
+        btn.innerText = "⏳"; btn.disabled = true;
+        debugBox.style.display = 'block';
+        debugBox.innerHTML = "正在拉取数据...";
+        document.getElementById('log-tbody').innerHTML = '';
+        document.getElementById('log-count').innerText = '(0)';
+
         try {
-            const sdStr = document.getElementById('inStartDate').value;
-            const edStr = document.getElementById('inEndDate').value;
-            await doBacktest(s.code, s.minCap, s.maxCap, sdStr, edStr);
-            document.getElementById('res-title').innerText = `📊 结果: ${s.name}`;
-        } catch (e) {
-            alert("❌ 回测失败: " + e.message);
-            console.error(e);
+            await doBacktest(s);
+            document.getElementById('card-result').classList.add('open');
+        } catch(e) {
+            alert("错误: " + e.message);
+            debugBox.innerHTML += `<br><span style="color:red">❌ 错误: ${e.message}</span>`;
         } finally {
-            btn.innerText = oldTxt; btn.disabled = false;
+            btn.innerText = "▶ 运行"; btn.disabled = false;
         }
     }
 
     const getEmSecId = c => (c.endsWith('.SS')||c.startsWith('6')) ? '1.'+c.replace('.SS','') : '0.'+c.replace('.SZ','');
     const toYahoo = c => c.startsWith('6') ? c+'.SS' : (c.length===5 ? c.substring(1)+'.HK' : c+'.SZ');
 
-    async function doBacktest(code, minCap, maxCap, startDateStr, endDateStr) {
-        // 1. 获取总股本 (EastMoney)
-        const emSecId = getEmSecId(code);
-        const emCode = emSecId.split('.')[1]; const emMkt = emSecId.split('.')[0];
-        const listUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emMkt}.${emCode}&fields=f2,f20&invt=2&fltt=2`;
-        const capRes = await fetch(PROXY + encodeURIComponent(listUrl));
+    async function doBacktest(stock) {
+        // 1. 获取总股本 (修正版)
+        const emSecId = getEmSecId(stock.code);
+        const emCode = emSecId.split('.')[1];
+        const capUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emSecId}&fields=f2,f20&invt=2&fltt=2`;
+        
+        const capRes = await fetch(PROXY + encodeURIComponent(capUrl));
         const capJson = await capRes.json();
-        let totalShares = 0;
+        let totalShares = 0; 
+        let currentPrice = 0;
+        let currentMarketCap = 0;
+
         if(capJson.data?.diff) {
             let d = Array.isArray(capJson.data.diff) ? capJson.data.diff[0] : capJson.data.diff[emCode];
-            totalShares = d.f20 / 100000000; // 转换为亿
+            if(d) {
+                currentPrice = d.f2;
+                currentMarketCap = d.f20; 
+                if(currentPrice > 0) {
+                    totalShares = (currentMarketCap / currentPrice) / 100000000; 
+                }
+            }
         }
+        
+        const debugBox = document.getElementById('debug-panel');
+        
         if(!totalShares) throw new Error("无法获取股本数据");
 
-        // 2. 获取历史K线 (Yahoo)
-        const p1 = Math.floor(new Date(startDateStr).getTime() / 1000) - 86400 * 60; 
-        const p2 = Math.floor(new Date(endDateStr).getTime() / 1000) + 86400;
+        // 2. 获取K线
+        const sd = document.getElementById('inStartDate').value;
+        const ed = document.getElementById('inEndDate').value;
+        const p1 = Math.floor(new Date(sd).getTime()/1000);
+        const p2 = Math.floor(new Date(ed).getTime()/1000) + 86400;
+        
         const yhUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${toYahoo(emCode)}?period1=${p1}&period2=${p2}&interval=1d`;
         const hRes = await fetch(PROXY + encodeURIComponent(yhUrl));
-        if(!hRes.ok) throw new Error("Yahoo数据请求失败");
         const hJson = await hRes.json();
         const result = hJson.chart.result[0];
-        if(!result || !result.timestamp) throw new Error("该时间段无数据");
-
-        // 3. 数据预处理 & 计算 ValScore
+        
+        // 3. 准备数据
         let rawData = [];
         const quotes = result.indicators.quote[0];
-        
-        // 对应 Python: mid_mv = (LOW_MV + HIGH_MV) / 2.0
+        const minCap = stock.minCap;
+        const maxCap = stock.maxCap;
         const midCap = (minCap + maxCap) / 2.0;
 
-        // 对应 Python: valuation_score 函数
-        const getValScore = (mv) => {
-            if (mv <= minCap) return 1.0;
-            if (mv >= maxCap) return -1.0;
-            if (mv <= midCap) return (midCap - mv) / (midCap - minCap);
-            return - (mv - midCap) / (maxCap - midCap);
+        const getTargetLeverage = (mv) => {
+            if(mv <= minCap) return 2.0;
+            if(mv >= maxCap) return 0.01;
+            let r = (mv - minCap) / (maxCap - minCap);
+            return 0.01 + (2.0 - 0.01) * Math.exp(-2.5 * r);
         };
 
+        let minHistMv = 999999, maxHistMv = 0;
         result.timestamp.forEach((t, i) => {
-            if(quotes.close[i] != null) {
-                const c = parseFloat(quotes.close[i].toFixed(2));
-                const mv = c * totalShares;
+            if(quotes.close[i]) {
+                let c = parseFloat(quotes.close[i].toFixed(2));
+                let mv = c * totalShares; 
+                if(mv < minHistMv) minHistMv = mv;
+                if(mv > maxHistMv) maxHistMv = mv;
+
                 rawData.push({
                     date: new Date(t*1000).toISOString().split('T')[0],
                     close: c,
-                    high: parseFloat(quotes.high[i].toFixed(2)),
-                    low: parseFloat(quotes.low[i].toFixed(2)),
                     mv: mv,
-                    valScore: getValScore(mv) // 每一天都存 ValScore
+                    valScore: (mv<=minCap)?1:(mv>=maxCap)?-1:((mv<=midCap)?(midCap-mv)/(midCap-minCap):-(mv-midCap)/(maxCap-midCap))
                 });
             }
         });
 
-        // 对应 Python: MA 计算 (iloc[i-n:i].mean(), 不含当日)
-        const ma = (dayIdx, n) => {
-            if(dayIdx < n) return null;
-            let sum = 0;
-            for(let k = dayIdx - n; k < dayIdx; k++) sum += rawData[k].close;
-            return sum / n;
+        debugBox.innerHTML = `
+            <b>🔍 数据诊断:</b><br>
+            实际市值范围: <b>${minHistMv.toFixed(2)} - ${maxHistMv.toFixed(2)} 亿</b><br>
+            你的设定范围: <b>${stock.minCap} - ${stock.maxCap} 亿</b><br>
+            ${maxHistMv < stock.minCap ? '<span style="color:orange">⚠️ 注意：实际市值始终低于你设定的最低值，初始杠杆会一直为2.0，直到触发趋势减仓或止损。</span>' : ''}
+            ${minHistMv > stock.maxCap ? '<span style="color:red">⚠️ 注意：实际市值始终高于你设定的最高值，杠杆将极低。</span>' : ''}
+        `;
+
+        const ma = (idx, n) => {
+            if(idx<n) return null;
+            let sum=0; for(let k=idx-n; k<idx; k++) sum+=rawData[k].close;
+            return sum/n;
         };
-
-        const startTs = new Date(startDateStr).getTime();
-        let startIndex = rawData.findIndex(d => new Date(d.date).getTime() >= startTs);
-        if(startIndex < 20) startIndex = 20; 
-
-        // === 策略常量 (必须与 Python 一致) ===
-        const MIN_LEVERAGE = 0.01;
-        const MAX_LEVERAGE = 2.0;
-        const CURVE_PARAM = 2.5;
-        const MDD_MAX = 0.15;
-        const PROTECT_REDUCE_PCT = 0.6;
-        const RECOVER_STABLE_DAYS = 10; // Python 中有定义
-        const LOW_MV_NO_PROTECT_PCT = 0.05;
-        
-        // 对应 Python: dynamic_leverage_from_mv 函数
-        const getTargetLeverage = (mv) => {
-            if(mv <= minCap) return MAX_LEVERAGE;
-            if(mv >= maxCap) return MIN_LEVERAGE;
-            let r = (mv - minCap) / (maxCap - minCap);
-            // curve_type="exp"
-            return MIN_LEVERAGE + (MAX_LEVERAGE - MIN_LEVERAGE) * Math.exp(-CURVE_PARAM * r);
-        };
-
-        // 对应 Python: is_uptrend_loose 函数 (严格复刻)
-        const isUptrendLoose = (i) => {
-            if (i < 5) return false;
-            else if (i < 10) {
-                let m3 = ma(i, 3), m5 = ma(i, 5);
-                return (m3 && m5 && m3 > m5);
-            }
-            else if (i < 20) {
-                let m5 = ma(i, 5), m10 = ma(i, 10);
-                return (m5 && m10 && m5 > m10);
-            }
-            else {
-                let m5 = ma(i, 5), m10 = ma(i, 10), m20 = ma(i, 20);
-                return (m5 && m10 && m20 && m5 > m10 && m10 > m20);
-            }
+        const isUptrend = (i) => {
+            if(i<20) return false;
+            let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20);
+            if(!m5||!m10||!m20) return false;
+            return (m5>m10 && m10>m20);
         };
 
         // === 回测循环 ===
-        let nav = 1.0;
-        let peakNav = 1.0;
-        
-        // 初始化杠杆 (startIndex - 1)
-        let prevL = getTargetLeverage(rawData[startIndex-1].mv);
+        let nav = 1.0, peakNav = 1.0;
+        let prevL = getTargetLeverage(rawData[0].mv); 
         
         let inProtect = false;
         let history = [];
-        let tradeMarkers = [];
+        let changeLogs = [];
 
-        // 记录初始状态
-        history.push({
-            date: rawData[startIndex-1].date,
-            nav: 1.0,
-            close: rawData[startIndex-1].close,
-            leverage: prevL
-        });
+        history.push({date: rawData[0].date, nav:1.0, close:rawData[0].close, leverage:prevL});
 
-        for(let i = startIndex; i < rawData.length; i++) {
+        for(let i=1; i<rawData.length; i++) {
             const d = rawData[i];
             const prevD = rawData[i-1];
             const r = d.close / prevD.close - 1;
             const curMv = d.mv;
             
-            const upTrend = isUptrendLoose(i);
             const targetL = getTargetLeverage(curMv);
-            
             let newL = targetL;
-            let reason = "";
+            let reason = "估值驱动";
 
-            // 1. 回撤保护判断
-            let curDrawdown = (peakNav - nav) / peakNav;
-            let nearLowMv = (curMv <= minCap * (1.0 + LOW_MV_NO_PROTECT_PCT));
+            const nearLowMv = (curMv <= minCap * 1.05);
 
-            if (curDrawdown > MDD_MAX && !inProtect) {
-                if(!nearLowMv) {
+            // === 1. 回撤保护逻辑 (20日滚动) ===
+            let winStart = Math.max(0, i - 20);
+            let winNav = 0;
+            for(let k=winStart; k<history.length; k++) {
+                if(history[k].nav > winNav) winNav = history[k].nav;
+            }
+            if(i < 20) winNav = peakNav; 
+            if(nav > winNav) winNav = nav;
+
+            let curDrawdown = (winNav > 0) ? (winNav - nav) / winNav : 0;
+
+            if(curDrawdown > 0.15 && !inProtect) {
+                if(nearLowMv) {
+                    reason = "市值低估跳过止损"; 
+                } else {
                     inProtect = true;
-                    newL = prevL * (1 - PROTECT_REDUCE_PCT);
+                    newL = prevL * 0.4;
+                    reason = `回撤止损(DD:${(curDrawdown*100).toFixed(1)}%)`;
                     peakNav = nav;
-                    reason = "触发回撤保护";
                 }
             }
 
-            // 2. 保护状态逻辑 (含 Recovery)
-            if (inProtect) {
-                // Python: start_check_idx = max(0, i - RECOVER_STABLE_DAYS)
-                // Python: avg_val = np.mean(df['ValScore']...)
-                let startIdx = Math.max(0, i - RECOVER_STABLE_DAYS);
-                let sumVal = 0, count = 0;
-                for(let k=startIdx; k<i; k++) { sumVal += rawData[k].valScore; count++; }
-                let avgVal = count > 0 ? sumVal / count : 0;
-                let curVal = d.valScore;
-
-                let m5 = ma(i, 5), m10 = ma(i, 10), m20 = ma(i, 20);
-                let trendUp = (m5 > m10 && m10 > m20);
-                let undervalued = (curVal <= avgVal);
-
-                // ★ 关键修正: 必须均线多头 且 估值改善 才恢复
-                if (trendUp && undervalued) {
+            // === 2. 保护期内恢复/减仓逻辑 ===
+            if(inProtect) {
+                let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20);
+                let trendUp = (m5 && m10 && m20 && m5 > m10 && m10 > m20);
+                
+                if(trendUp && d.valScore > 0) { 
                     inProtect = false;
-                    newL = targetL;
+                    newL = targetL; 
                     reason = "趋势恢复且估值改善";
                 } else {
-                    // 下跌趋势减仓
-                    if (m5 < m10 && m10 < m20) {
-                        let slope = (m10 - m20) / m20;
-                        let reduce = Math.min(1.0, Math.abs(slope) * 10);
-                        newL = Math.max(MIN_LEVERAGE, prevL * (1 - reduce * 0.3));
+                    if(m5 && m10 && m20 && m5 < m10 && m10 < m20) {
+                        let slope = (m10 - m20)/m20;
+                        // 极速减仓逻辑
+                        let reduce = Math.min(1.0, Math.abs(slope)*25);
+                        newL = Math.max(0.01, prevL * (1 - reduce * 0.8));
+                        reason = "保护中极速减仓";
                     } else {
-                        newL = MIN_LEVERAGE;
+                        newL = 0.01;
+                        if(prevL > 0.02) reason = "保护中(空仓)";
                     }
                 }
             }
 
-            // 3. 下跌趋势减仓 (非保护状态下)
-            let m5_now = ma(i, 5), m10_now = ma(i, 10), m20_now = ma(i, 20);
-            let downTrend = (m5_now < m10_now && m10_now < m20_now);
-            
-            if (downTrend && !inProtect) {
-                let slope = (m10_now - m20_now) / m20_now;
-                let reduce = Math.min(1.0, Math.abs(slope) * 10);
-                newL = Math.max(MIN_LEVERAGE, prevL * (1 - reduce * 0.3));
+            // === 3. 普通下跌趋势逻辑 (不被nearLowMv锁死) ===
+            if(!inProtect) {
+                let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20);
+                if(m5 && m10 && m20 && m5 < m10 && m10 < m20) {
+                    let slope = (m10 - m20)/m20;
+                    // 极速减仓逻辑
+                    let reduce = Math.min(1.0, Math.abs(slope)*25);
+                    let trendL = Math.max(0.01, prevL * (1 - reduce * 0.8));
+                    
+                    if(trendL < newL) {
+                         newL = trendL;
+                         reason = "趋势转弱极速减仓";
+                    }
+                }
             }
 
-            // 4. 上涨趋势逻辑 (含急跌加仓 & 锁仓)
-            if (!inProtect && upTrend) {
-                if (r < -0.02) {
-                    newL = Math.min(MAX_LEVERAGE, prevL * 1.05);
-                    reason = "急跌加仓";
+            // === 4. 上涨趋势逻辑 ===
+            if(!inProtect && (isUptrend(i))) {
+                if(r < -0.02) {
+                    newL = Math.min(2.0, prevL * 1.05);
+                    reason = "上涨中急跌加仓";
                 } else {
-                    // 锁仓: 取最大值
                     newL = Math.max(prevL, targetL);
                 }
             }
 
-            // 标记买卖点
-            if (newL > prevL + 0.05) {
-                tradeMarkers.push({ coord: [d.date, d.close], value: '加仓', itemStyle: {color: '#d32f2f'}, symbol: 'triangle', symbolRotate: 0 });
-            } else if (newL < prevL - 0.05) {
-                tradeMarkers.push({ coord: [d.date, d.close], value: '减仓', itemStyle: {color: '#2e7d32'}, symbol: 'triangle', symbolRotate: 180 });
+            // 记录日志
+            if(Math.abs(newL - prevL) > 0.005) { 
+                let action = newL > prevL ? "加仓" : "减仓";
+                let colorClass = newL > prevL ? "bg-red" : "bg-green";
+                changeLogs.push({
+                    date: d.date,
+                    action: `<span class="badge ${colorClass}">${action}</span>`,
+                    val: `${prevL.toFixed(2)} → ${newL.toFixed(2)}`,
+                    reason: reason
+                });
             }
 
             nav = nav * (1 + prevL * r);
-            if (nav > peakNav) peakNav = nav;
+            if(nav > peakNav) peakNav = nav;
             
-            history.push({
-                date: d.date,
-                nav: nav,
-                close: d.close,
-                leverage: newL
-            });
-            
+            history.push({date: d.date, nav, close: d.close, leverage: newL});
             prevL = newL;
         }
 
-        const finalRet = (history[history.length-1].nav - 1) * 100;
-        const stockRet = (history[history.length-1].close / history[0].close - 1) * 100;
-        const avgLev = history.reduce((sum, h) => sum + h.leverage, 0) / history.length;
+        // 更新统计
+        const last = history[history.length-1];
+        const ret = (last.nav - 1)*100;
+        const sRet = (last.close / history[0].close - 1)*100;
+        const avgL = history.reduce((a,b)=>a+b.leverage,0)/history.length;
 
-        document.getElementById('val-ret').innerText = finalRet.toFixed(2) + '%';
-        document.getElementById('val-ret').className = 'stat-val ' + (finalRet>=0?'win':'loss');
-        document.getElementById('val-stock').innerText = stockRet.toFixed(2) + '%';
-        document.getElementById('val-stock').className = 'stat-val ' + (stockRet>=0?'win':'loss');
-        document.getElementById('val-lev').innerText = avgLev.toFixed(2) + 'x';
+        document.getElementById('val-ret').innerText = ret.toFixed(2) + '%';
+        document.getElementById('val-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
+        document.getElementById('val-stock').innerText = sRet.toFixed(2) + '%';
+        document.getElementById('val-stock').className = 'stat-val ' + (sRet>=0?'win':'loss');
+        document.getElementById('val-lev').innerText = avgL.toFixed(2) + 'x';
 
-        renderChart(history, tradeMarkers);
+        renderLog(changeLogs);
+        renderChart(history);
     }
 
-    function renderChart(hist, markers) {
+    function renderLog(logs) {
+        const tbody = document.getElementById('log-tbody');
+        document.getElementById('log-count').innerText = `(${logs.length})`;
+        
+        if(logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">无操作记录</td></tr>';
+            return;
+        }
+        tbody.innerHTML = logs.reverse().map(l => `
+            <tr>
+                <td style="white-space:nowrap; color:#666; font-size:12px;">${l.date}</td>
+                <td>${l.action}</td>
+                <td style="font-family:monospace; font-size:12px;">${l.val}</td>
+                <td style="font-size:12px; color:#555;">${l.reason}</td>
+            </tr>
+        `).join('');
+    }
+
+    function renderChart(hist) {
         const dom = document.getElementById('chart-box');
         if(myChart) myChart.clear(); else myChart = echarts.init(dom);
-        
         const dates = hist.map(h=>h.date);
-        const closes = hist.map(h=>h.close);
-        const navs = hist.map(h => h.nav);
-        const levs = hist.map(h => h.leverage);
-
+        
         myChart.setOption({
-            animation: false,
-            tooltip: {
-                trigger: 'axis',
-                axisPointer: { type: 'cross' },
-                formatter: function (params) {
-                    let res = params[0].name + '<br/>';
-                    params.forEach(p => {
-                        let val = p.value;
-                        if(p.seriesName === '杠杆率') val = val.toFixed(2) + 'x';
-                        else val = val.toFixed(2);
-                        res += `<span style="color:${p.color}">●</span> ${p.seriesName}: ${val}<br/>`;
+            tooltip: { 
+                trigger: 'axis', axisPointer: {type: 'cross'},
+                formatter: p => {
+                    let h = `${p[0].name}<br>`;
+                    p.forEach(x => {
+                        let val = x.value;
+                        if(x.seriesName==='杠杆') val = val.toFixed(2)+'x';
+                        else val = val.toFixed(3);
+                        h += `${x.marker} ${x.seriesName}: ${val}<br>`
                     });
-                    return res;
+                    return h;
                 }
             },
-            legend: { top: 0, data: ['股价', '策略净值', '杠杆率'] },
+            legend: { top: 0, data: ['股价','净值','杠杆'] },
             grid: [
-                { left: '5%', right: '5%', top: '10%', height: '55%', containLabel: false }, 
-                { left: '5%', right: '5%', top: '75%', height: '18%', containLabel: false }
+                {left:'5%', right:'5%', top:'10%', height:'55%', containLabel: true}, 
+                {left:'5%', right:'5%', top:'75%', height:'15%', containLabel: true}
             ],
-            dataZoom: [{ type: 'inside', xAxisIndex: [0, 1] }, { type: 'slider', xAxisIndex: [0, 1], bottom: 0 }],
             xAxis: [
-                { type: 'category', data: dates, gridIndex: 0, axisLabel: {show:false}, axisTick:{show:false} },
-                { type: 'category', data: dates, gridIndex: 1 }
+                {type:'category', data: dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}}, 
+                {type:'category', data: dates, gridIndex:1}
             ],
             yAxis: [
-                { type: 'value', scale: true, gridIndex: 0, splitLine: { show: false }, name:'股价', position:'left', axisLine:{show:true, lineStyle:{color:'#999'}} },
-                { type: 'value', scale: true, gridIndex: 0, splitLine: { show: false }, name:'净值', position:'right', axisLine:{show:true, lineStyle:{color:'#d32f2f'}}, axisLabel:{formatter:'{value}'} },
-                { type: 'value', scale: true, gridIndex: 1, splitLine: { show: true }, name: '杠杆', min: 'dataMin', max: 'dataMax' }
+                {   
+                    type:'value', name:'股价', position:'left', 
+                    splitLine:{show:false}, axisLine:{show:true, lineStyle:{color:'#666'}} 
+                }, 
+                {   
+                    type:'value', name:'净值', position:'right', 
+                    splitLine:{show:false}, axisLine:{show:true, lineStyle:{color:'#d32f2f'}},
+                    axisLabel: {formatter: '{value}'}
+                },
+                {   
+                    type:'value', gridIndex:1, name:'杠杆', splitLine:{show:true}, min:0, max:2.1 
+                }
             ],
+            dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:5}],
             series: [
-                { 
-                    name: '股价', type: 'line', xAxisIndex: 0, yAxisIndex: 0, 
-                    data: closes, smooth: true, lineStyle: { width: 1.5, color: '#666' }, showSymbol: false,
-                    markPoint: { data: markers, symbolSize: 12, label:{show:false} } 
+                {
+                    name:'股价', type:'line', yAxisIndex:0, 
+                    data:hist.map(h=>h.close), 
+                    itemStyle:{color:'#666'}, showSymbol:false,
+                    lineStyle: {width: 1}
                 },
-                { 
-                    name: '策略净值', type: 'line', xAxisIndex: 0, yAxisIndex: 1, 
-                    data: navs, smooth: true, lineStyle: { width: 2, color: '#d32f2f' }, showSymbol: false 
+                {
+                    name:'净值', type:'line', yAxisIndex:1, 
+                    data:hist.map(h=>h.nav), 
+                    itemStyle:{color:'#d32f2f'}, showSymbol:false,
+                    lineStyle: {width: 2}
                 },
-                { 
-                    name: '杠杆率', type: 'line', xAxisIndex: 1, yAxisIndex: 2, 
-                    data: levs, step: 'end', lineStyle: { width: 1, color: '#2e7d32' }, showSymbol: false, areaStyle: { opacity: 0.1, color: '#2e7d32' } 
+                {
+                    name:'杠杆', type:'line', xAxisIndex:1, yAxisIndex:2, 
+                    data:hist.map(h=>h.leverage), 
+                    itemStyle:{color:'#28a745'}, step:'end', showSymbol:false, areaStyle:{opacity:0.2},
+                    lineStyle: {width: 1}
                 }
             ]
         });
