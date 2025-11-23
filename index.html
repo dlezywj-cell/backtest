@@ -3,578 +3,523 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>网格策略系统 (Backtest仓库版)</title>
+    <title>网格策略系统 (折叠版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
-        /* === 基础样式复用 === */
-        :root { --primary: #007bff; --bg: #f4f6f9; --card: #fff; --text: #333; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; padding-bottom: 50px; }
+        /* === 基础样式 === */
+        :root { --primary: #007bff; --bg: #f4f6f9; --card: #fff; --text: #333; --border: #eee; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; padding-bottom: 50px; }
+        .container { max-width: 800px; margin: 0 auto; }
+
+        /* === 折叠卡片样式 === */
+        .card { background: var(--card); border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 12px; overflow: hidden; }
         
-        .container { max-width: 1000px; margin: 0 auto; }
+        /* 标题栏 (可点击) */
+        .card-header { 
+            padding: 15px; background: #fff; border-bottom: 1px solid transparent; 
+            cursor: pointer; display: flex; justify-content: space-between; align-items: center; 
+            font-weight: 600; font-size: 15px; user-select: none; transition: background 0.2s;
+        }
+        .card-header:active { background: #f8f9fa; }
+        .card-header .arrow { transition: transform 0.3s; font-size: 12px; color: #999; }
         
-        /* 卡片 */
-        .card { background: var(--card); border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); padding: 15px; margin-bottom: 15px; }
-        .card-header { font-weight: bold; font-size: 16px; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-        
-        /* 按钮组 */
-        .btn { padding: 8px 15px; border: none; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; color: white; display: inline-flex; align-items: center; gap: 4px; }
-        .btn:active { transform: scale(0.98); }
+        /* 展开状态下的标题栏 */
+        .card.open .card-header { border-bottom-color: var(--border); }
+        .card.open .arrow { transform: rotate(180deg); }
+
+        /* 内容区域 (默认隐藏) */
+        .card-body { display: none; padding: 15px; animation: fadeIn 0.3s; }
+        .card.open .card-body { display: block; }
+
+        /* === 内部组件样式 === */
+        /* 按钮 */
+        .btn { padding: 8px 12px; border: none; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer; color: white; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+        .btn:active { opacity: 0.8; }
         .btn-blue { background: #007bff; }
         .btn-green { background: #28a745; }
         .btn-purple { background: #6f42c1; }
         .btn-orange { background: #fd7e14; }
         .btn-red { background: #dc3545; }
         .btn-gray { background: #6c757d; }
-        .btn-outline { background: transparent; border: 1px solid #ddd; color: #333; }
-
-        /* 输入表单 */
+        
+        /* 输入框 */
         .input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; align-items: end; }
-        .input-group label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; }
-        .input-group input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ddd; border-radius: 4px; outline: none; }
-        .input-group input:focus { border-color: var(--primary); }
-        .input-group input[readonly] { background: #f0f0f0; color: #666; }
+        .form-group label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; }
+        .form-group input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ddd; border-radius: 4px; outline: none; }
+        .form-group input:focus { border-color: var(--primary); }
+        .form-group input[readonly] { background: #f9f9f9; color: #888; }
 
         /* 表格 */
-        .table-box { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; min-width: 600px; }
-        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px; }
-        th { background: #f8f9fa; color: #666; font-weight: 600; white-space: nowrap; }
-        tr:hover { background: #f1f3f5; }
-        .td-action { display: flex; gap: 5px; }
-
-        /* 回测结果区域 */
-        #chart-box { width: 100%; height: 400px; margin-top: 15px; }
-        .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; gap: 10px; margin-bottom: 10px; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 500px; }
+        th { text-align: left; padding: 8px; background: #f8f9fa; color: #666; font-weight: 600; }
+        td { padding: 8px; border-bottom: 1px solid #eee; }
+        tr:last-child td { border-bottom: none; }
+        
+        /* 结果区域 */
+        .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; gap: 10px; margin-bottom: 15px; }
         .stat-item { background: #f8f9fa; padding: 10px; border-radius: 6px; }
         .stat-val { font-size: 16px; font-weight: bold; }
         .stat-lbl { font-size: 11px; color: #888; margin-top: 2px; }
         .win { color: #d32f2f; } .loss { color: #2e7d32; }
-
-        /* 调试/日志 */
-        #console-log { font-family: monospace; font-size: 11px; color: #666; max-height: 100px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 4px; margin-top: 10px; display: none; }
         
-        /* 模态框 (日志/设置) */
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
-        .modal-content { background: #fff; padding: 20px; border-radius: 8px; width: 90%; max-width: 400px; }
+        #chart-box { width: 100%; height: 350px; }
+        #bt-log { font-family: monospace; font-size: 11px; color: #666; max-height: 80px; overflow-y: auto; background: #f1f1f1; padding: 5px; border-radius: 4px; margin-top: 10px; display: none; }
 
-        @media (max-width: 600px) {
-            .input-grid { grid-template-columns: 1fr 1fr; }
-            .btn span { display: none; } /* 手机上隐藏按钮文字只留图标 */
-        }
+        /* GitHub Token Modal */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; }
+        .modal-box { background: #fff; padding: 20px; border-radius: 8px; width: 85%; max-width: 350px; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <!-- 顶部工具栏 -->
-    <div class="card">
-        <div class="card-header">
-            <span>📡 网格策略配置</span>
-            <div style="display:flex; gap:5px;">
-                <button class="btn btn-purple" onclick="syncFromGithub()">☁️ 拉取配置</button>
-                <button class="btn btn-orange" onclick="uploadToGithub()">🚀 保存配置</button>
-            </div>
+    
+    <!-- === 第一部分：配置与录入 (默认展开) === -->
+    <div class="card open" id="card-config">
+        <div class="card-header" onclick="toggleCard('card-config')">
+            <span>⚙️ 策略配置 & 云同步</span>
+            <span class="arrow">▼</span>
         </div>
-        
-        <!-- 录入表单 -->
-        <div class="input-grid">
-            <div class="input-group" style="flex: 2; min-width: 200px;">
-                <label>股票名称 (模糊搜索)</label>
-                <div style="display:flex; gap:5px;">
-                    <input type="text" id="inName" placeholder="输入如: 茅台" onkeydown="if(event.keyCode==13) searchStock()">
-                    <button class="btn btn-blue" onclick="searchStock()">🔍</button>
+        <div class="card-body">
+            <!-- 云同步按钮 -->
+            <div style="display:flex; gap:10px; margin-bottom:15px; padding-bottom:15px; border-bottom:1px solid #eee;">
+                <button class="btn btn-purple" onclick="event.stopPropagation(); syncFromGithub()">☁️ 拉取配置</button>
+                <button class="btn btn-orange" onclick="event.stopPropagation(); uploadToGithub()">🚀 保存配置</button>
+            </div>
+            
+            <!-- 录入表单 -->
+            <div class="input-grid">
+                <div class="form-group" style="grid-column: span 2;">
+                    <label>股票名称 (输入后回车搜索)</label>
+                    <div style="display:flex; gap:5px;">
+                        <input type="text" id="inName" placeholder="如: 茅台" onkeydown="if(event.keyCode==13) searchStock()">
+                        <button class="btn btn-blue" onclick="searchStock()">🔍</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>代码 (自动)</label>
+                    <input type="text" id="inCode" readonly placeholder="...">
+                </div>
+                <div class="form-group">
+                    <label>最低市值 (亿)</label>
+                    <input type="number" id="inMin" placeholder="16000">
+                </div>
+                <div class="form-group">
+                    <label>最高市值 (亿)</label>
+                    <input type="number" id="inMax" placeholder="25000">
+                </div>
+                <div class="form-group">
+                    <label>&nbsp;</label>
+                    <button class="btn btn-green" style="width:100%; justify-content:center;" onclick="saveStock()">💾 添加到列表</button>
                 </div>
             </div>
-            <div class="input-group">
-                <label>代码 (自动)</label>
-                <input type="text" id="inCode" readonly placeholder="等待搜索...">
-            </div>
-            <div class="input-group">
-                <label>最低市值 (亿)</label>
-                <input type="number" id="inMin" placeholder="如 16000">
-            </div>
-            <div class="input-group">
-                <label>最高市值 (亿)</label>
-                <input type="number" id="inMax" placeholder="如 25000">
-            </div>
-            <div class="input-group">
-                <label>&nbsp;</label>
-                <button class="btn btn-green" style="width:100%; justify-content: center;" onclick="saveStock()">💾 添加/更新</button>
+        </div>
+    </div>
+
+    <!-- === 第二部分：监控列表 (默认展开) === -->
+    <div class="card open" id="card-list">
+        <div class="card-header" onclick="toggleCard('card-list')">
+            <span>📋 监控列表 <span id="list-badge" style="font-weight:normal; font-size:12px; color:#666;">(0)</span></span>
+            <span class="arrow">▼</span>
+        </div>
+        <div class="card-body" style="padding:0;">
+            <div class="table-wrap">
+                <table id="stock-table">
+                    <thead><tr><th>代码</th><th>名称</th><th>市值区间(亿)</th><th style="text-align:right">操作</th></tr></thead>
+                    <tbody id="stock-tbody"></tbody>
+                </table>
             </div>
         </div>
     </div>
 
-    <!-- 股票列表 -->
-    <div class="card">
-        <div class="card-header">📋 监控列表 <span id="list-count" style="font-size:12px; font-weight:normal; color:#888; margin-left:10px;"></span></div>
-        <div class="table-box">
-            <table id="stock-table">
-                <thead>
-                    <tr>
-                        <th>代码</th>
-                        <th>名称</th>
-                        <th>市值区间 (亿)</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody id="stock-tbody"></tbody>
-            </table>
+    <!-- === 第三部分：回测结果 (默认折叠，回测时自动展开) === -->
+    <div class="card" id="card-result">
+        <div class="card-header" onclick="toggleCard('card-result')">
+            <span id="res-title">📊 回测结果</span>
+            <span class="arrow">▼</span>
         </div>
-    </div>
-
-    <!-- 回测区域 -->
-    <div class="card" id="backtest-area" style="display:none;">
-        <div class="card-header">
-            <span id="bt-title">📊 回测结果</span>
-            <button class="btn btn-outline" onclick="document.getElementById('backtest-area').style.display='none'">✕ 关闭</button>
+        <div class="card-body">
+            <!-- 统计面板 -->
+            <div class="stat-grid">
+                <div class="stat-item">
+                    <div class="stat-val" id="val-ret">0.00%</div>
+                    <div class="stat-lbl">策略收益</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-val" id="val-stock">0.00%</div>
+                    <div class="stat-lbl">持股不动</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-val" id="val-count">0</div>
+                    <div class="stat-lbl">交易次数</div>
+                </div>
+            </div>
+            
+            <div style="text-align:center; font-size:12px; color:#666; margin-bottom:5px;" id="val-info"></div>
+            <!-- 日志与图表 -->
+            <div id="bt-log"></div>
+            <div id="chart-box"></div>
         </div>
-        
-        <!-- 统计 -->
-        <div class="stat-grid">
-            <div class="stat-item">
-                <div class="stat-val" id="res-ret">0.00%</div>
-                <div class="stat-lbl">策略收益</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-val" id="res-stock">0.00%</div>
-                <div class="stat-lbl">持股不动</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-val" id="res-count">0</div>
-                <div class="stat-lbl">交易次数</div>
-            </div>
-        </div>
-        
-        <div style="text-align:center; font-size:12px; color:#666;" id="bt-info"></div>
-        <div id="console-log"></div>
-        <div id="chart-box"></div>
     </div>
 </div>
 
-<!-- GitHub Token 弹窗 -->
+<!-- GitHub Token Modal -->
 <div id="token-modal" class="modal">
-    <div class="modal-content">
+    <div class="modal-box">
         <h3>🔑 GitHub Token</h3>
-        <p style="font-size:12px; color:#666; margin-bottom:10px;">首次使用需要输入 Token 以便保存数据到你的仓库。</p>
-        <input type="text" id="gh-token-input" style="width:100%; padding:8px; border:1px solid #ddd; margin-bottom:15px;" placeholder="ghp_xxxx...">
+        <p style="font-size:12px; color:#666; margin-bottom:10px;">请输入 Token 以保存数据到 <b>dlezywj-cell/backtest</b></p>
+        <input type="text" id="gh-token-input" style="width:100%; padding:8px; border:1px solid #ddd; margin-bottom:15px;" placeholder="ghp_...">
         <div style="text-align:right;">
             <button class="btn btn-gray" onclick="document.getElementById('token-modal').style.display='none'">取消</button>
-            <button class="btn btn-blue" onclick="saveToken()">确定</button>
+            <button class="btn btn-blue" onclick="saveToken()">保存</button>
         </div>
     </div>
 </div>
 
 <script>
-    // === 1. 配置与全局变量 (已修改为 backtest 仓库) ===
+    // === 1. 配置 ===
     const GITHUB_CONFIG = { username: "dlezywj-cell", repo: "backtest", path: "grid_config.json", branch: "main" };
     const PROXY = 'https://corsproxy.io/?'; 
     let stocks = JSON.parse(localStorage.getItem('gridStocks')) || [];
+    let myChart = null;
+
+    // === 2. 界面交互逻辑 ===
     
     // 初始化
     renderTable();
 
-    // === 2. 搜索与录入逻辑 ===
+    // 折叠卡片功能
+    function toggleCard(id) {
+        const card = document.getElementById(id);
+        card.classList.toggle('open');
+        // 如果展开的是结果卡片，且图表已存在，需要resize否则可能显示宽度为0
+        if(id === 'card-result' && card.classList.contains('open') && myChart) {
+            setTimeout(() => myChart.resize(), 100);
+        }
+    }
+
+    // 搜索股票
     function searchStock() {
         const name = document.getElementById('inName').value.trim();
         if(!name) return;
-        const btn = document.querySelector('.btn-blue');
-        const originalText = btn.innerText;
+        const btn = document.querySelector('#card-config .btn-blue');
         btn.innerText = '...';
 
-        // 使用东财搜索接口
         const script = document.createElement('script');
         window.handleSearch = function(data) {
-            btn.innerText = originalText;
+            btn.innerText = '🔍';
             if(data?.QuotationCodeTable?.Data?.length) {
                 const r = data.QuotationCodeTable.Data[0];
                 let suffix = r.MarketType == "1" ? ".SH" : (r.MarketType == "2" ? ".SZ" : ".HK");
                 if (r.Code.length == 6 && !r.MarketType) suffix = r.Code.startsWith('6') ? ".SH" : ".SZ";
-                
                 document.getElementById('inCode').value = r.Code + suffix;
-                document.getElementById('inName').value = r.Name; // 自动修正为标准名
-            } else {
-                alert("未找到该股票");
-            }
+                document.getElementById('inName').value = r.Name; 
+            } else { alert("未找到"); }
             script.remove();
         };
         script.src = `https://searchapi.eastmoney.com/api/suggest/get?input=${encodeURIComponent(name)}&type=14&token=D43BF722C8E33BD5D50F639205545E43&cb=handleSearch`;
         document.body.appendChild(script);
     }
 
+    // 保存到列表
     function saveStock() {
         const code = document.getElementById('inCode').value;
         const name = document.getElementById('inName').value;
         const min = parseFloat(document.getElementById('inMin').value);
         const max = parseFloat(document.getElementById('inMax').value);
 
-        if(!code || !name || isNaN(min) || isNaN(max)) {
-            alert("请填写完整信息（先搜索股票，再填市值）");
-            return;
-        }
+        if(!code || !name || isNaN(min) || isNaN(max)) { alert("请完整填写"); return; }
 
         const idx = stocks.findIndex(s => s.code === code);
-        const newItem = { code, name, minCap: min, maxCap: max };
-        
-        if(idx >= 0) stocks[idx] = newItem;
-        else stocks.push(newItem);
+        const item = { code, name, minCap: min, maxCap: max };
+        if(idx >= 0) stocks[idx] = item; else stocks.push(item);
 
         localStorage.setItem('gridStocks', JSON.stringify(stocks));
         renderTable();
-        // 清空输入
+        // 清空
         document.getElementById('inCode').value = '';
         document.getElementById('inName').value = '';
         document.getElementById('inMin').value = '';
         document.getElementById('inMax').value = '';
+        alert("已添加到列表");
     }
 
+    // 渲染表格
     function renderTable() {
         const tbody = document.getElementById('stock-tbody');
-        document.getElementById('list-count').innerText = `(${stocks.length})`;
+        document.getElementById('list-badge').innerText = `(${stocks.length})`;
+        
         if(stocks.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">暂无配置，请添加</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">暂无数据，请在上方添加</td></tr>';
             return;
         }
+
         tbody.innerHTML = stocks.map((s, i) => `
             <tr>
-                <td><span style="background:#eee; padding:2px 5px; border-radius:3px; font-size:12px;">${s.code}</span></td>
-                <td style="font-weight:bold;">${s.name}</td>
-                <td>${s.minCap} - ${s.maxCap}</td>
-                <td class="td-action">
-                    <button class="btn btn-blue" onclick="prepareBacktest(${i})" style="padding:4px 8px;">▶️ 回测</button>
-                    <button class="btn btn-red" onclick="delStock(${i})" style="padding:4px 8px;">🗑️</button>
+                <td><span style="background:#eee;color:#333;padding:2px 4px;border-radius:3px;font-size:11px;">${s.code}</span></td>
+                <td><b>${s.name}</b></td>
+                <td>${s.minCap}-${s.maxCap}</td>
+                <td style="text-align:right">
+                    <button class="btn btn-blue" onclick="runBacktest(${i})" style="padding:4px 8px;font-size:12px;">▶ 回测</button>
+                    <button class="btn btn-red" onclick="delStock(${i})" style="padding:4px 8px;font-size:12px;">×</button>
                 </td>
             </tr>
         `).join('');
     }
 
     function delStock(i) {
-        if(confirm('确定删除?')) {
+        if(confirm('删除此条?')) {
             stocks.splice(i, 1);
             localStorage.setItem('gridStocks', JSON.stringify(stocks));
             renderTable();
         }
     }
 
-    // === 3. GitHub 同步逻辑 ===
+    // === 3. GitHub 同步 ===
     function utf8_to_b64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
     function b64_to_utf8(str) { return decodeURIComponent(escape(window.atob(str))); }
 
     async function uploadToGithub() {
         let token = localStorage.getItem("github_token");
         if (!token) { document.getElementById('token-modal').style.display='flex'; return; }
-
-        const btn = document.querySelector('.btn-orange');
-        const origin = btn.innerText; btn.innerText = "⏳ 推送中..."; btn.disabled = true;
-        
+        const btn = document.querySelector('.btn-orange'); const origin = btn.innerText; btn.innerText = "⏳..."; btn.disabled = true;
         try {
             const url = `https://api.github.com/repos/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path}`;
-            // 先获取 SHA
-            const get = await fetch(url, { headers: { "Authorization": `token ${token}` }, cache: "no-store" });
-            let sha = null; 
-            if (get.ok) sha = (await get.json()).sha;
+            const get = await fetch(url, { headers: { "Authorization": `token ${token}` } });
+            let sha = null; if (get.ok) sha = (await get.json()).sha;
             
-            // 推送
-            const content = utf8_to_b64(JSON.stringify(stocks, null, 2));
-            const put = await fetch(url, { 
-                method: "PUT", 
-                headers: { "Authorization": `token ${token}` }, 
-                body: JSON.stringify({ message: "Update Grid Config", content: content, sha: sha }) 
+            const res = await fetch(url, { 
+                method: "PUT", headers: { "Authorization": `token ${token}` }, 
+                body: JSON.stringify({ message: "Update", content: utf8_to_b64(JSON.stringify(stocks, null, 2)), sha }) 
             });
-            
-            if (put.ok) alert("✅ 同步成功！(Backtest仓库)");
-            else throw new Error((await put.json()).message);
-        } catch (e) {
-            if(e.message.includes("401")) { alert("Token 无效"); localStorage.removeItem("github_token"); }
-            else alert("❌ " + e.message);
-        } finally {
-            btn.innerText = origin; btn.disabled = false;
-        }
+            if (res.ok) alert("✅ 同步成功!"); else throw new Error((await res.json()).message);
+        } catch (e) { alert("❌ " + e.message); if(e.message.includes("401")) localStorage.removeItem("github_token"); } 
+        finally { btn.innerText = origin; btn.disabled = false; }
     }
 
     async function syncFromGithub() {
         let token = localStorage.getItem("github_token");
-        const btn = document.querySelector('.btn-purple');
-        const origin = btn.innerText; btn.innerText = "⏳..."; btn.disabled = true;
-        
+        const btn = document.querySelector('.btn-purple'); const origin = btn.innerText; btn.innerText = "⏳..."; btn.disabled = true;
         try {
             const url = `https://api.github.com/repos/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path}`;
-            const headers = { "Accept": "application/vnd.github.v3+json" };
-            if(token) headers["Authorization"] = `token ${token}`;
-            
-            let res = await fetch(url, { headers, cache: "no-store" });
+            const headers = { "Accept": "application/vnd.github.v3+json" }; if(token) headers["Authorization"] = `token ${token}`;
+            let res = await fetch(url, { headers });
             let data;
-            
-            if (res.ok) {
-                const json = await res.json();
-                data = JSON.parse(b64_to_utf8(json.content));
-            } else {
-                // 尝试直接读 raw
+            if (res.ok) data = JSON.parse(b64_to_utf8((await res.json()).content));
+            else { 
                 const rawUrl = `https://raw.githubusercontent.com/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${GITHUB_CONFIG.path}?t=${Date.now()}`;
-                const raw = await fetch(rawUrl);
-                if(!raw.ok) throw new Error("云端无配置文件");
+                const raw = await fetch(rawUrl); if(!raw.ok) throw new Error("云端无数据");
                 data = await raw.json();
             }
-
-            if(Array.isArray(data)) {
-                if(confirm(`云端有 ${data.length} 条配置，本地有 ${stocks.length} 条。\n是否覆盖本地？`)) {
-                    stocks = data;
-                    localStorage.setItem('gridStocks', JSON.stringify(stocks));
-                    renderTable();
-                }
+            if(Array.isArray(data) && confirm(`云端 ${data.length} 条，本地 ${stocks.length} 条。覆盖本地？`)) {
+                stocks = data; localStorage.setItem('gridStocks', JSON.stringify(stocks)); renderTable();
             }
-        } catch (e) {
-            alert("❌ 同步失败: " + e.message);
-        } finally {
-            btn.innerText = origin; btn.disabled = false;
-        }
+        } catch (e) { alert("❌ " + e.message); } finally { btn.innerText = origin; btn.disabled = false; }
     }
-
+    
     function saveToken() {
         const t = document.getElementById('gh-token-input').value.trim();
         if(t) { localStorage.setItem('github_token', t); document.getElementById('token-modal').style.display='none'; uploadToGithub(); }
     }
 
-    // === 4. 回测核心逻辑 (复用之前成功的代码) ===
-    async function prepareBacktest(idx) {
-        const s = stocks[idx];
-        const area = document.getElementById('backtest-area');
-        area.style.display = 'block';
-        area.scrollIntoView({ behavior: 'smooth' });
+    // === 4. 回测逻辑 ===
+    async function runBacktest(i) {
+        const s = stocks[i];
         
-        document.getElementById('bt-title').innerHTML = `📊 回测中: ${s.name} (${s.code})`;
-        document.getElementById('console-log').style.display = 'block';
-        document.getElementById('console-log').innerHTML = '正在初始化...';
-        
-        // 调用回测函数
-        await runBacktestLogic(s.code, s.minCap, s.maxCap);
-    }
+        // 1. 展开结果面板
+        const cardRes = document.getElementById('card-result');
+        if(!cardRes.classList.contains('open')) toggleCard('card-result');
+        cardRes.scrollIntoView({ behavior: 'smooth' });
 
-    function debug(msg, type='info') {
-        const el = document.getElementById('console-log');
-        const color = type==='err'?'red':(type==='warn'?'orange':'#666');
-        el.innerHTML += `<div style="color:${color}">> ${msg}</div>`;
-        el.scrollTop = el.scrollHeight;
-    }
+        document.getElementById('res-title').innerText = `📊 回测中: ${s.name}`;
+        log(`开始回测 ${s.code}...`);
 
-    function getEmSecId(code) {
-        if (code.endsWith('.SS') || code.startsWith('6')) return '1.'+code.replace('.SS','');
-        return '0.'+code.replace('.SZ','');
-    }
-
-    function toYahooSymbol(code) {
-        if (code.startsWith('6')) return code + '.SS';
-        if (code.startsWith('0') || code.startsWith('3')) return code + '.SZ';
-        if (code.startsWith('8')) return code + '.BJ'; 
-        if (code.length === 5) return code.substring(1) + '.HK';
-        return code;
-    }
-
-    async function runBacktestLogic(code, minCap, maxCap) {
-        const grids = 10;
-        const capital = 10000000; // 默认1000万
-        const range = '2y';
-        const lotSize = 100;
-        
         try {
-            // 1. 获取股本
-            debug("获取实时股本...");
-            const emSecId = getEmSecId(code);
-            const emCode = emSecId.split('.')[1]; 
-            const emMkt = emSecId.split('.')[0]; 
-            
-            const listUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emMkt}.${emCode}&fields=f2,f20&invt=2&fltt=2`;
-            const capRes = await fetch(PROXY + encodeURIComponent(listUrl));
-            const capJson = await capRes.json();
-            
-            let data = null;
-            if (capJson.data && capJson.data.diff) data = Array.isArray(capJson.data.diff) ? capJson.data.diff[0] : capJson.data.diff[emCode];
-            if (!data) throw new Error("无法获取股本");
-
-            const curPrice = parseFloat(data.f2); 
-            const curMktCap = parseFloat(data.f20); 
-            const totalShares = curMktCap / curPrice; 
-            const totalSharesYi = totalShares / 100000000;
-            
-            // 2. 计算区间
-            const minPrice = (minCap * 100000000) / totalShares;
-            const maxPrice = (maxCap * 100000000) / totalShares;
-            
-            document.getElementById('bt-info').innerHTML = `总股本: ${totalSharesYi.toFixed(2)}亿 | 网格价格区间: <b>${minPrice.toFixed(2)} - ${maxPrice.toFixed(2)}</b>`;
-            debug(`网格区间: ${minPrice.toFixed(2)} - ${maxPrice.toFixed(2)}`);
-
-            // 3. 获取K线
-            debug("拉取 Yahoo 历史数据...");
-            const yhSymbol = toYahooSymbol(emCode);
-            const yhUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${yhSymbol}?range=${range}&interval=1d&events=history`;
-            
-            const histRes = await fetch(PROXY + encodeURIComponent(yhUrl));
-            if(!histRes.ok) throw new Error("Yahoo 请求失败");
-            const histJson = await histRes.json();
-            const result = histJson.chart.result[0];
-            
-            let klines = [];
-            const timestamps = result.timestamp;
-            const quote = result.indicators.quote[0];
-            for (let i = 0; i < timestamps.length; i++) {
-                if (quote.close[i] != null) {
-                    const date = new Date(timestamps[i] * 1000);
-                    klines.push({
-                        date: date.toISOString().split('T')[0],
-                        close: parseFloat(quote.close[i].toFixed(2)),
-                        high: parseFloat(quote.high[i].toFixed(2)),
-                        low: parseFloat(quote.low[i].toFixed(2))
-                    });
-                }
-            }
-            debug(`历史数据获取成功，共 ${klines.length} 天`);
-
-            // 4. 执行策略
-            const feeRate = 0.00025;
-            let cash = capital;
-            let shares = 0;
-            let trades = [];
-            let history = [];
-
-            // 生成网格
-            const ratio = Math.pow((maxPrice/minPrice), 1/grids);
-            let gridLines = [];
-            for(let i=0; i<=grids; i++) gridLines.push(minPrice * Math.pow(ratio, i));
-
-            const getIdx = (p) => {
-                if(p < gridLines[0]) return -1;
-                if(p >= gridLines[grids]) return grids;
-                for(let i=0; i<grids; i++) if(p >= gridLines[i] && p < gridLines[i+1]) return i;
-                return 0;
-            };
-
-            // 初始建仓
-            let startP = klines[0].close;
-            let idx = getIdx(startP);
-            if(idx >= 0 && idx < grids) {
-                let pct = (grids - idx) / grids;
-                let amt = capital * pct;
-                let buyVol = Math.floor(amt / startP / lotSize) * lotSize;
-                if(buyVol > 0) {
-                    let cost = buyVol * startP;
-                    cash -= (cost * (1+feeRate));
-                    shares += buyVol;
-                    trades.push({date: klines[0].date, type:'建仓', price:startP, vol:buyVol});
-                }
-            }
-
-            // 循环
-            for(let i=1; i<klines.length; i++) {
-                const day = klines[i];
-                // 买入
-                if(idx >= 0 && idx < grids) {
-                    let buyPrice = gridLines[idx];
-                    if(day.low <= buyPrice) {
-                        let unitMoney = capital / grids;
-                        let vol = Math.floor(unitMoney / buyPrice / lotSize) * lotSize;
-                        if (cash >= vol * buyPrice && vol > 0) {
-                            cash -= (vol * buyPrice * (1+feeRate));
-                            shares += vol;
-                            trades.push({date: day.date, type:'BUY', price:buyPrice, vol:vol});
-                            idx--;
-                        }
-                    }
-                } else if (idx === grids) { // 高位回落
-                    let buyPrice = gridLines[grids-1];
-                    if(day.low <= buyPrice) {
-                        let unitMoney = capital / grids;
-                        let vol = Math.floor(unitMoney / buyPrice / lotSize) * lotSize;
-                        if (cash >= vol * buyPrice && vol > 0) {
-                            cash -= (vol * buyPrice * (1+feeRate));
-                            shares += vol;
-                            trades.push({date: day.date, type:'BUY', price:buyPrice, vol:vol});
-                            idx--;
-                        }
-                    }
-                }
-                // 卖出
-                if(idx < grids) {
-                    let sellPrice = gridLines[idx+1];
-                    if(day.high >= sellPrice) {
-                        let unitMoney = capital / grids;
-                        let vol = Math.floor(unitMoney / sellPrice / lotSize) * lotSize;
-                        let actualSell = Math.min(shares, vol);
-                        if(actualSell >= lotSize) {
-                            let money = actualSell * sellPrice;
-                            cash += (money * (1-feeRate));
-                            shares -= actualSell;
-                            trades.push({date: day.date, type:'SELL', price:sellPrice, vol:actualSell});
-                            idx++;
-                        }
-                    }
-                }
-                let val = cash + shares * day.close;
-                history.push({date: day.date, val: val, close: day.close});
-            }
-
-            // 结果统计
-            let finalVal = history[history.length-1].val;
-            let ret = (finalVal - capital) / capital * 100;
-            let stockRet = (klines[klines.length-1].close - klines[0].close) / klines[0].close * 100;
-            
-            document.getElementById('res-ret').innerText = ret.toFixed(2) + '%';
-            document.getElementById('res-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
-            document.getElementById('res-stock').innerText = stockRet.toFixed(2) + '%';
-            document.getElementById('res-stock').className = 'stat-val ' + (stockRet>=0?'win':'loss');
-            document.getElementById('res-count').innerText = trades.length;
-
-            debug("回测完成，渲染图表...");
-            renderChart(history, gridLines, trades);
-
+            await doBacktest(s.code, s.minCap, s.maxCap);
         } catch (e) {
-            debug("❌ " + e.message, 'err');
-            alert(e.message);
+            log("❌ " + e.message, true);
         }
     }
 
-    function renderChart(history, lines, trades) {
+    function log(msg, err=false) {
+        const el = document.getElementById('bt-log');
+        el.style.display = 'block';
+        el.innerHTML += `<div style="color:${err?'red':'#666'}">> ${msg}</div>`;
+        el.scrollTop = el.scrollHeight;
+    }
+
+    // 辅助函数
+    const getEmSecId = c => (c.endsWith('.SS')||c.startsWith('6')) ? '1.'+c.replace('.SS','') : '0.'+c.replace('.SZ','');
+    const toYahoo = c => c.startsWith('6') ? c+'.SS' : (c.length===5 ? c.substring(1)+'.HK' : c+'.SZ');
+
+    async function doBacktest(code, minCap, maxCap) {
+        // 参数
+        const capital = 10000000; 
+        const grids = 10;
+        const lotSize = 100;
+        
+        // 1. 获取股本
+        log("获取实时股本...");
+        const emSecId = getEmSecId(code);
+        const emCode = emSecId.split('.')[1];
+        const emMkt = emSecId.split('.')[0];
+        
+        const listUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emMkt}.${emCode}&fields=f2,f20&invt=2&fltt=2`;
+        const capRes = await fetch(PROXY + encodeURIComponent(listUrl));
+        const capJson = await capRes.json();
+        let data = null;
+        if(capJson.data?.diff) data = Array.isArray(capJson.data.diff) ? capJson.data.diff[0] : capJson.data.diff[emCode];
+        if(!data) throw new Error("无法获取股本");
+        
+        const totalShares = data.f20 / data.f2; // 市值/价格
+        
+        // 2. 算价格
+        const minPrice = (minCap * 100000000) / totalShares;
+        const maxPrice = (maxCap * 100000000) / totalShares;
+        document.getElementById('val-info').innerHTML = `股本: ${(totalShares/1e8).toFixed(2)}亿 | 网格: <b>${minPrice.toFixed(2)} - ${maxPrice.toFixed(2)}</b>`;
+        
+        // 3. 获取历史
+        log("拉取 Yahoo 历史数据(2y)...");
+        const yhUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${toYahoo(emCode)}?range=2y&interval=1d`;
+        const hRes = await fetch(PROXY + encodeURIComponent(yhUrl));
+        const hJson = await hRes.json();
+        const result = hJson.chart.result[0];
+        
+        let klines = [];
+        result.timestamp.forEach((t, i) => {
+            if(result.indicators.quote[0].close[i] != null) {
+                klines.push({
+                    date: new Date(t*1000).toISOString().split('T')[0],
+                    close: parseFloat(result.indicators.quote[0].close[i].toFixed(2)),
+                    high: parseFloat(result.indicators.quote[0].high[i].toFixed(2)),
+                    low: parseFloat(result.indicators.quote[0].low[i].toFixed(2))
+                });
+            }
+        });
+        
+        // 4. 跑策略
+        log("执行回测逻辑...");
+        let cash = capital;
+        let shares = 0;
+        let trades = [];
+        let history = [];
+        const fee = 0.00025;
+        
+        // 网格线
+        const ratio = Math.pow((maxPrice/minPrice), 1/grids);
+        let lines = [];
+        for(let i=0; i<=grids; i++) lines.push(minPrice * Math.pow(ratio, i));
+        
+        const getIdx = p => {
+            if(p<lines[0]) return -1; if(p>=lines[grids]) return grids;
+            for(let i=0; i<grids; i++) if(p>=lines[i] && p<lines[i+1]) return i;
+            return 0;
+        };
+        
+        let idx = getIdx(klines[0].close);
+        
+        // 建仓
+        if(idx>=0 && idx<grids) {
+            let pct = (grids-idx)/grids;
+            let vol = Math.floor((capital*pct)/klines[0].close/lotSize)*lotSize;
+            if(vol>0) {
+                cash -= vol*klines[0].close*(1+fee);
+                shares += vol;
+                trades.push({date: klines[0].date, type:'建仓', price:klines[0].close});
+            }
+        }
+        
+        // 循环
+        for(let i=1; i<klines.length; i++) {
+            const d = klines[i];
+            
+            // 买
+            if(idx>=0 && idx<=grids) { // 包含 idx=grids (高位回落)
+                let buyP = lines[Math.min(idx, grids-1)]; // 防止越界
+                // 如果 idx=grids, 目标买价是 lines[9]
+                // 如果 idx=5, 目标买价是 lines[5] (本格下沿)
+                if(idx === grids) buyP = lines[grids-1];
+                else buyP = lines[idx];
+
+                if(d.low <= buyP) {
+                     let unit = capital/grids;
+                     let vol = Math.floor(unit/buyP/lotSize)*lotSize;
+                     if(cash >= vol*buyP && vol>0) {
+                         cash -= vol*buyP*(1+fee);
+                         shares += vol;
+                         trades.push({date: d.date, type:'BUY', price:buyP});
+                         idx--;
+                     }
+                }
+            }
+            
+            // 卖
+            if(idx<grids) {
+                let sellP = lines[idx+1];
+                if(d.high >= sellP) {
+                    let unit = capital/grids;
+                    let vol = Math.floor(unit/sellP/lotSize)*lotSize;
+                    let act = Math.min(shares, vol);
+                    if(act >= lotSize) {
+                        cash += act*sellP*(1-fee);
+                        shares -= act;
+                        trades.push({date: d.date, type:'SELL', price:sellP});
+                        idx++;
+                    }
+                }
+            }
+            history.push({date: d.date, val: cash + shares*d.close, close: d.close});
+        }
+        
+        // 结果
+        const ret = (history[history.length-1].val - capital)/capital*100;
+        const sRet = (klines[klines.length-1].close - klines[0].close)/klines[0].close*100;
+        
+        const setStat = (id, v) => {
+            const el = document.getElementById(id);
+            el.innerText = v.toFixed(2)+'%';
+            el.className = 'stat-val ' + (v>=0?'win':'loss');
+        };
+        setStat('val-ret', ret);
+        setStat('val-stock', sRet);
+        document.getElementById('val-count').innerText = trades.length;
+        
+        log(`回测完成。收益: ${ret.toFixed(2)}%`);
+        renderChart(history, lines, trades);
+    }
+
+    function renderChart(hist, lines, trades) {
         const dom = document.getElementById('chart-box');
-        let chart = echarts.getInstanceByDom(dom);
-        if(chart) chart.clear(); else chart = echarts.init(dom);
-
-        const dates = history.map(x=>x.date);
-        const vals = history.map(x=>x.val);
-        const closes = history.map(x=>x.close);
-        const startVal = history[0].val;
-        const startClose = history[0].close;
-        const normVal = vals.map(v => v / startVal * startClose);
-
+        if(myChart) myChart.clear(); else myChart = echarts.init(dom);
+        
+        const dates = hist.map(h=>h.date);
+        const closes = hist.map(h=>h.close);
+        const normVals = hist.map(h => h.val / hist[0].val * hist[0].close);
+        
         const marks = trades.map(t => ({
             coord: [t.date, t.price],
-            value: t.type==='BUY'?'买':'卖',
+            value: t.type==='BUY'?'买':(t.type==='建仓'?'始':'卖'),
             itemStyle: { color: t.type.includes('BUY')||t.type==='建仓'?'#d32f2f':'#2e7d32' }
         }));
-
-        const gridMarkLines = lines.map(p => ({ yAxis: p, lineStyle: { type: 'solid', color: 'rgba(0,0,255,0.1)', width: 1 }, label: { show: false } }));
-
-        const option = {
+        
+        const gridLines = lines.map(p => ({ yAxis: p, lineStyle:{type:'solid', color:'rgba(0,0,255,0.1)'}, label:{show:false} }));
+        
+        myChart.setOption({
             animation: false,
-            tooltip: { trigger: 'axis', axisPointer:{type:'cross'} },
-            legend: { top: 0, data: ['股价', '策略净值(归一化)'] },
-            grid: { left: '3%', right: '3%', bottom: '10%', top: '10%', containLabel: true },
+            tooltip: { trigger:'axis', axisPointer:{type:'cross'} },
+            legend: { top:0, data:['股价', '策略净值(归一化)'] },
+            grid: { left:'3%', right:'3%', bottom:'10%', top:'10%', containLabel:true },
             dataZoom: [{type:'inside'}, {type:'slider', bottom:0}],
-            xAxis: { type: 'category', data: dates },
-            yAxis: { type: 'value', scale: true, splitLine:{show:false} },
+            xAxis: { type:'category', data:dates },
+            yAxis: { scale:true, splitLine:{show:false} },
             series: [
-                {
-                    name: '股价', type: 'line', data: closes,
-                    smooth: true, lineStyle: { width: 1.5, color: '#333' },
-                    markPoint: { data: marks, symbolSize: 10 },
-                    markLine: { symbol: 'none', data: gridMarkLines, silent: true }
-                },
-                {
-                    name: '策略净值(归一化)', type: 'line', data: normVal,
-                    smooth: true, lineStyle: { width: 2, color: '#d32f2f' },
-                    symbol: 'none'
-                }
+                { name:'股价', type:'line', data:closes, smooth:true, lineStyle:{width:1, color:'#333'}, markPoint:{data:marks, symbolSize:10}, markLine:{symbol:'none', data:gridLines, silent:true} },
+                { name:'策略净值(归一化)', type:'line', data:normVals, smooth:true, lineStyle:{width:2, color:'#d32f2f'}, symbol:'none' }
             ]
-        };
-        chart.setOption(option);
-        window.onresize = chart.resize;
+        });
     }
 </script>
 </body>
