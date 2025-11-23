@@ -52,5 +52,11 @@
     "name": "德业股份",
     "minCap": 500,
     "maxCap": 750
+  },
+  {
+    "code": "689009.SH",
+    "name": "九号公司-WD",
+    "minCap": 400,
+    "maxCap": 550
   }
 ]
