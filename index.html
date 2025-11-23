@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>量化回测系统 (v1.0 Final)</title>
+    <title>网格策略系统 (双重代理修复版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
-    <!-- ★★★ 必须引用策略文件 ★★★ -->
+    <!-- 引用你的策略文件 -->
     <script src="strategy.js"></script>
     <style>
-        /* === 样式部分 === */
+        /* === 样式保持不变 === */
         :root { --primary: #007bff; --bg: #f4f6f9; --card: #fff; --text: #333; --border: #eee; --selected: #e3f2fd; }
         body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; padding-bottom: 80px; font-size: 14px; }
         .container { max-width: 800px; margin: 0 auto; }
@@ -25,6 +25,7 @@
         .form-group label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .form-group input { width: 100%; box-sizing: border-box; padding: 10px 8px; border: 1px solid #ddd; border-radius: 6px; outline: none; font-size: 14px; -webkit-appearance: none; background: #fff; }
         .form-group input:focus { border-color: var(--primary); }
+        .form-group input[readonly] { background: #f5f5f5; color: #888; }
         .action-bar { display: flex; gap: 8px; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px; }
         .btn { border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 10px; transition: opacity 0.2s; }
         .btn:active { opacity: 0.8; }
@@ -41,6 +42,7 @@
         th { text-align: left; padding: 10px 5px; background: #f8f9fa; color: #666; font-size: 12px; }
         td { padding: 12px 5px; border-bottom: 1px solid #eee; font-size: 13px; vertical-align: middle; }
         tr.active-row { background-color: var(--selected); }
+        tr:not(.active-row):hover { background-color: #fafafa; }
         .tag { background:#eee; color:#555; padding:2px 4px; border-radius:3px; font-size:11px; font-family:monospace; margin-top: 3px; display: inline-block;}
         .btn-group { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
         .btn-sm { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 14px; }
@@ -137,7 +139,10 @@
 <script>
     // === 配置 ===
     const GITHUB_CONFIG = { username: "dlezywj-cell", repo: "backtest", path: "grid_config.json", branch: "main" };
-    const PROXY = 'https://corsproxy.io/?'; 
+    // 两个代理地址，防止其中一个挂掉
+    const PROXY_A = 'https://corsproxy.io/?'; 
+    const PROXY_B = 'https://api.allorigins.win/raw?url=';
+    
     let stocks = JSON.parse(localStorage.getItem('gridStocks')) || [];
     let myChart = null;
     let selectedIndex = -1;
@@ -150,6 +155,26 @@
     document.getElementById('inEndDate').value = toDateStr(today);
     document.getElementById('inStartDate').value = toDateStr(lastYear);
     renderTable();
+
+    // === 健壮的 fetch 函数 (双代理切换) ===
+    async function fetchWithRetry(url) {
+        try {
+            console.log("Trying Proxy A:", PROXY_A + encodeURIComponent(url));
+            const res1 = await fetch(PROXY_A + encodeURIComponent(url));
+            if (res1.ok) return await res1.json();
+            throw new Error("Proxy A failed");
+        } catch (e1) {
+            console.warn("Proxy A failed, trying Proxy B...", e1);
+            try {
+                // Proxy B 通常不需要 encodeURIComponent，或者 url 直接跟在后面
+                const res2 = await fetch(PROXY_B + encodeURIComponent(url));
+                if (res2.ok) return await res2.json();
+                throw new Error("Proxy B failed");
+            } catch (e2) {
+                throw new Error("网络请求失败，请检查网络或稍后再试。");
+            }
+        }
+    }
 
     // === UI 逻辑 ===
     function toggleCard(id) { const c = document.getElementById(id); c.classList.toggle('open'); if(id==='card-result' && c.classList.contains('open') && myChart) setTimeout(()=>myChart.resize(), 100); }
@@ -225,7 +250,7 @@
     }
     function saveToken() { const t=document.getElementById('gh-token-input').value.trim(); if(t){localStorage.setItem('github_token',t); document.getElementById('token-modal').style.display='none'; uploadToGithub();} }
 
-    // === 回测入口 ===
+    // === 回测核心 ===
     async function runSelectedBacktest() {
         if(selectedIndex < 0) return;
         const s = stocks[selectedIndex];
@@ -237,26 +262,27 @@
             // 1. 股本
             const emSecId = (s.code.endsWith('.SS')||s.code.startsWith('6'))?'1.'+s.code.replace('.SS',''):'0.'+s.code.replace('.SZ','');
             const codeRaw = emSecId.split('.')[1]; const emMkt = emSecId.split('.')[0];
-            const capRes = await fetch(PROXY + encodeURIComponent(`https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emMkt}.${codeRaw}&fields=f2,f20&invt=2&fltt=2`));
-            const capJson = await capRes.json();
+            // 注意：这里改用了双重代理 fetchWithRetry
+            const capJson = await fetchWithRetry(`https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emMkt}.${codeRaw}&fields=f2,f20&invt=2&fltt=2`);
             let data = null;
             if(capJson.data?.diff) data = Array.isArray(capJson.data.diff) ? capJson.data.diff[0] : capJson.data.diff[codeRaw];
-            if(!data) throw new Error("无法获取股本信息");
+            if(!data) throw new Error("无法获取股本信息(东财)");
             const totalShares = data.f20 / data.f2;
 
             // 2. 历史K线
             const p1 = Math.floor(new Date(sd).getTime()/1000);
             const p2 = Math.floor(new Date(ed).getTime()/1000)+86400;
             const yhCode = s.code.startsWith('6') ? s.code+'.SS' : (s.code.length===5?s.code.substring(1)+'.HK':s.code+'.SZ');
-            const hRes = await fetch(PROXY + encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yhCode}?period1=${p1}&period2=${p2}&interval=1d`));
-            const hJson = await hRes.json();
+            // 注意：这里改用了双重代理 fetchWithRetry
+            const hJson = await fetchWithRetry(`https://query1.finance.yahoo.com/v8/finance/chart/${yhCode}?period1=${p1}&period2=${p2}&interval=1d`);
             const result = hJson.chart.result?.[0];
-            if(!result || !result.timestamp) throw new Error("该时段无K线数据");
+            if(!result || !result.timestamp) throw new Error("该时段无K线数据(Yahoo)");
 
             let klines = [];
             result.timestamp.forEach((t, i) => {
                 const q = result.indicators.quote[0];
-                if(q.close[i] != null) {
+                // 过滤无效数据
+                if(q.close[i] != null && q.high[i] != null && q.low[i] != null) {
                     klines.push({
                         date: new Date(t*1000).toISOString().split('T')[0],
                         close: parseFloat(q.close[i].toFixed(2)),
@@ -270,10 +296,8 @@
             // 3. 调用外部策略
             const params = { capital: 10000000, grids: 10, lotSize: 100, minCap: s.minCap, maxCap: s.maxCap, totalShares: totalShares };
             
-            // ★★★ 核心调用 ★★★
             if(typeof Strategy !== 'undefined' && Strategy.run) {
                 const res = Strategy.run(klines, params);
-                
                 const finalVal = res.history[res.history.length-1].val;
                 const ret = (finalVal - params.capital) / params.capital * 100;
                 const sRet = (klines[klines.length-1].close - klines[0].close) / klines[0].close * 100;
@@ -286,10 +310,10 @@
                 
                 renderChart(res.history, res.gridLines, res.trades);
             } else {
-                throw new Error("strategy.js 加载失败或格式错误");
+                throw new Error("Strategy.js 未加载");
             }
 
-        } catch (e) { alert("❌ 回测出错: " + e.message); } 
+        } catch (e) { alert("❌ " + e.message); } 
         finally { btn.innerText = oldTxt; btn.disabled = false; }
     }
 
