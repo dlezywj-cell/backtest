@@ -46,5 +46,11 @@
     "name": "豪威集团",
     "minCap": 1500,
     "maxCap": 1800
+  },
+  {
+    "code": "605117.SH",
+    "name": "德业股份",
+    "minCap": 550,
+    "maxCap": 750
   }
 ]
