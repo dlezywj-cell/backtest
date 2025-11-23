@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>网格策略系统 (最终版)</title>
+    <title>估值杠杆策略系统</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -45,7 +45,7 @@
         .btn-gray { background: #6c757d; }
         .btn-icon { width: 40px; padding: 0; height: 40px; margin-bottom: 1px; flex: none; }
 
-        /* === 列表与按钮组优化 === */
+        /* === 列表与按钮组 === */
         .table-wrap { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; }
         th { text-align: left; padding: 10px 12px; background: #f8f9fa; color: #666; font-size: 12px; white-space: nowrap; }
@@ -53,9 +53,7 @@
         tr.active-row { background-color: var(--selected); }
         tr:not(.active-row):hover { background-color: #fafafa; }
         
-        /* 按钮组容器：强制并排 */
         .btn-group { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
-        /* 小按钮样式 */
         .btn-sm { width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 12px; }
 
         /* === 统计与图表 === */
@@ -65,7 +63,7 @@
         .stat-lbl { font-size: 10px; color: #888; margin-top: 2px; }
         .win { color: #d32f2f; } .loss { color: #2e7d32; }
 
-        #chart-box { width: 100%; height: 350px; }
+        #chart-box { width: 100%; height: 380px; }
         
         /* 模态框 */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; }
@@ -75,7 +73,7 @@
 <body>
 <div class="container">
 
-<!-- === 第一部分：配置 (默认展开) === -->
+<!-- === 第一部分：配置 === -->
 <div class="card open" id="card-config">
     <div class="card-header">
         <div class="header-title" onclick="toggleCard('card-config')">
@@ -84,7 +82,6 @@
         </div>
     </div>
     <div class="card-body">
-        <!-- 第一行：名称 + 搜索 + 代码 -->
         <div class="form-row">
             <div class="form-group" style="flex: 2;">
                 <label>股票名称</label>
@@ -96,8 +93,6 @@
                 <input type="text" id="inCode" readonly placeholder="自动">
             </div>
         </div>
-
-        <!-- 第二行：最低市值 + 最高市值 -->
         <div class="form-row">
             <div class="form-group">
                 <label>最低市值(亿)</label>
@@ -108,8 +103,6 @@
                 <input type="number" id="inMax" placeholder="25000">
             </div>
         </div>
-
-        <!-- 底部操作栏 -->
         <div class="action-bar">
             <button class="btn btn-purple" id="btn-pull" onclick="syncFromGithub()">☁️ 拉取</button>
             <button class="btn btn-orange" id="btn-push" onclick="uploadToGithub()">🚀 保存</button>
@@ -118,7 +111,7 @@
     </div>
 </div>
 
-<!-- === 第二部分：监控列表 (已修改为单行显示) === -->
+<!-- === 第二部分：监控列表 === -->
 <div class="card open" id="card-list">
     <div class="card-header">
         <div class="header-title" onclick="toggleCard('card-list')">
@@ -145,7 +138,7 @@
     </div>
 </div>
 
-<!-- === 第三部分：回测结果 (运行按钮在这里) === -->
+<!-- === 第三部分：回测结果 === -->
 <div class="card open" id="card-result">
     <div class="card-header">
         <div class="header-title" onclick="toggleCard('card-result')">
@@ -155,8 +148,6 @@
         <button class="btn btn-blue" id="btn-run" style="flex:none; width:80px; padding:6px;" onclick="runSelectedBacktest()" disabled>▶ 运行</button>
     </div>
     <div class="card-body">
-        
-        <!-- 回测参数：日期 -->
         <div class="form-row" style="background:#f8f9fa; padding:10px; border-radius:6px; margin-bottom:0;">
             <div class="form-group">
                 <label>开始日期</label>
@@ -168,23 +159,23 @@
             </div>
         </div>
 
-        <!-- 统计结果 -->
         <div class="stat-grid">
             <div class="stat-item">
                 <div class="stat-val" id="val-ret">--</div>
-                <div class="stat-lbl">收益率</div>
+                <div class="stat-lbl">策略收益</div>
             </div>
             <div class="stat-item">
                 <div class="stat-val" id="val-stock">--</div>
-                <div class="stat-lbl">持股不动</div>
+                <div class="stat-lbl">股价涨跌</div>
             </div>
             <div class="stat-item">
-                <div class="stat-val" id="val-count">--</div>
-                <div class="stat-lbl">交易次</div>
+                <div class="stat-val" id="val-lev">--</div>
+                <div class="stat-lbl">平均杠杆</div>
             </div>
         </div>
         
         <div id="chart-box"></div>
+        <div id="log-box" style="max-height: 100px; overflow-y: auto; font-size: 10px; color: #666; background: #f8f9fa; padding: 5px; margin-top: 10px; border-radius: 4px; display:none;"></div>
     </div>
 </div>
 </div>
@@ -193,7 +184,6 @@
 <div id="token-modal" class="modal">
     <div class="modal-box">
         <h3>🔑 GitHub Token</h3>
-        <p style="font-size:12px; color:#666; margin-bottom:10px;">Token 将用于存取 <b>dlezywj-cell/backtest</b></p>
         <input type="text" id="gh-token-input" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; margin-bottom:15px;" placeholder="ghp_xxxx...">
         <div style="display:flex; gap:10px;">
             <button class="btn btn-gray" style="flex:1" onclick="document.getElementById('token-modal').style.display='none'">取消</button>
@@ -203,19 +193,16 @@
 </div>
 
 <script>
-    // === 配置 ===
+    // === 配置与工具 ===
     const GITHUB_CONFIG = { username: "dlezywj-cell", repo: "backtest", path: "grid_config.json", branch: "main" };
     const PROXY = 'https://corsproxy.io/?'; 
     let stocks = JSON.parse(localStorage.getItem('gridStocks')) || [];
     let myChart = null;
     let selectedIndex = -1;
 
-    // === 初始化日期 ===
+    // === 初始化 ===
     function initDates() {
-        const toDateStr = (d) => {
-            const pad = n => n < 10 ? '0'+n : n;
-            return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-        };
+        const toDateStr = (d) => d.toISOString().split('T')[0];
         const today = new Date();
         const lastYear = new Date();
         lastYear.setFullYear(today.getFullYear() - 1);
@@ -225,7 +212,7 @@
     initDates();
     renderTable();
 
-    // === 界面逻辑 ===
+    // === 界面交互逻辑 ===
     function toggleCard(id) {
         const card = document.getElementById(id);
         card.classList.toggle('open');
@@ -235,7 +222,6 @@
     function searchStock() {
         const name = document.getElementById('inName').value.trim();
         if(!name) return;
-        
         const btn = document.getElementById('btn-search');
         if(btn) btn.innerHTML = '...';
 
@@ -260,28 +246,13 @@
         const name = document.getElementById('inName').value;
         const min = parseFloat(document.getElementById('inMin').value);
         const max = parseFloat(document.getElementById('inMax').value);
-
         if(!code || !name || isNaN(min) || isNaN(max)) { alert("请完整填写"); return; }
-
         const idx = stocks.findIndex(s => s.code === code);
         const item = { code, name, minCap: min, maxCap: max };
-        
-        if(idx >= 0) {
-            stocks[idx] = item;
-            alert("已更新配置");
-        } else {
-            stocks.push(item);
-            alert("已添加");
-        }
-
+        if(idx >= 0) { stocks[idx] = item; alert("已更新配置"); } else { stocks.push(item); alert("已添加"); }
         localStorage.setItem('gridStocks', JSON.stringify(stocks));
         selectedIndex = idx >= 0 ? idx : stocks.length - 1;
         updateUI();
-        
-        document.getElementById('inCode').value = '';
-        document.getElementById('inName').value = '';
-        document.getElementById('inMin').value = '';
-        document.getElementById('inMax').value = '';
     }
 
     function selectRow(i) {
@@ -318,35 +289,21 @@
     function updateUI() {
         renderTable();
         const btn = document.getElementById('btn-run');
-        if(selectedIndex >= 0) {
-            btn.disabled = false;
-            btn.innerText = "▶ 运行";
-        } else {
-            btn.disabled = true;
-            btn.innerText = "请选股票";
-            document.getElementById('res-title').innerText = "📊 回测结果";
-        }
+        if(selectedIndex >= 0) { btn.disabled = false; btn.innerText = "▶ 运行"; } 
+        else { btn.disabled = true; btn.innerText = "请选股票"; }
     }
 
-    // === 修改后的 renderTable 函数：单行显示 ===
     function renderTable() {
         const tb = document.getElementById('stock-tbody');
         document.getElementById('list-badge').innerText = `(${stocks.length})`;
-        
-        if(stocks.length === 0) {
-            tb.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>';
-            return;
-        }
-
+        if(stocks.length === 0) { tb.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>'; return; }
         tb.innerHTML = stocks.map((s, i) => `
             <tr class="${i === selectedIndex ? 'active-row' : ''}" onclick="selectRow(${i})" style="cursor:pointer;">
                 <td style="white-space: nowrap;">
                     <span style="font-weight:600; font-size:14px;">${s.name}</span>
                     <span style="color:#999; font-size:12px; margin-left:4px;">${s.code}</span>
                 </td>
-                <td style="font-family:monospace; color:#007bff; font-size:13px;">
-                    ${s.minCap}-${s.maxCap}
-                </td>
+                <td style="font-family:monospace; color:#007bff; font-size:13px;">${s.minCap}-${s.maxCap}</td>
                 <td style="text-align:right">
                     <div class="btn-group">
                         <button class="btn btn-yellow btn-sm" onclick="editStock(${i}, event)">✏️</button>
@@ -357,225 +314,309 @@
         `).join('');
     }
 
-    // === GitHub Safe Sync ===
-    function safeB64ToUtf8(str) {
-        return decodeURIComponent(escape(window.atob(str.replace(/\s/g, ''))));
-    }
+    // === GitHub Logic ===
+    function safeB64ToUtf8(str) { return decodeURIComponent(escape(window.atob(str.replace(/\s/g, '')))); }
     function utf8ToB64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
-
     async function uploadToGithub() {
         let token = localStorage.getItem("github_token");
         if (!token) { document.getElementById('token-modal').style.display='flex'; return; }
-        
-        const btn = document.getElementById('btn-push'); 
-        const origin = btn.innerText; btn.innerText = "⏳"; btn.disabled = true;
-        
+        const btn = document.getElementById('btn-push'); const origin = btn.innerText; btn.innerText = "⏳"; btn.disabled = true;
         try {
             const url = `https://api.github.com/repos/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path}`;
             const get = await fetch(url, { headers: { "Authorization": `token ${token.trim()}` } });
             let sha = null; if (get.ok) sha = (await get.json()).sha;
-            
-            const res = await fetch(url, { 
-                method: "PUT", headers: { "Authorization": `token ${token.trim()}` }, 
-                body: JSON.stringify({ message: "Update", content: utf8ToB64(JSON.stringify(stocks, null, 2)), sha }) 
-            });
-            if (res.ok) alert("✅ 同步成功!"); else throw new Error((await res.json()).message);
+            await fetch(url, { method: "PUT", headers: { "Authorization": `token ${token.trim()}` }, body: JSON.stringify({ message: "Update", content: utf8ToB64(JSON.stringify(stocks, null, 2)), sha }) });
+            alert("✅ 同步成功!");
         } catch (e) { alert("❌ " + e.message); if(e.message.includes("401")) localStorage.removeItem("github_token"); } 
         finally { btn.innerText = origin; btn.disabled = false; }
     }
-
     async function syncFromGithub() {
         let token = localStorage.getItem("github_token");
-        const btn = document.getElementById('btn-pull'); 
-        const origin = btn.innerText; btn.innerText = "⏳"; btn.disabled = true;
-        
+        const btn = document.getElementById('btn-pull'); const origin = btn.innerText; btn.innerText = "⏳"; btn.disabled = true;
         try {
             const url = `https://api.github.com/repos/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path}`;
             const h = { "Accept": "application/vnd.github.v3+json" };
             if(token) h["Authorization"] = `token ${token.trim()}`;
-            
             let res = await fetch(url, { headers: h });
             let data;
-            if (res.ok) {
-                const json = await res.json();
-                data = JSON.parse(safeB64ToUtf8(json.content));
-            } else {
-                const rawUrl = `https://raw.githubusercontent.com/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${GITHUB_CONFIG.path}?t=${Date.now()}`;
-                const raw = await fetch(rawUrl); if(!raw.ok) throw new Error("云端无数据");
-                data = await raw.json();
+            if (res.ok) { data = JSON.parse(safeB64ToUtf8((await res.json()).content)); } 
+            else { 
+                const raw = await fetch(`https://raw.githubusercontent.com/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${GITHUB_CONFIG.path}?t=${Date.now()}`); 
+                if(!raw.ok) throw new Error("云端无数据"); data = await raw.json(); 
             }
-            if(Array.isArray(data) && confirm(`云端 ${data.length} 条，本地 ${stocks.length} 条。覆盖本地？`)) {
-                stocks = data; localStorage.setItem('gridStocks', JSON.stringify(stocks)); 
-                selectedIndex = -1; updateUI();
-            }
-        } catch (e) { alert("❌ " + e.message); } 
-        finally { btn.innerText = origin; btn.disabled = false; }
+            if(Array.isArray(data) && confirm(`覆盖本地 ${stocks.length} 条数据?`)) { stocks = data; localStorage.setItem('gridStocks', JSON.stringify(stocks)); selectedIndex = -1; updateUI(); }
+        } catch (e) { alert("❌ " + e.message); } finally { btn.innerText = origin; btn.disabled = false; }
     }
-    
     function saveToken() {
         const t = document.getElementById('gh-token-input').value.trim();
         if(t) { localStorage.setItem('github_token', t); document.getElementById('token-modal').style.display='none'; uploadToGithub(); }
     }
 
-    // === 回测核心 ===
+    // === 策略回测核心逻辑 (Updated) ===
     async function runSelectedBacktest() {
         if(selectedIndex < 0) return;
-        
         const s = stocks[selectedIndex];
         const btn = document.getElementById('btn-run');
         const oldTxt = btn.innerText; btn.innerText = "⏳..."; btn.disabled = true;
-
-        document.getElementById('val-ret').innerText = '--';
-        document.getElementById('val-stock').innerText = '--';
-        document.getElementById('val-count').innerText = '--';
-        if(myChart) myChart.clear();
-
-        const sdStr = document.getElementById('inStartDate').value;
-        const edStr = document.getElementById('inEndDate').value;
+        document.getElementById('log-box').style.display = 'none';
 
         try {
+            const sdStr = document.getElementById('inStartDate').value;
+            const edStr = document.getElementById('inEndDate').value;
             await doBacktest(s.code, s.minCap, s.maxCap, sdStr, edStr);
             document.getElementById('res-title').innerText = `📊 结果: ${s.name}`;
         } catch (e) {
             alert("❌ 回测失败: " + e.message);
+            console.error(e);
         } finally {
             btn.innerText = oldTxt; btn.disabled = false;
         }
     }
 
+    // 辅助函数
     const getEmSecId = c => (c.endsWith('.SS')||c.startsWith('6')) ? '1.'+c.replace('.SS','') : '0.'+c.replace('.SZ','');
     const toYahoo = c => c.startsWith('6') ? c+'.SS' : (c.length===5 ? c.substring(1)+'.HK' : c+'.SZ');
 
+    // 核心回测函数
     async function doBacktest(code, minCap, maxCap, startDateStr, endDateStr) {
-        const capital = 10000000; const grids = 10; const lotSize = 100;
-        
-        // 1. 获取股本
+        // 1. 获取总股本 (EastMoney)
         const emSecId = getEmSecId(code);
         const emCode = emSecId.split('.')[1]; const emMkt = emSecId.split('.')[0];
         const listUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emMkt}.${emCode}&fields=f2,f20&invt=2&fltt=2`;
         const capRes = await fetch(PROXY + encodeURIComponent(listUrl));
         const capJson = await capRes.json();
-        let data = null;
-        if(capJson.data?.diff) data = Array.isArray(capJson.data.diff) ? capJson.data.diff[0] : capJson.data.diff[emCode];
-        if(!data) throw new Error("无法获取股本");
-        const totalShares = data.f20 / data.f2; 
-        const minPrice = (minCap * 100000000) / totalShares;
-        const maxPrice = (maxCap * 100000000) / totalShares;
-        
-        // 2. 获取历史数据
-        const p1 = Math.floor(new Date(startDateStr).getTime() / 1000);
+        let totalShares = 0;
+        if(capJson.data?.diff) {
+            let d = Array.isArray(capJson.data.diff) ? capJson.data.diff[0] : capJson.data.diff[emCode];
+            totalShares = d.f20 / 100000000; // 转换为亿
+        }
+        if(!totalShares) throw new Error("无法获取股本数据");
+
+        // 2. 获取历史K线 (Yahoo) - 多获取一些数据用于计算MA
+        const p1 = Math.floor(new Date(startDateStr).getTime() / 1000) - 86400 * 60; // 提前60天
         const p2 = Math.floor(new Date(endDateStr).getTime() / 1000) + 86400;
         const yhUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${toYahoo(emCode)}?period1=${p1}&period2=${p2}&interval=1d`;
         const hRes = await fetch(PROXY + encodeURIComponent(yhUrl));
-        if(!hRes.ok) throw new Error("历史数据请求失败");
+        if(!hRes.ok) throw new Error("Yahoo数据请求失败");
         const hJson = await hRes.json();
         const result = hJson.chart.result[0];
         if(!result || !result.timestamp) throw new Error("该时间段无数据");
 
-        let klines = [];
+        // 3. 数据预处理
+        let rawData = [];
+        const quotes = result.indicators.quote[0];
         result.timestamp.forEach((t, i) => {
-            if(result.indicators.quote[0].close[i] != null) {
-                klines.push({
+            if(quotes.close[i] != null) {
+                rawData.push({
                     date: new Date(t*1000).toISOString().split('T')[0],
-                    close: parseFloat(result.indicators.quote[0].close[i].toFixed(2)),
-                    high: parseFloat(result.indicators.quote[0].high[i].toFixed(2)),
-                    low: parseFloat(result.indicators.quote[0].low[i].toFixed(2))
+                    close: parseFloat(quotes.close[i].toFixed(2)),
+                    high: parseFloat(quotes.high[i].toFixed(2)), // 保留备用
+                    low: parseFloat(quotes.low[i].toFixed(2)),   // 保留备用
+                    mv: parseFloat(quotes.close[i].toFixed(2)) * totalShares // 计算历史市值
                 });
             }
         });
-        if(klines.length === 0) throw new Error("K线数据为空");
 
-        // 3. 策略逻辑
-        let cash = capital; let shares = 0; let trades = []; let history = []; const fee = 0.00025;
-        const ratio = Math.pow((maxPrice/minPrice), 1/grids);
-        let lines = [];
-        for(let i=0; i<=grids; i++) lines.push(minPrice * Math.pow(ratio, i));
-        
-        const getIdx = p => {
-            if(p<lines[0]) return -1; if(p>=lines[grids]) return grids;
-            for(let i=0; i<grids; i++) if(p>=lines[i] && p<lines[i+1]) return i;
-            return 0;
+        // 计算MA
+        const ma = (day, n) => {
+            if(day < n) return null;
+            let sum = 0;
+            for(let k=day-n; k<day; k++) sum += rawData[k].close;
+            return sum / n;
         };
+
+        // 截取用户选择的时间段
+        const startTs = new Date(startDateStr).getTime();
+        let startIndex = rawData.findIndex(d => new Date(d.date).getTime() >= startTs);
+        if(startIndex < 20) startIndex = 20; // 确保有足够数据计算MA20
+
+        // === 策略参数 ===
+        const MIN_LEVERAGE = 0.01;
+        const MAX_LEVERAGE = 2.0;
+        const CURVE_PARAM = 2.5;
+        const MDD_MAX = 0.15;
+        const PROTECT_REDUCE_PCT = 0.6;
+        const LOW_MV_NO_PROTECT_PCT = 0.05;
         
-        let idx = getIdx(klines[0].close);
-        // 初始建仓
-        if(idx>=0 && idx<grids) {
-            let pct = (grids-idx)/grids;
-            let vol = Math.floor((capital*pct)/klines[0].close/lotSize)*lotSize;
-            if(vol>0) {
-                cash -= vol*klines[0].close*(1+fee); shares += vol;
-                trades.push({date: klines[0].date, type:'建仓', price:klines[0].close});
-            }
-        }
+        // 估值杠杆计算
+        const getTargetLeverage = (mv) => {
+            if(mv <= minCap) return MAX_LEVERAGE;
+            if(mv >= maxCap) return MIN_LEVERAGE;
+            let r = (mv - minCap) / (maxCap - minCap);
+            // Exp curve: L = min + (max-min) * exp(-param * r)
+            return MIN_LEVERAGE + (MAX_LEVERAGE - MIN_LEVERAGE) * Math.exp(-CURVE_PARAM * r);
+        };
+
+        // 趋势判断
+        const isUptrend = (dayIdx) => {
+            let m5 = ma(dayIdx, 5);
+            let m10 = ma(dayIdx, 10);
+            let m20 = ma(dayIdx, 20);
+            if(!m5 || !m10 || !m20) return false;
+            return (m5 > m10 && m10 > m20);
+        };
+
+        // === 回测循环 ===
+        let nav = 1.0;
+        let peakNav = 1.0;
+        let prevL = getTargetLeverage(rawData[startIndex-1].mv); // 初始杠杆
+        let inProtect = false;
         
-        for(let i=1; i<klines.length; i++) {
-            const d = klines[i];
-            if(idx>=0 && idx<=grids) { 
-                let buyP = (idx===grids) ? lines[grids-1] : lines[idx];
-                if(d.low <= buyP) {
-                     let unit = capital/grids; let vol = Math.floor(unit/buyP/lotSize)*lotSize;
-                     if(cash >= vol*buyP && vol>0) {
-                         cash -= vol*buyP*(1+fee); shares += vol; trades.push({date: d.date, type:'BUY', price:buyP}); idx--;
-                     }
+        let history = []; // {date, nav, close, leverage}
+        let logs = [];
+
+        // 初始状态记录
+        history.push({
+            date: rawData[startIndex-1].date,
+            nav: 1.0,
+            close: rawData[startIndex-1].close,
+            leverage: prevL
+        });
+
+        for(let i = startIndex; i < rawData.length; i++) {
+            const d = rawData[i];
+            const prevD = rawData[i-1];
+            const r = d.close / prevD.close - 1;
+            const curMv = d.mv;
+            
+            const upTrend = isUptrend(i);
+            const targetL = getTargetLeverage(curMv);
+            
+            let newL = targetL;
+            let reason = "";
+
+            // 1. 回撤保护逻辑
+            let curDrawdown = (peakNav - nav) / peakNav;
+            let nearLowMv = (curMv <= minCap * (1.0 + LOW_MV_NO_PROTECT_PCT));
+
+            if (curDrawdown > MDD_MAX && !inProtect) {
+                if(nearLowMv) {
+                    // reason = "接近低估，跳过保护";
+                } else {
+                    inProtect = true;
+                    newL = prevL * (1 - PROTECT_REDUCE_PCT);
+                    peakNav = nav; // 重置高点
+                    reason = "触发回撤保护";
                 }
             }
-            if(idx<grids) {
-                let sellP = lines[idx+1];
-                if(d.high >= sellP) {
-                    let unit = capital/grids; let vol = Math.floor(unit/sellP/lotSize)*lotSize; let act = Math.min(shares, vol);
-                    if(act >= lotSize) {
-                        cash += act*sellP*(1-fee); shares -= act; trades.push({date: d.date, type:'SELL', price:sellP}); idx++;
+
+            // 2. 保护状态恢复逻辑
+            if (inProtect) {
+                let m5 = ma(i, 5), m10 = ma(i, 10), m20 = ma(i, 20);
+                // 简化版：均线多头排列即可恢复
+                if (m5 > m10 && m10 > m20) {
+                    inProtect = false;
+                    newL = targetL;
+                    reason = "趋势恢复，解除保护";
+                } else {
+                    // 下跌趋势继续减仓
+                    if (m5 < m10 && m10 < m20) {
+                        let slope = (m10 - m20) / m20;
+                        let reduce = Math.min(1.0, Math.abs(slope) * 10);
+                        newL = Math.max(MIN_LEVERAGE, prevL * (1 - reduce * 0.3));
+                    } else {
+                        newL = MIN_LEVERAGE;
                     }
                 }
             }
-            history.push({date: d.date, val: cash + shares*d.close, close: d.close});
+
+            // 3. 下跌趋势减仓
+            let m5_now = ma(i, 5), m10_now = ma(i, 10), m20_now = ma(i, 20);
+            let downTrend = (m5_now < m10_now && m10_now < m20_now);
+            
+            if (downTrend && !inProtect) {
+                let slope = (m10_now - m20_now) / m20_now;
+                let reduce = Math.min(1.0, Math.abs(slope) * 10);
+                newL = Math.max(MIN_LEVERAGE, prevL * (1 - reduce * 0.3));
+                if(!reason) reason = "下跌趋势减仓";
+            }
+
+            // 4. ★★★ 上涨趋势核心逻辑 ★★★
+            if (!inProtect && upTrend) {
+                if (r < -0.02) {
+                    // 急跌加仓
+                    newL = Math.min(MAX_LEVERAGE, prevL * 1.05);
+                    reason = "上涨中急跌加仓";
+                } else {
+                    // 锁仓逻辑: 不允许杠杆因为市值上涨(估值变贵)而自动下降
+                    newL = Math.max(prevL, targetL);
+                    if(newL > targetL + 0.001 && !reason) reason = "上涨锁仓";
+                }
+            }
+
+            // 更新NAV
+            nav = nav * (1 + prevL * r);
+            if (nav > peakNav) peakNav = nav;
+            
+            history.push({
+                date: d.date,
+                nav: nav,
+                close: d.close,
+                leverage: newL
+            });
+            
+            prevL = newL;
         }
-        
-        const ret = (history[history.length-1].val - capital)/capital*100;
-        const sRet = (klines[klines.length-1].close - klines[0].close)/klines[0].close*100;
-        
-        document.getElementById('val-ret').innerText = ret.toFixed(2)+'%';
-        document.getElementById('val-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
-        document.getElementById('val-stock').innerText = sRet.toFixed(2)+'%';
-        document.getElementById('val-stock').className = 'stat-val ' + (sRet>=0?'win':'loss');
-        document.getElementById('val-count').innerText = trades.length;
-        
-        renderChart(history, lines, trades);
+
+        // === 结果统计 ===
+        const finalRet = (history[history.length-1].nav - 1) * 100;
+        const stockRet = (history[history.length-1].close / history[0].close - 1) * 100;
+        const avgLev = history.reduce((sum, h) => sum + h.leverage, 0) / history.length;
+
+        document.getElementById('val-ret').innerText = finalRet.toFixed(2) + '%';
+        document.getElementById('val-ret').className = 'stat-val ' + (finalRet>=0?'win':'loss');
+        document.getElementById('val-stock').innerText = stockRet.toFixed(2) + '%';
+        document.getElementById('val-stock').className = 'stat-val ' + (stockRet>=0?'win':'loss');
+        document.getElementById('val-lev').innerText = avgLev.toFixed(2) + 'x';
+
+        renderChart(history, minCap, maxCap);
     }
 
-    function renderChart(hist, lines, trades) {
+    function renderChart(hist, minCap, maxCap) {
         const dom = document.getElementById('chart-box');
         if(myChart) myChart.clear(); else myChart = echarts.init(dom);
         
         const dates = hist.map(h=>h.date);
         const closes = hist.map(h=>h.close);
-        const normVals = hist.map(h => h.val / hist[0].val * hist[0].close);
-        
-        const marks = trades.map(t => {
-            const isBuy = t.type === 'BUY' || t.type === '建仓';
-            return {
-                coord: [t.date, t.price],
-                symbol: 'triangle',
-                symbolRotate: isBuy ? 0 : 180,
-                symbolSize: 12,
-                itemStyle: { color: isBuy ? '#d32f2f' : '#2e7d32' },
-                label: { show: false }
-            };
-        });
-        
-        const gridLines = lines.map(p => ({ yAxis: p, lineStyle:{type:'solid', color:'rgba(0,0,255,0.1)'}, label:{show:false} }));
-        
+        // 归一化 NAV 到 股价起点，方便对比
+        const startPrice = hist[0].close;
+        const navs = hist.map(h => h.nav * startPrice);
+        const levs = hist.map(h => h.leverage);
+
         myChart.setOption({
             animation: false,
-            tooltip: { trigger:'axis', axisPointer:{type:'cross'} },
-            legend: { top:0, data:['股价', '策略净值(归一化)'] },
-            grid: { left:'3%', right:'3%', bottom:'10%', top:'10%', containLabel:true },
-            dataZoom: [{type:'inside'}, {type:'slider', bottom:0}],
-            xAxis: { type:'category', data:dates },
-            yAxis: { scale:true, splitLine:{show:false} },
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'cross' },
+                formatter: function (params) {
+                    let res = params[0].name + '<br/>';
+                    params.forEach(p => {
+                        let val = p.value;
+                        if(p.seriesName === '杠杆率') val = val.toFixed(2) + 'x';
+                        else val = val.toFixed(2);
+                        res += `<span style="color:${p.color}">●</span> ${p.seriesName}: ${val}<br/>`;
+                    });
+                    return res;
+                }
+            },
+            legend: { top: 0, data: ['股价', '策略净值', '杠杆率'] },
+            grid: [
+                { left: '3%', right: '3%', top: '10%', height: '60%', containLabel: true }, // 主图
+                { left: '3%', right: '3%', top: '75%', height: '15%', containLabel: true }  // 副图(杠杆)
+            ],
+            dataZoom: [{ type: 'inside', xAxisIndex: [0, 1] }, { type: 'slider', xAxisIndex: [0, 1], bottom: 0 }],
+            xAxis: [
+                { type: 'category', data: dates, gridIndex: 0 },
+                { type: 'category', data: dates, gridIndex: 1, show: false }
+            ],
+            yAxis: [
+                { type: 'value', scale: true, gridIndex: 0, splitLine: { show: false } },
+                { type: 'value', scale: true, gridIndex: 1, splitLine: { show: false }, min: 0, max: 2.5, name: 'Lev' }
+            ],
             series: [
-                { name:'股价', type:'line', data:closes, smooth:true, lineStyle:{width:1.5, color:'#333'}, markPoint:{data:marks}, markLine:{symbol:'none', data:gridLines, silent:true} },
-                { name:'策略净值(归一化)', type:'line', data:normVals, smooth:true, lineStyle:{width:2, color:'#d32f2f'}, symbol:'none' }
+                { name: '股价', type: 'line', data: closes, smooth: true, lineStyle: { width: 1, color: '#999' }, showSymbol: false },
+                { name: '策略净值', type: 'line', data: navs, smooth: true, lineStyle: { width: 2, color: '#d32f2f' }, showSymbol: false },
+                { name: '杠杆率', type: 'line', xAxisIndex: 1, yAxisIndex: 1, data: levs, step: 'end', lineStyle: { width: 1, color: '#2e7d32' }, showSymbol: false, areaStyle: { opacity: 0.2 } }
             ]
         });
     }
