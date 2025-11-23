@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (最终完整版)</title>
+    <title>估值杠杆策略 (茅台修复版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -78,15 +78,14 @@
     </div>
     <div class="card-body">
         <div class="form-row">
-            <div class="form-group" style="flex:2"><label>股票名称</label><input type="text" id="inName" placeholder="如: 银轮股份"></div>
+            <div class="form-group" style="flex:2"><label>股票名称</label><input type="text" id="inName" placeholder="如: 贵州茅台"></div>
             <button class="btn btn-blue" style="margin-bottom:1px; width:40px;" onclick="searchStock()">🔍</button>
             <div class="form-group" style="flex:1.5"><label>代码 (自动)</label><input type="text" id="inCode" readonly></div>
         </div>
         <div class="form-row">
-            <div class="form-group"><label>最低市值(亿)</label><input type="number" id="inMin" placeholder="240"></div>
-            <div class="form-group"><label>最高市值(亿)</label><input type="number" id="inMax" placeholder="320"></div>
+            <div class="form-group"><label>最低市值(亿)</label><input type="number" id="inMin" placeholder="15000"></div>
+            <div class="form-group"><label>最高市值(亿)</label><input type="number" id="inMax" placeholder="25000"></div>
         </div>
-        <!-- 恢复了按钮组 -->
         <div style="display:flex; gap:10px; margin-top:15px; border-top:1px solid #eee; padding-top:15px;">
             <button class="btn btn-purple" style="flex:1" id="btn-pull" onclick="syncFromGithub()">☁️ 拉取</button>
             <button class="btn btn-orange" style="flex:1" id="btn-push" onclick="uploadToGithub()">🚀 保存</button>
@@ -323,7 +322,18 @@
         }
     }
 
-    const getEmSecId = c => (c.endsWith('.SS')||c.startsWith('6')) ? '1.'+c.replace('.SS','') : '0.'+c.replace('.SZ','');
+    // ★★★ 关键修复：正确处理 .SH/.SZ 后缀，兼容东方财富 API ★★★
+    const getEmSecId = c => {
+        // 移除所有后缀，只保留数字代码
+        let rawCode = c.replace('.SH', '').replace('.SZ', '').replace('.SS', '');
+        // 判断市场：上证(6开头)或原本是.SH/.SS -> 1.xxx，其他 -> 0.xxx
+        if (c.includes('.SH') || c.includes('.SS') || rawCode.startsWith('6')) {
+            return '1.' + rawCode;
+        } else {
+            return '0.' + rawCode;
+        }
+    };
+    
     const toYahoo = c => c.startsWith('6') ? c+'.SS' : (c.length===5 ? c.substring(1)+'.HK' : c+'.SZ');
 
     async function doBacktest(stock) {
@@ -339,6 +349,7 @@
         let currentMarketCap = 0;
 
         if(capJson.data?.diff) {
+            // 兼容 API 返回数组或对象的情况
             let d = Array.isArray(capJson.data.diff) ? capJson.data.diff[0] : capJson.data.diff[emCode];
             if(d) {
                 currentPrice = d.f2;
@@ -351,7 +362,7 @@
         
         const debugBox = document.getElementById('debug-panel');
         
-        if(!totalShares) throw new Error("无法获取股本数据");
+        if(!totalShares) throw new Error(`无法获取股本数据 (SecID: ${emSecId})`);
 
         // 2. 获取K线
         const sd = document.getElementById('inStartDate').value;
