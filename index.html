@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (全市场通用版)</title>
+    <title>估值杠杆策略 (港美A股完美适配版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -78,13 +78,13 @@
     </div>
     <div class="card-body">
         <div class="form-row">
-            <div class="form-group" style="flex:2"><label>股票名称</label><input type="text" id="inName" placeholder="如: 腾讯控股 / AAPL"></div>
+            <div class="form-group" style="flex:2"><label>股票名称</label><input type="text" id="inName" placeholder="如: 00388 / 腾讯 / AAPL"></div>
             <button class="btn btn-blue" style="margin-bottom:1px; width:40px;" onclick="searchStock()">🔍</button>
             <div class="form-group" style="flex:1.5"><label>代码 (自动)</label><input type="text" id="inCode" readonly></div>
         </div>
         <div class="form-row">
-            <div class="form-group"><label>最低市值(亿)</label><input type="number" id="inMin" placeholder="3000"></div>
-            <div class="form-group"><label>最高市值(亿)</label><input type="number" id="inMax" placeholder="5000"></div>
+            <div class="form-group"><label>最低市值(亿)</label><input type="number" id="inMin" placeholder="2500"></div>
+            <div class="form-group"><label>最高市值(亿)</label><input type="number" id="inMax" placeholder="4000"></div>
         </div>
         <div style="display:flex; gap:10px; margin-top:15px; border-top:1px solid #eee; padding-top:15px;">
             <button class="btn btn-purple" style="flex:1" id="btn-pull" onclick="syncFromGithub()">☁️ 拉取</button>
@@ -233,7 +233,7 @@
         if(t) { localStorage.setItem('github_token', t); document.getElementById('token-modal').style.display='none'; uploadToGithub(); }
     }
 
-    // === 股票搜索（增强版：识别港股/美股） ===
+    // === 股票搜索 ===
     function searchStock() {
         const val = document.getElementById('inName').value.trim();
         if(!val) return;
@@ -244,13 +244,12 @@
                 let r = d.QuotationCodeTable.Data[0];
                 let suffix = "";
                 
-                // 智能识别市场后缀
-                if(r.MarketType == "1") suffix = ".SH"; // 上证
-                else if(r.MarketType == "2") suffix = ".SZ"; // 深证
-                else if(r.Code.length === 5 && /^\d+$/.test(r.Code)) suffix = ".HK"; // 港股 (5位纯数字)
-                else if(!/^\d+$/.test(r.Code)) suffix = ".US"; // 美股 (非数字，如 AAPL)
-                else if(r.Code.startsWith('6')) suffix = ".SH"; // 兜底上证
-                else suffix = ".SZ"; // 兜底深证
+                if(r.MarketType == "1") suffix = ".SH"; 
+                else if(r.MarketType == "2") suffix = ".SZ";
+                else if(r.Code.length === 5 && /^\d+$/.test(r.Code)) suffix = ".HK"; 
+                else if(!/^\d+$/.test(r.Code)) suffix = ".US"; 
+                else if(r.Code.startsWith('6')) suffix = ".SH";
+                else suffix = ".SZ";
 
                 document.getElementById('inCode').value = r.Code + suffix;
                 document.getElementById('inName').value = r.Name;
@@ -331,32 +330,37 @@
         }
     }
 
-    // ★★★ 核心修复：全市场代码适配器 ★★★
+    // ★★★ 1. 完美适配东方财富ID (港股强制5位) ★★★
     const getEmSecId = c => {
         let raw = c.replace(/\.[A-Z]+$/, '');
-        if(c.includes('.SH')) return '1.'+raw; // 上证
-        if(c.includes('.SZ')) return '0.'+raw; // 深证
-        if(c.includes('.HK')) return '116.'+raw; // 港股
-        if(c.includes('.US')) return '105.'+raw; // 美股(纳斯达克默认)
-        // 兜底
-        return (raw.startsWith('6') ? '1.' : '0.') + raw;
+        if (c.includes('.HK')) {
+            // 港股必须 5 位。例如 0388 -> 00388, 00388 -> 00388
+            return '116.' + raw.padStart(5, '0');
+        }
+        if (c.includes('.US')) return '105.' + raw;
+        if (c.includes('.SH')) return '1.' + raw;
+        if (c.includes('.SZ')) return '0.' + raw;
+        
+        // 兜底逻辑
+        if (raw.startsWith('6')) return '1.' + raw;
+        // 5位纯数字优先当港股
+        if (raw.length === 5 && /^\d+$/.test(raw)) return '116.' + raw.padStart(5, '0');
+        return '0.' + raw;
     };
     
+    // ★★★ 2. 完美适配Yahoo代码 (港股强制4位) ★★★
     const toYahoo = c => {
-        if(c.includes('.HK')) {
-            // Yahoo 港股代码通常是 4位，去掉首位0. 如 00700 -> 0700.HK
-            let raw = c.replace('.HK','');
-            return raw.replace(/^0/,'') + '.HK';
+        let raw = c.replace(/\.[A-Z]+$/, '');
+        if (c.includes('.HK')) {
+            // Yahoo 港股只要 4 位。例如 00388 -> 0388.HK
+            let num = parseInt(raw, 10);
+            return num.toString().padStart(4, '0') + '.HK';
         }
-        if(c.includes('.US')) {
-            // 美股 Yahoo 直接用代码，如 AAPL
-            return c.replace('.US','');
-        }
-        // A股
-        return c.startsWith('6') ? c+'.SS' : (c.length===5 ? c.substring(1)+'.HK' : c+'.SZ');
+        if (c.includes('.US')) return raw;
+        if (c.includes('.SH') || (raw.startsWith('6') && !c.includes('.SZ'))) return raw + '.SS';
+        return raw + '.SZ';
     };
 
-    // 辅助：尝试获取美股股本（如果105失败试106）
     async function fetchEmShares(secId) {
         const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${secId}&fields=f2,f20&invt=2&fltt=2`;
         const res = await fetch(PROXY + encodeURIComponent(url));
@@ -369,10 +373,10 @@
         let emSecId = getEmSecId(stock.code);
         let emCode = emSecId.split('.')[1];
         
-        // 美股特殊处理：先试 105 (Nasdaq)，不行试 106 (NYSE)
+        // 美股备选
         let capJson = await fetchEmShares(emSecId);
         if(stock.code.includes('.US') && (!capJson.data || !capJson.data.diff)) {
-            emSecId = '106.' + emCode; // 切换到 NYSE
+            emSecId = '106.' + emCode;
             capJson = await fetchEmShares(emSecId);
         }
 
@@ -393,11 +397,9 @@
         
         const debugBox = document.getElementById('debug-panel');
         
-        if(!totalShares) {
-            throw new Error(`无法获取股本数据 (${stock.code})。请检查代码是否正确。`);
-        }
+        if(!totalShares) throw new Error(`无法获取股本数据 (${stock.code})。请检查代码。`);
 
-        // 2. 获取K线 (Yahoo)
+        // 2. 获取K线
         const sd = document.getElementById('inStartDate').value;
         const ed = document.getElementById('inEndDate').value;
         const p1 = Math.floor(new Date(sd).getTime()/1000);
@@ -488,7 +490,7 @@
 
             const nearLowMv = (curMv <= minCap * 1.05);
 
-            // 1. 回撤保护 (20日滚动)
+            // 1. 回撤保护
             let winStart = Math.max(0, i - 20);
             let winNav = 0;
             for(let k=winStart; k<history.length; k++) if(history[k].nav > winNav) winNav = history[k].nav;
@@ -520,7 +522,7 @@
                 } else {
                     if(m5 && m10 && m20 && m5 < m10 && m10 < m20) {
                         let slope = (m10 - m20)/m20;
-                        let reduce = Math.min(1.0, Math.abs(slope)*25); // 极速减仓
+                        let reduce = Math.min(1.0, Math.abs(slope)*25);
                         newL = Math.max(0.01, prevL * (1 - reduce * 0.8));
                         reason = "保护中极速减仓";
                     } else {
@@ -535,7 +537,7 @@
                 let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20);
                 if(m5 && m10 && m20 && m5 < m10 && m10 < m20) {
                     let slope = (m10 - m20)/m20;
-                    let reduce = Math.min(1.0, Math.abs(slope)*25); // 极速减仓
+                    let reduce = Math.min(1.0, Math.abs(slope)*25);
                     let trendL = Math.max(0.01, prevL * (1 - reduce * 0.8));
                     
                     if(trendL < newL) {
