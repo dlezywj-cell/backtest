@@ -22,5 +22,11 @@
     "name": "香港交易所",
     "minCap": 4900,
     "maxCap": 7000
+  },
+  {
+    "code": "NVDA.US",
+    "name": "英伟达",
+    "minCap": 30000,
+    "maxCap": 70000
   }
 ]
