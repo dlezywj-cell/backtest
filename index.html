@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (移动端优化版)</title>
+    <title>估值杠杆策略 (最终完美版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -31,11 +31,8 @@
         .run-bar { display: flex; gap: 10px; align-items: flex-end; background:#f8f9fa; padding:10px; border-radius:6px; margin-top:0; }
         
         @media (max-width: 600px) {
-            /* 手机端：运行栏变为多行布局 */
             .run-bar { flex-wrap: wrap; }
-            /* 日期输入框各占一半 */
             .run-bar .form-group { min-width: 45%; flex: 1; }
-            /* 按钮独占一行，且变高 */
             .run-bar #btn-run { width: 100%; margin-top: 8px; padding: 12px; font-size: 16px; font-weight: bold; }
         }
 
@@ -57,7 +54,7 @@
         .stat-val { font-size: 16px; font-weight: bold; }
         .stat-lbl { font-size: 11px; color: #888; }
         .win { color: #d32f2f; } .loss { color: #2e7d32; }
-        #chart-box { width: 100%; height: 480px; } /* 稍微调高一点 */
+        #chart-box { width: 100%; height: 480px; }
 
         /* === 调试面板 === */
         #debug-panel { background: #fff3cd; color: #856404; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 12px; margin-bottom: 15px; display: none; border: 1px solid #ffeeba; margin-top: 10px; }
@@ -124,7 +121,6 @@
         <span class="arrow">▼</span>
     </div>
     <div class="card-body">
-        <!-- 修改点1：使用 run-bar 类并调整结构 -->
         <div class="run-bar">
             <div class="form-group"><label>开始日期</label><input type="date" id="inStartDate"></div>
             <div class="form-group"><label>结束日期</label><input type="date" id="inEndDate"></div>
@@ -246,7 +242,7 @@
         if(t) { localStorage.setItem('github_token', t); document.getElementById('token-modal').style.display='none'; uploadToGithub(); }
     }
 
-    // === 股票搜索 ===
+    // === 股票搜索（5位强制港股） ===
     function searchStock() {
         const val = document.getElementById('inName').value.trim();
         if(!val) return;
@@ -257,6 +253,7 @@
                 let r = d.QuotationCodeTable.Data[0];
                 let suffix = "";
                 
+                // 强规则：5位纯数字 -> 港股
                 if (/^\d{5}$/.test(r.Code)) {
                     suffix = ".HK"; 
                 } else if (/^\d{6}$/.test(r.Code)) {
@@ -348,22 +345,33 @@
         }
     }
 
+    // ★★★ 1. 东方财富ID转换 (港股强制5位) ★★★
     const getEmSecId = c => {
         let raw = c.replace(/\.[A-Z]+$/, '');
-        if (c.includes('.HK') || /^\d{5}$/.test(raw)) return '116.' + raw.padStart(5, '0');
+        // 核心：5位纯数字 -> 强制港股 (116)
+        if (/^\d{5}$/.test(raw) || c.includes('.HK')) {
+            return '116.' + raw.padStart(5, '0');
+        }
         if (c.includes('.US')) return '105.' + raw;
-        if (raw.startsWith('6')) return '1.' + raw;
+        
+        // 6位数字 -> A股
+        if (/^\d{6}$/.test(raw)) {
+            return (raw.startsWith('6') ? '1.' : '0.') + raw;
+        }
         return '0.' + raw;
     };
     
+    // ★★★ 2. Yahoo代码转换 (港股强制4位) ★★★
     const toYahoo = c => {
         let raw = c.replace(/\.[A-Z]+$/, '');
-        if (c.includes('.HK') || /^\d{5}$/.test(raw)) {
+        // 核心：5位纯数字 -> Yahoo港股(4位)
+        if (/^\d{5}$/.test(raw) || c.includes('.HK')) {
             let num = parseInt(raw, 10);
-            return num.toString().padStart(4, '0') + '.HK';
+            return num.toString().padStart(4, '0') + '.HK'; // 00388 -> 0388.HK
         }
         if (c.includes('.US')) return raw;
-        if (c.includes('.SH') || (raw.startsWith('6') && !c.includes('.SZ'))) return raw + '.SS';
+        // A股
+        if (raw.startsWith('6')) return raw + '.SS';
         return raw + '.SZ';
     };
 
@@ -495,7 +503,7 @@
 
             const nearLowMv = (curMv <= minCap * 1.05);
 
-            // 1. 回撤保护
+            // 1. 回撤保护 (20日滚动)
             let winStart = Math.max(0, i - 20);
             let winNav = 0;
             for(let k=winStart; k<history.length; k++) if(history[k].nav > winNav) winNav = history[k].nav;
@@ -595,7 +603,24 @@
         renderChart(history);
     }
 
-    // 修改点2：统一图表坐标轴对齐
+    function renderLog(logs) {
+        const tbody = document.getElementById('log-tbody');
+        document.getElementById('log-count').innerText = `(${logs.length})`;
+        
+        if(logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">无操作记录</td></tr>';
+            return;
+        }
+        tbody.innerHTML = logs.reverse().map(l => `
+            <tr>
+                <td style="white-space:nowrap; color:#666; font-size:12px;">${l.date}</td>
+                <td>${l.action}</td>
+                <td style="font-family:monospace; font-size:12px;">${l.val}</td>
+                <td style="font-size:12px; color:#555;">${l.reason}</td>
+            </tr>
+        `).join('');
+    }
+
     function renderChart(hist) {
         const dom = document.getElementById('chart-box');
         if(myChart) myChart.clear(); else myChart = echarts.init(dom);
@@ -616,7 +641,7 @@
                 }
             },
             legend: { top: 0, data: ['股价','净值','杠杆'] },
-            // 核心修改：上下两个grid使用相同的left和right，确保x轴对齐
+            // 修复点：统一对齐
             grid: [
                 {left:'12%', right:'5%', top:'10%', height:'55%', containLabel: false}, 
                 {left:'12%', right:'5%', top:'75%', height:'15%', containLabel: false}
