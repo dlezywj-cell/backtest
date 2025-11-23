@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>网格策略系统 (云同步版)</title>
+    <title>网格策略系统 (Backtest仓库版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础样式复用 === */
@@ -165,8 +165,8 @@
 </div>
 
 <script>
-    // === 1. 配置与全局变量 ===
-    const GITHUB_CONFIG = { username: "dlezywj-cell", repo: "stock", path: "grid_config.json", branch: "main" };
+    // === 1. 配置与全局变量 (已修改为 backtest 仓库) ===
+    const GITHUB_CONFIG = { username: "dlezywj-cell", repo: "backtest", path: "grid_config.json", branch: "main" };
     const PROXY = 'https://corsproxy.io/?'; 
     let stocks = JSON.parse(localStorage.getItem('gridStocks')) || [];
     
@@ -281,7 +281,7 @@
                 body: JSON.stringify({ message: "Update Grid Config", content: content, sha: sha }) 
             });
             
-            if (put.ok) alert("✅ 同步成功！");
+            if (put.ok) alert("✅ 同步成功！(Backtest仓库)");
             else throw new Error((await put.json()).message);
         } catch (e) {
             if(e.message.includes("401")) { alert("Token 无效"); localStorage.removeItem("github_token"); }
