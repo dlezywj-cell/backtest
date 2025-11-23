@@ -58,5 +58,11 @@
     "name": "九号公司-WD",
     "minCap": 400,
     "maxCap": 550
+  },
+  {
+    "code": "002920.SZ",
+    "name": "德赛西威",
+    "minCap": 600,
+    "maxCap": 900
   }
 ]
