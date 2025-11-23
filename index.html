@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略系统</title>
+    <title>估值杠杆策略系统 (最终修正版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -63,7 +63,7 @@
         .stat-lbl { font-size: 10px; color: #888; margin-top: 2px; }
         .win { color: #d32f2f; } .loss { color: #2e7d32; }
 
-        #chart-box { width: 100%; height: 380px; }
+        #chart-box { width: 100%; height: 450px; } /* 增加高度以适应双图 */
         
         /* 模态框 */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; }
@@ -175,7 +175,6 @@
         </div>
         
         <div id="chart-box"></div>
-        <div id="log-box" style="max-height: 100px; overflow-y: auto; font-size: 10px; color: #666; background: #f8f9fa; padding: 5px; margin-top: 10px; border-radius: 4px; display:none;"></div>
     </div>
 </div>
 </div>
@@ -352,14 +351,13 @@
         if(t) { localStorage.setItem('github_token', t); document.getElementById('token-modal').style.display='none'; uploadToGithub(); }
     }
 
-    // === 策略回测核心逻辑 (Updated) ===
+    // === 策略回测核心逻辑 ===
     async function runSelectedBacktest() {
         if(selectedIndex < 0) return;
         const s = stocks[selectedIndex];
         const btn = document.getElementById('btn-run');
         const oldTxt = btn.innerText; btn.innerText = "⏳..."; btn.disabled = true;
-        document.getElementById('log-box').style.display = 'none';
-
+        
         try {
             const sdStr = document.getElementById('inStartDate').value;
             const edStr = document.getElementById('inEndDate').value;
@@ -373,11 +371,9 @@
         }
     }
 
-    // 辅助函数
     const getEmSecId = c => (c.endsWith('.SS')||c.startsWith('6')) ? '1.'+c.replace('.SS','') : '0.'+c.replace('.SZ','');
     const toYahoo = c => c.startsWith('6') ? c+'.SS' : (c.length===5 ? c.substring(1)+'.HK' : c+'.SZ');
 
-    // 核心回测函数
     async function doBacktest(code, minCap, maxCap, startDateStr, endDateStr) {
         // 1. 获取总股本 (EastMoney)
         const emSecId = getEmSecId(code);
@@ -392,7 +388,7 @@
         }
         if(!totalShares) throw new Error("无法获取股本数据");
 
-        // 2. 获取历史K线 (Yahoo) - 多获取一些数据用于计算MA
+        // 2. 获取历史K线 (Yahoo)
         const p1 = Math.floor(new Date(startDateStr).getTime() / 1000) - 86400 * 60; // 提前60天
         const p2 = Math.floor(new Date(endDateStr).getTime() / 1000) + 86400;
         const yhUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${toYahoo(emCode)}?period1=${p1}&period2=${p2}&interval=1d`;
@@ -410,14 +406,13 @@
                 rawData.push({
                     date: new Date(t*1000).toISOString().split('T')[0],
                     close: parseFloat(quotes.close[i].toFixed(2)),
-                    high: parseFloat(quotes.high[i].toFixed(2)), // 保留备用
-                    low: parseFloat(quotes.low[i].toFixed(2)),   // 保留备用
-                    mv: parseFloat(quotes.close[i].toFixed(2)) * totalShares // 计算历史市值
+                    high: parseFloat(quotes.high[i].toFixed(2)),
+                    low: parseFloat(quotes.low[i].toFixed(2)),
+                    mv: parseFloat(quotes.close[i].toFixed(2)) * totalShares
                 });
             }
         });
 
-        // 计算MA
         const ma = (day, n) => {
             if(day < n) return null;
             let sum = 0;
@@ -425,10 +420,9 @@
             return sum / n;
         };
 
-        // 截取用户选择的时间段
         const startTs = new Date(startDateStr).getTime();
         let startIndex = rawData.findIndex(d => new Date(d.date).getTime() >= startTs);
-        if(startIndex < 20) startIndex = 20; // 确保有足够数据计算MA20
+        if(startIndex < 20) startIndex = 20;
 
         // === 策略参数 ===
         const MIN_LEVERAGE = 0.01;
@@ -438,16 +432,13 @@
         const PROTECT_REDUCE_PCT = 0.6;
         const LOW_MV_NO_PROTECT_PCT = 0.05;
         
-        // 估值杠杆计算
         const getTargetLeverage = (mv) => {
             if(mv <= minCap) return MAX_LEVERAGE;
             if(mv >= maxCap) return MIN_LEVERAGE;
             let r = (mv - minCap) / (maxCap - minCap);
-            // Exp curve: L = min + (max-min) * exp(-param * r)
             return MIN_LEVERAGE + (MAX_LEVERAGE - MIN_LEVERAGE) * Math.exp(-CURVE_PARAM * r);
         };
 
-        // 趋势判断
         const isUptrend = (dayIdx) => {
             let m5 = ma(dayIdx, 5);
             let m10 = ma(dayIdx, 10);
@@ -459,13 +450,11 @@
         // === 回测循环 ===
         let nav = 1.0;
         let peakNav = 1.0;
-        let prevL = getTargetLeverage(rawData[startIndex-1].mv); // 初始杠杆
+        let prevL = getTargetLeverage(rawData[startIndex-1].mv);
         let inProtect = false;
-        
-        let history = []; // {date, nav, close, leverage}
-        let logs = [];
+        let history = [];
+        let tradeMarkers = []; // 用于记录买卖标记
 
-        // 初始状态记录
         history.push({
             date: rawData[startIndex-1].date,
             nav: 1.0,
@@ -485,31 +474,25 @@
             let newL = targetL;
             let reason = "";
 
-            // 1. 回撤保护逻辑
             let curDrawdown = (peakNav - nav) / peakNav;
             let nearLowMv = (curMv <= minCap * (1.0 + LOW_MV_NO_PROTECT_PCT));
 
             if (curDrawdown > MDD_MAX && !inProtect) {
-                if(nearLowMv) {
-                    // reason = "接近低估，跳过保护";
-                } else {
+                if(!nearLowMv) {
                     inProtect = true;
                     newL = prevL * (1 - PROTECT_REDUCE_PCT);
-                    peakNav = nav; // 重置高点
+                    peakNav = nav;
                     reason = "触发回撤保护";
                 }
             }
 
-            // 2. 保护状态恢复逻辑
             if (inProtect) {
                 let m5 = ma(i, 5), m10 = ma(i, 10), m20 = ma(i, 20);
-                // 简化版：均线多头排列即可恢复
                 if (m5 > m10 && m10 > m20) {
                     inProtect = false;
                     newL = targetL;
-                    reason = "趋势恢复，解除保护";
+                    reason = "趋势恢复";
                 } else {
-                    // 下跌趋势继续减仓
                     if (m5 < m10 && m10 < m20) {
                         let slope = (m10 - m20) / m20;
                         let reduce = Math.min(1.0, Math.abs(slope) * 10);
@@ -520,7 +503,6 @@
                 }
             }
 
-            // 3. 下跌趋势减仓
             let m5_now = ma(i, 5), m10_now = ma(i, 10), m20_now = ma(i, 20);
             let downTrend = (m5_now < m10_now && m10_now < m20_now);
             
@@ -528,23 +510,24 @@
                 let slope = (m10_now - m20_now) / m20_now;
                 let reduce = Math.min(1.0, Math.abs(slope) * 10);
                 newL = Math.max(MIN_LEVERAGE, prevL * (1 - reduce * 0.3));
-                if(!reason) reason = "下跌趋势减仓";
             }
 
-            // 4. ★★★ 上涨趋势核心逻辑 ★★★
             if (!inProtect && upTrend) {
                 if (r < -0.02) {
-                    // 急跌加仓
                     newL = Math.min(MAX_LEVERAGE, prevL * 1.05);
-                    reason = "上涨中急跌加仓";
+                    reason = "急跌加仓";
                 } else {
-                    // 锁仓逻辑: 不允许杠杆因为市值上涨(估值变贵)而自动下降
                     newL = Math.max(prevL, targetL);
-                    if(newL > targetL + 0.001 && !reason) reason = "上涨锁仓";
                 }
             }
 
-            // 更新NAV
+            // 记录买卖点标记 (阈值 0.05 以避免微小波动刷屏)
+            if (newL > prevL + 0.05) {
+                tradeMarkers.push({ coord: [d.date, d.close], value: '加仓', itemStyle: {color: '#d32f2f'}, symbol: 'triangle', symbolRotate: 0 });
+            } else if (newL < prevL - 0.05) {
+                tradeMarkers.push({ coord: [d.date, d.close], value: '减仓', itemStyle: {color: '#2e7d32'}, symbol: 'triangle', symbolRotate: 180 });
+            }
+
             nav = nav * (1 + prevL * r);
             if (nav > peakNav) peakNav = nav;
             
@@ -558,7 +541,6 @@
             prevL = newL;
         }
 
-        // === 结果统计 ===
         const finalRet = (history[history.length-1].nav - 1) * 100;
         const stockRet = (history[history.length-1].close / history[0].close - 1) * 100;
         const avgLev = history.reduce((sum, h) => sum + h.leverage, 0) / history.length;
@@ -569,18 +551,16 @@
         document.getElementById('val-stock').className = 'stat-val ' + (stockRet>=0?'win':'loss');
         document.getElementById('val-lev').innerText = avgLev.toFixed(2) + 'x';
 
-        renderChart(history, minCap, maxCap);
+        renderChart(history, tradeMarkers);
     }
 
-    function renderChart(hist, minCap, maxCap) {
+    function renderChart(hist, markers) {
         const dom = document.getElementById('chart-box');
         if(myChart) myChart.clear(); else myChart = echarts.init(dom);
         
         const dates = hist.map(h=>h.date);
         const closes = hist.map(h=>h.close);
-        // 归一化 NAV 到 股价起点，方便对比
-        const startPrice = hist[0].close;
-        const navs = hist.map(h => h.nav * startPrice);
+        const navs = hist.map(h => h.nav);
         const levs = hist.map(h => h.leverage);
 
         myChart.setOption({
@@ -601,22 +581,33 @@
             },
             legend: { top: 0, data: ['股价', '策略净值', '杠杆率'] },
             grid: [
-                { left: '3%', right: '3%', top: '10%', height: '60%', containLabel: true }, // 主图
-                { left: '3%', right: '3%', top: '75%', height: '15%', containLabel: true }  // 副图(杠杆)
+                { left: '5%', right: '5%', top: '10%', height: '55%', containLabel: false }, // 主图
+                { left: '5%', right: '5%', top: '75%', height: '18%', containLabel: false }  // 副图
             ],
             dataZoom: [{ type: 'inside', xAxisIndex: [0, 1] }, { type: 'slider', xAxisIndex: [0, 1], bottom: 0 }],
             xAxis: [
-                { type: 'category', data: dates, gridIndex: 0 },
-                { type: 'category', data: dates, gridIndex: 1, show: false }
+                { type: 'category', data: dates, gridIndex: 0, axisLabel: {show:false}, axisTick:{show:false} },
+                { type: 'category', data: dates, gridIndex: 1 }
             ],
             yAxis: [
-                { type: 'value', scale: true, gridIndex: 0, splitLine: { show: false } },
-                { type: 'value', scale: true, gridIndex: 1, splitLine: { show: false }, min: 0, max: 2.5, name: 'Lev' }
+                { type: 'value', scale: true, gridIndex: 0, splitLine: { show: false }, name:'股价', position:'left', axisLine:{show:true, lineStyle:{color:'#999'}} },
+                { type: 'value', scale: true, gridIndex: 0, splitLine: { show: false }, name:'净值', position:'right', axisLine:{show:true, lineStyle:{color:'#d32f2f'}}, axisLabel:{formatter:'{value}'} },
+                { type: 'value', scale: true, gridIndex: 1, splitLine: { show: true }, name: '杠杆', min: 'dataMin', max: 'dataMax' } // 关键修正：自适应最大最小值
             ],
             series: [
-                { name: '股价', type: 'line', data: closes, smooth: true, lineStyle: { width: 1, color: '#999' }, showSymbol: false },
-                { name: '策略净值', type: 'line', data: navs, smooth: true, lineStyle: { width: 2, color: '#d32f2f' }, showSymbol: false },
-                { name: '杠杆率', type: 'line', xAxisIndex: 1, yAxisIndex: 1, data: levs, step: 'end', lineStyle: { width: 1, color: '#2e7d32' }, showSymbol: false, areaStyle: { opacity: 0.2 } }
+                { 
+                    name: '股价', type: 'line', xAxisIndex: 0, yAxisIndex: 0, 
+                    data: closes, smooth: true, lineStyle: { width: 1.5, color: '#666' }, showSymbol: false,
+                    markPoint: { data: markers, symbolSize: 12, label:{show:false} } 
+                },
+                { 
+                    name: '策略净值', type: 'line', xAxisIndex: 0, yAxisIndex: 1, 
+                    data: navs, smooth: true, lineStyle: { width: 2, color: '#d32f2f' }, showSymbol: false 
+                },
+                { 
+                    name: '杠杆率', type: 'line', xAxisIndex: 1, yAxisIndex: 2, 
+                    data: levs, step: 'end', lineStyle: { width: 1, color: '#2e7d32' }, showSymbol: false, areaStyle: { opacity: 0.1, color: '#2e7d32' } 
+                }
             ]
         });
     }
