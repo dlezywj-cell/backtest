@@ -64,5 +64,11 @@
     "name": "德赛西威",
     "minCap": 600,
     "maxCap": 900
+  },
+  {
+    "code": "605499.SH",
+    "name": "东鹏饮料",
+    "minCap": 1350,
+    "maxCap": 1700
   }
 ]
