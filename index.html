@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (茅台修复版)</title>
+    <title>估值杠杆策略 (全市场通用版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -78,13 +78,13 @@
     </div>
     <div class="card-body">
         <div class="form-row">
-            <div class="form-group" style="flex:2"><label>股票名称</label><input type="text" id="inName" placeholder="如: 贵州茅台"></div>
+            <div class="form-group" style="flex:2"><label>股票名称</label><input type="text" id="inName" placeholder="如: 腾讯控股 / AAPL"></div>
             <button class="btn btn-blue" style="margin-bottom:1px; width:40px;" onclick="searchStock()">🔍</button>
             <div class="form-group" style="flex:1.5"><label>代码 (自动)</label><input type="text" id="inCode" readonly></div>
         </div>
         <div class="form-row">
-            <div class="form-group"><label>最低市值(亿)</label><input type="number" id="inMin" placeholder="15000"></div>
-            <div class="form-group"><label>最高市值(亿)</label><input type="number" id="inMax" placeholder="25000"></div>
+            <div class="form-group"><label>最低市值(亿)</label><input type="number" id="inMin" placeholder="3000"></div>
+            <div class="form-group"><label>最高市值(亿)</label><input type="number" id="inMax" placeholder="5000"></div>
         </div>
         <div style="display:flex; gap:10px; margin-top:15px; border-top:1px solid #eee; padding-top:15px;">
             <button class="btn btn-purple" style="flex:1" id="btn-pull" onclick="syncFromGithub()">☁️ 拉取</button>
@@ -233,16 +233,25 @@
         if(t) { localStorage.setItem('github_token', t); document.getElementById('token-modal').style.display='none'; uploadToGithub(); }
     }
 
-    // === 股票搜索 ===
+    // === 股票搜索（增强版：识别港股/美股） ===
     function searchStock() {
-        const val = document.getElementById('inName').value;
+        const val = document.getElementById('inName').value.trim();
         if(!val) return;
         const s = document.createElement('script');
         s.src = `https://searchapi.eastmoney.com/api/suggest/get?input=${encodeURIComponent(val)}&type=14&token=D43BF722C8E33BD5D50F639205545E43&cb=handleSearch`;
         window.handleSearch = (d) => {
             if(d?.QuotationCodeTable?.Data?.[0]) {
                 let r = d.QuotationCodeTable.Data[0];
-                let suffix = (r.MarketType == "1" || r.Code.startsWith('6')) ? ".SH" : ".SZ";
+                let suffix = "";
+                
+                // 智能识别市场后缀
+                if(r.MarketType == "1") suffix = ".SH"; // 上证
+                else if(r.MarketType == "2") suffix = ".SZ"; // 深证
+                else if(r.Code.length === 5 && /^\d+$/.test(r.Code)) suffix = ".HK"; // 港股 (5位纯数字)
+                else if(!/^\d+$/.test(r.Code)) suffix = ".US"; // 美股 (非数字，如 AAPL)
+                else if(r.Code.startsWith('6')) suffix = ".SH"; // 兜底上证
+                else suffix = ".SZ"; // 兜底深证
+
                 document.getElementById('inCode').value = r.Code + suffix;
                 document.getElementById('inName').value = r.Name;
             } else alert("未找到");
@@ -322,34 +331,56 @@
         }
     }
 
-    // ★★★ 关键修复：正确处理 .SH/.SZ 后缀，兼容东方财富 API ★★★
+    // ★★★ 核心修复：全市场代码适配器 ★★★
     const getEmSecId = c => {
-        // 移除所有后缀，只保留数字代码
-        let rawCode = c.replace('.SH', '').replace('.SZ', '').replace('.SS', '');
-        // 判断市场：上证(6开头)或原本是.SH/.SS -> 1.xxx，其他 -> 0.xxx
-        if (c.includes('.SH') || c.includes('.SS') || rawCode.startsWith('6')) {
-            return '1.' + rawCode;
-        } else {
-            return '0.' + rawCode;
-        }
+        let raw = c.replace(/\.[A-Z]+$/, '');
+        if(c.includes('.SH')) return '1.'+raw; // 上证
+        if(c.includes('.SZ')) return '0.'+raw; // 深证
+        if(c.includes('.HK')) return '116.'+raw; // 港股
+        if(c.includes('.US')) return '105.'+raw; // 美股(纳斯达克默认)
+        // 兜底
+        return (raw.startsWith('6') ? '1.' : '0.') + raw;
     };
     
-    const toYahoo = c => c.startsWith('6') ? c+'.SS' : (c.length===5 ? c.substring(1)+'.HK' : c+'.SZ');
+    const toYahoo = c => {
+        if(c.includes('.HK')) {
+            // Yahoo 港股代码通常是 4位，去掉首位0. 如 00700 -> 0700.HK
+            let raw = c.replace('.HK','');
+            return raw.replace(/^0/,'') + '.HK';
+        }
+        if(c.includes('.US')) {
+            // 美股 Yahoo 直接用代码，如 AAPL
+            return c.replace('.US','');
+        }
+        // A股
+        return c.startsWith('6') ? c+'.SS' : (c.length===5 ? c.substring(1)+'.HK' : c+'.SZ');
+    };
+
+    // 辅助：尝试获取美股股本（如果105失败试106）
+    async function fetchEmShares(secId) {
+        const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${secId}&fields=f2,f20&invt=2&fltt=2`;
+        const res = await fetch(PROXY + encodeURIComponent(url));
+        const json = await res.json();
+        return json;
+    }
 
     async function doBacktest(stock) {
-        // 1. 获取总股本 (修正版)
-        const emSecId = getEmSecId(stock.code);
-        const emCode = emSecId.split('.')[1];
-        const capUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emSecId}&fields=f2,f20&invt=2&fltt=2`;
+        // 1. 获取总股本
+        let emSecId = getEmSecId(stock.code);
+        let emCode = emSecId.split('.')[1];
         
-        const capRes = await fetch(PROXY + encodeURIComponent(capUrl));
-        const capJson = await capRes.json();
+        // 美股特殊处理：先试 105 (Nasdaq)，不行试 106 (NYSE)
+        let capJson = await fetchEmShares(emSecId);
+        if(stock.code.includes('.US') && (!capJson.data || !capJson.data.diff)) {
+            emSecId = '106.' + emCode; // 切换到 NYSE
+            capJson = await fetchEmShares(emSecId);
+        }
+
         let totalShares = 0; 
         let currentPrice = 0;
         let currentMarketCap = 0;
 
         if(capJson.data?.diff) {
-            // 兼容 API 返回数组或对象的情况
             let d = Array.isArray(capJson.data.diff) ? capJson.data.diff[0] : capJson.data.diff[emCode];
             if(d) {
                 currentPrice = d.f2;
@@ -362,18 +393,26 @@
         
         const debugBox = document.getElementById('debug-panel');
         
-        if(!totalShares) throw new Error(`无法获取股本数据 (SecID: ${emSecId})`);
+        if(!totalShares) {
+            throw new Error(`无法获取股本数据 (${stock.code})。请检查代码是否正确。`);
+        }
 
-        // 2. 获取K线
+        // 2. 获取K线 (Yahoo)
         const sd = document.getElementById('inStartDate').value;
         const ed = document.getElementById('inEndDate').value;
         const p1 = Math.floor(new Date(sd).getTime()/1000);
         const p2 = Math.floor(new Date(ed).getTime()/1000) + 86400;
         
-        const yhUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${toYahoo(emCode)}?period1=${p1}&period2=${p2}&interval=1d`;
+        const yhTicker = toYahoo(stock.code);
+        const yhUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${yhTicker}?period1=${p1}&period2=${p2}&interval=1d`;
         const hRes = await fetch(PROXY + encodeURIComponent(yhUrl));
+        
+        if(!hRes.ok) throw new Error(`Yahoo数据请求失败 (${yhTicker})`);
+        
         const hJson = await hRes.json();
-        const result = hJson.chart.result[0];
+        const result = hJson.chart.result ? hJson.chart.result[0] : null;
+        
+        if(!result || !result.timestamp) throw new Error("该时间段无K线数据");
         
         // 3. 准备数据
         let rawData = [];
@@ -408,10 +447,11 @@
 
         debugBox.innerHTML = `
             <b>🔍 数据诊断:</b><br>
+            代码: ${stock.code} (Yahoo: ${yhTicker})<br>
             实际市值范围: <b>${minHistMv.toFixed(2)} - ${maxHistMv.toFixed(2)} 亿</b><br>
             你的设定范围: <b>${stock.minCap} - ${stock.maxCap} 亿</b><br>
-            ${maxHistMv < stock.minCap ? '<span style="color:orange">⚠️ 注意：实际市值始终低于你设定的最低值，初始杠杆会一直为2.0，直到触发趋势减仓或止损。</span>' : ''}
-            ${minHistMv > stock.maxCap ? '<span style="color:red">⚠️ 注意：实际市值始终高于你设定的最高值，杠杆将极低。</span>' : ''}
+            ${maxHistMv < stock.minCap ? '<span style="color:orange">⚠️ 实际市值始终低于设定下限，杠杆可能长期2.0</span>' : ''}
+            ${minHistMv > stock.maxCap ? '<span style="color:red">⚠️ 实际市值始终高于设定上限，杠杆将极低</span>' : ''}
         `;
 
         const ma = (idx, n) => {
@@ -448,12 +488,10 @@
 
             const nearLowMv = (curMv <= minCap * 1.05);
 
-            // === 1. 回撤保护逻辑 (20日滚动) ===
+            // 1. 回撤保护 (20日滚动)
             let winStart = Math.max(0, i - 20);
             let winNav = 0;
-            for(let k=winStart; k<history.length; k++) {
-                if(history[k].nav > winNav) winNav = history[k].nav;
-            }
+            for(let k=winStart; k<history.length; k++) if(history[k].nav > winNav) winNav = history[k].nav;
             if(i < 20) winNav = peakNav; 
             if(nav > winNav) winNav = nav;
 
@@ -470,7 +508,7 @@
                 }
             }
 
-            // === 2. 保护期内恢复/减仓逻辑 ===
+            // 2. 保护期内恢复/减仓
             if(inProtect) {
                 let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20);
                 let trendUp = (m5 && m10 && m20 && m5 > m10 && m10 > m20);
@@ -482,8 +520,7 @@
                 } else {
                     if(m5 && m10 && m20 && m5 < m10 && m10 < m20) {
                         let slope = (m10 - m20)/m20;
-                        // 极速减仓逻辑
-                        let reduce = Math.min(1.0, Math.abs(slope)*25);
+                        let reduce = Math.min(1.0, Math.abs(slope)*25); // 极速减仓
                         newL = Math.max(0.01, prevL * (1 - reduce * 0.8));
                         reason = "保护中极速减仓";
                     } else {
@@ -493,13 +530,12 @@
                 }
             }
 
-            // === 3. 普通下跌趋势逻辑 (不被nearLowMv锁死) ===
+            // 3. 普通下跌趋势
             if(!inProtect) {
                 let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20);
                 if(m5 && m10 && m20 && m5 < m10 && m10 < m20) {
                     let slope = (m10 - m20)/m20;
-                    // 极速减仓逻辑
-                    let reduce = Math.min(1.0, Math.abs(slope)*25);
+                    let reduce = Math.min(1.0, Math.abs(slope)*25); // 极速减仓
                     let trendL = Math.max(0.01, prevL * (1 - reduce * 0.8));
                     
                     if(trendL < newL) {
@@ -509,7 +545,7 @@
                 }
             }
 
-            // === 4. 上涨趋势逻辑 ===
+            // 4. 上涨趋势
             if(!inProtect && (isUptrend(i))) {
                 if(r < -0.02) {
                     newL = Math.min(2.0, prevL * 1.05);
@@ -519,7 +555,6 @@
                 }
             }
 
-            // 记录日志
             if(Math.abs(newL - prevL) > 0.005) { 
                 let action = newL > prevL ? "加仓" : "减仓";
                 let colorClass = newL > prevL ? "bg-red" : "bg-green";
@@ -538,7 +573,6 @@
             prevL = newL;
         }
 
-        // 更新统计
         const last = history[history.length-1];
         const ret = (last.nav - 1)*100;
         const sRet = (last.close / history[0].close - 1)*100;
