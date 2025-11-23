@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -9,75 +10,71 @@
         :root { --primary: #007bff; --bg: #f4f6f9; --card: #fff; --text: #333; --border: #eee; --selected: #e3f2fd; }
         body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; padding-bottom: 80px; font-size: 14px; }
         .container { max-width: 800px; margin: 0 auto; }
-code
-Code
-/* === 卡片框架 === */
-    .card { background: var(--card); border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 12px; overflow: hidden; transition: all 0.3s; }
-    .card-header { padding: 12px 15px; background: #fff; border-bottom: 1px solid transparent; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 15px; user-select: none; }
-    
-    .header-title { flex: 1; cursor: pointer; display: flex; align-items: center; gap: 5px; }
-    .arrow { transition: transform 0.3s; color: #999; font-size: 12px; }
-    .card.open .arrow { transform: rotate(180deg); }
-    .card.open .card-header { border-bottom-color: var(--border); }
-    .card-body { display: none; padding: 15px; }
-    .card.open .card-body { display: block; }
 
-    /* === 表单组件 === */
-    .form-row { display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-end; }
-    .form-group { flex: 1; min-width: 0; }
-    .form-group label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .form-group input { width: 100%; box-sizing: border-box; padding: 10px 8px; border: 1px solid #ddd; border-radius: 6px; outline: none; font-size: 14px; -webkit-appearance: none; background: #fff; }
-    .form-group input:focus { border-color: var(--primary); }
-    .form-group input[readonly] { background: #f5f5f5; color: #888; }
+        /* === 卡片框架 === */
+        .card { background: var(--card); border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 12px; overflow: hidden; transition: all 0.3s; }
+        .card-header { padding: 12px 15px; background: #fff; border-bottom: 1px solid transparent; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 15px; user-select: none; }
+        
+        .header-title { flex: 1; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+        .arrow { transition: transform 0.3s; color: #999; font-size: 12px; }
+        .card.open .arrow { transform: rotate(180deg); }
+        .card.open .card-header { border-bottom-color: var(--border); }
+        .card-body { display: none; padding: 15px; }
+        .card.open .card-body { display: block; }
 
-    /* === 按钮样式 === */
-    .action-bar { display: flex; gap: 8px; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px; }
-    .btn { border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 10px; transition: opacity 0.2s; }
-    .btn:active { opacity: 0.8; }
-    .btn:disabled { background: #ccc !important; cursor: not-allowed; }
-    
-    .btn-purple { background: #6f42c1; flex: 1; }
-    .btn-orange { background: #fd7e14; flex: 1; }
-    .btn-green { background: #28a745; flex: 2; font-weight: bold; font-size: 14px; }
-    .btn-blue { background: #007bff; }
-    .btn-yellow { background: #ffc107; color: #333; }
-    .btn-red { background: #dc3545; }
-    .btn-gray { background: #6c757d; }
-    .btn-icon { width: 40px; padding: 0; height: 40px; margin-bottom: 1px; flex: none; }
+        /* === 表单组件 === */
+        .form-row { display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-end; }
+        .form-group { flex: 1; min-width: 0; }
+        .form-group label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .form-group input { width: 100%; box-sizing: border-box; padding: 10px 8px; border: 1px solid #ddd; border-radius: 6px; outline: none; font-size: 14px; -webkit-appearance: none; background: #fff; }
+        .form-group input:focus { border-color: var(--primary); }
+        .form-group input[readonly] { background: #f5f5f5; color: #888; }
 
-    /* === 列表与按钮组优化 === */
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; }
-    th { text-align: left; padding: 10px 5px; background: #f8f9fa; color: #666; font-size: 12px; }
-    td { padding: 12px 5px; border-bottom: 1px solid #eee; font-size: 13px; vertical-align: middle; }
-    tr.active-row { background-color: var(--selected); }
-    tr:not(.active-row):hover { background-color: #fafafa; }
-    
-    .tag { background:#eee; color:#555; padding:2px 4px; border-radius:3px; font-size:11px; font-family:monospace; margin-top: 3px; display: inline-block;}
-    
-    /* 按钮组容器：强制并排 */
-    .btn-group { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
-    /* 小按钮样式 */
-    .btn-sm { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 14px; }
+        /* === 按钮样式 === */
+        .action-bar { display: flex; gap: 8px; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px; }
+        .btn { border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 10px; transition: opacity 0.2s; }
+        .btn:active { opacity: 0.8; }
+        .btn:disabled { background: #ccc !important; cursor: not-allowed; }
+        
+        .btn-purple { background: #6f42c1; flex: 1; }
+        .btn-orange { background: #fd7e14; flex: 1; }
+        .btn-green { background: #28a745; flex: 2; font-weight: bold; font-size: 14px; }
+        .btn-blue { background: #007bff; }
+        .btn-yellow { background: #ffc107; color: #333; }
+        .btn-red { background: #dc3545; }
+        .btn-gray { background: #6c757d; }
+        .btn-icon { width: 40px; padding: 0; height: 40px; margin-bottom: 1px; flex: none; }
 
-    /* === 统计与图表 === */
-    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin-bottom: 15px; margin-top: 10px; }
-    .stat-item { background: #f8f9fa; padding: 8px; border-radius: 6px; }
-    .stat-val { font-size: 15px; font-weight: bold; }
-    .stat-lbl { font-size: 10px; color: #888; margin-top: 2px; }
-    .win { color: #d32f2f; } .loss { color: #2e7d32; }
+        /* === 列表与按钮组优化 === */
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 10px 12px; background: #f8f9fa; color: #666; font-size: 12px; white-space: nowrap; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 13px; vertical-align: middle; }
+        tr.active-row { background-color: var(--selected); }
+        tr:not(.active-row):hover { background-color: #fafafa; }
+        
+        /* 按钮组容器：强制并排 */
+        .btn-group { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+        /* 小按钮样式 */
+        .btn-sm { width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 12px; }
 
-    #chart-box { width: 100%; height: 350px; }
-    
-    /* 模态框 */
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; }
-    .modal-box { background: #fff; padding: 20px; border-radius: 12px; width: 85%; max-width: 320px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-</style>
+        /* === 统计与图表 === */
+        .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin-bottom: 15px; margin-top: 10px; }
+        .stat-item { background: #f8f9fa; padding: 8px; border-radius: 6px; }
+        .stat-val { font-size: 15px; font-weight: bold; }
+        .stat-lbl { font-size: 10px; color: #888; margin-top: 2px; }
+        .win { color: #d32f2f; } .loss { color: #2e7d32; }
+
+        #chart-box { width: 100%; height: 350px; }
+        
+        /* 模态框 */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; }
+        .modal-box { background: #fff; padding: 20px; border-radius: 12px; width: 85%; max-width: 320px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+    </style>
 </head>
 <body>
 <div class="container">
-code
-Code
+
 <!-- === 第一部分：配置 (默认展开) === -->
 <div class="card open" id="card-config">
     <div class="card-header">
@@ -121,7 +118,7 @@ Code
     </div>
 </div>
 
-<!-- === 第二部分：监控列表 === -->
+<!-- === 第二部分：监控列表 (已修改为单行显示) === -->
 <div class="card open" id="card-list">
     <div class="card-header">
         <div class="header-title" onclick="toggleCard('card-list')">
@@ -132,7 +129,13 @@ Code
     <div class="card-body" style="padding:0;">
         <div class="table-wrap">
             <table id="stock-table">
-                <thead><tr><th>名称/代码</th><th>市值(亿)</th><th style="text-align:right; width:80px;">操作</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>股票信息</th>
+                        <th>市值范围(亿)</th>
+                        <th style="text-align:right; width:80px;">操作</th>
+                    </tr>
+                </thead>
                 <tbody id="stock-tbody"></tbody>
             </table>
         </div>
@@ -185,6 +188,7 @@ Code
     </div>
 </div>
 </div>
+
 <!-- Token Modal -->
 <div id="token-modal" class="modal">
     <div class="modal-box">
@@ -197,6 +201,7 @@ Code
         </div>
     </div>
 </div>
+
 <script>
     // === 配置 ===
     const GITHUB_CONFIG = { username: "dlezywj-cell", repo: "backtest", path: "grid_config.json", branch: "main" };
@@ -323,6 +328,7 @@ Code
         }
     }
 
+    // === 修改后的 renderTable 函数：单行显示 ===
     function renderTable() {
         const tb = document.getElementById('stock-tbody');
         document.getElementById('list-badge').innerText = `(${stocks.length})`;
@@ -333,15 +339,13 @@ Code
         }
 
         tb.innerHTML = stocks.map((s, i) => `
-            <tr class="${i === selectedIndex ? 'active-row' : ''}" onclick="selectRow(${i})" style="cursor:pointer">
-                <td>
-                    <div style="font-weight:bold; font-size:14px;">${s.name}</div>
-                    <div class="tag">${s.code}</div>
+            <tr class="${i === selectedIndex ? 'active-row' : ''}" onclick="selectRow(${i})" style="cursor:pointer;">
+                <td style="white-space: nowrap;">
+                    <span style="font-weight:600; font-size:14px;">${s.name}</span>
+                    <span style="color:#999; font-size:12px; margin-left:4px;">${s.code}</span>
                 </td>
-                <td style="font-family:monospace;">
-                    ${s.minCap}<br>
-                    <span style="color:#ccc;font-size:10px;">—</span><br>
-                    ${s.maxCap}
+                <td style="font-family:monospace; color:#007bff; font-size:13px;">
+                    ${s.minCap}-${s.maxCap}
                 </td>
                 <td style="text-align:right">
                     <div class="btn-group">
