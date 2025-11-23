@@ -16,5 +16,11 @@
     "name": "银轮股份",
     "minCap": 252,
     "maxCap": 400
+  },
+  {
+    "code": "00388.SZ",
+    "name": "香港交易所",
+    "minCap": 252,
+    "maxCap": 370
   }
 ]
