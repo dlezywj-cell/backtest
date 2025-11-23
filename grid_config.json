@@ -20,13 +20,13 @@
   {
     "code": "00388.HK",
     "name": "香港交易所",
-    "minCap": 4900,
+    "minCap": 3500,
     "maxCap": 7000
   },
   {
     "code": "NVDA.US",
     "name": "英伟达",
-    "minCap": 30000,
-    "maxCap": 70000
+    "minCap": 22000,
+    "maxCap": 55000
   }
 ]
