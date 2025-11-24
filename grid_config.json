@@ -76,5 +76,11 @@
     "name": "石头科技",
     "minCap": 400,
     "maxCap": 555
+  },
+  {
+    "code": "600885.SH",
+    "name": "宏发股份",
+    "minCap": 420,
+    "maxCap": 520
   }
 ]
