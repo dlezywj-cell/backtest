@@ -70,5 +70,11 @@
     "name": "东鹏饮料",
     "minCap": 1200,
     "maxCap": 1700
+  },
+  {
+    "code": "688169.SH",
+    "name": "石头科技",
+    "minCap": 400,
+    "maxCap": 555
   }
 ]
