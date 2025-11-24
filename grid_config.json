@@ -26,8 +26,8 @@
   {
     "code": "NVDA.US",
     "name": "英伟达",
-    "minCap": 22000,
-    "maxCap": 55000
+    "minCap": 30000,
+    "maxCap": 60000
   },
   {
     "code": "601689.SH",
