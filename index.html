@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (批量精修版)</title>
+    <title>估值杠杆策略 (UI精修版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -20,7 +20,7 @@
         .card.open .card-header { border-bottom-color: var(--border); }
         .arrow { font-size: 12px; color: #999; transition: transform 0.3s; }
         .card.open .arrow { transform: rotate(180deg); }
-        .card.open .header-arrow { transform: rotate(180deg); } /* 通用箭头 */
+        .card.open .header-arrow { transform: rotate(180deg); }
 
         /* === 表单与按钮 === */
         .form-row { display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-end; }
@@ -46,7 +46,7 @@
         .btn-purple { background: #6f42c1; }
         .btn-orange { background: #fd7e14; }
         .btn-gray { background: #6c757d; }
-        .btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 4px; margin-left: 4px; }
+        .btn-sm { padding: 6px 12px; font-size: 14px; border-radius: 4px; } /* 调整按钮大小 */
 
         /* === 统计与图表 === */
         .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin-bottom: 15px; margin-top: 15px; }
@@ -67,15 +67,15 @@
         .summary-table tr:active { background: #f0f0f0; }
         .summary-table tr.selected { background: #e3f2fd !important; border-left: 3px solid #007bff; }
         .summary-table tr.selected td { font-weight: 500; }
-        
-        .val-pos { color: #d32f2f; }
-        .val-neg { color: #2e7d32; }
+        .val-pos { color: #d32f2f; } .val-neg { color: #2e7d32; }
 
         /* === 基础表格 (监控列表) === */
-        .base-table { width: 100%; border-collapse: collapse; }
+        .base-table { width: 100%; border-collapse: collapse; table-layout: fixed; } /* 固定布局防止挤压 */
         .base-table th { background: #f8f9fa; padding: 10px; text-align: left; font-size: 12px; color:#666; border-bottom: 1px solid #ddd; }
-        .base-table td { padding: 12px 10px; border-bottom: 1px solid #eee; text-align: left; font-size: 13px; vertical-align: middle; }
-        /* Checkbox 样式优化 */
+        .base-table td { padding: 12px 5px; border-bottom: 1px solid #eee; text-align: left; font-size: 13px; vertical-align: middle; }
+        
+        /* 操作列按钮组居中 */
+        .op-btn-group { display: flex; justify-content: center; gap: 8px; } 
         input[type="checkbox"] { width: 18px; height: 18px; vertical-align: middle; cursor: pointer; }
 
         /* === 区域折叠头 === */
@@ -85,9 +85,17 @@
         .section-body.collapsed { display: none; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         
-        /* === 日志表格样式 === */
-        .log-table th { background: #fff; color: #666; font-size: 12px; position: sticky; top: 0; }
-        .log-table td { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; }
+        /* === 日志表格样式 (修复对齐) === */
+        .log-table { width: 100%; border-collapse: collapse; table-layout: fixed; } /* 关键：固定宽度 */
+        .log-table th { background: #fff; color: #666; font-size: 12px; position: sticky; top: 0; border-bottom: 2px solid #eee; text-align: left; padding: 8px 5px; }
+        .log-table td { padding: 8px 5px; border-bottom: 1px solid #f0f0f0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        /* 日志列宽控制 */
+        .log-col-date { width: 22%; }
+        .log-col-action { width: 15%; text-align: center !important; }
+        .log-col-val { width: 28%; text-align: center !important; }
+        .log-col-reason { width: 35%; }
+
         .badge { padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #fff; font-weight: normal; }
         .bg-red { background: #d32f2f; }
         .bg-green { background: #2e7d32; }
@@ -124,7 +132,7 @@
     </div>
 </div>
 
-<!-- 列表卡片 -->
+<!-- 列表卡片 (修改：Checkbox在最右侧，操作按钮横向居中) -->
 <div class="card open" id="card-list">
     <div class="card-header" onclick="toggleCard('card-list')">
         <div class="header-title"><span>📋 监控列表</span><span id="list-count" style="font-weight:normal;margin-left:5px;color:#999;"></span></div>
@@ -135,10 +143,10 @@
             <table class="base-table">
                 <thead>
                     <tr>
-                        <th style="width:30px; text-align:center;"><input type="checkbox" id="check-all" onchange="toggleAllStocks(this)" checked></th>
                         <th>股票信息</th>
-                        <th>市值区间</th>
-                        <th style="text-align:right">操作</th>
+                        <th style="width:30%;">市值区间</th>
+                        <th style="text-align:center; width:90px;">操作</th>
+                        <th style="width:40px; text-align:center;"><input type="checkbox" id="check-all" onchange="toggleAllStocks(this)" checked></th>
                     </tr>
                 </thead>
                 <tbody id="stock-tbody"></tbody>
@@ -204,7 +212,7 @@
             
             <div id="chart-box"></div>
 
-            <!-- 交易日志 (可折叠，默认折叠) -->
+            <!-- 交易日志 (可折叠，默认折叠，已修复对齐) -->
             <div style="margin-top:20px;">
                 <div class="section-header" onclick="toggleSection('log-content', this)">
                     <span>📜 交易日志 <span id="log-count" style="font-weight:normal; color:#999; font-size:12px;"></span></span> 
@@ -213,13 +221,13 @@
                 
                 <div id="log-content" class="section-body collapsed" style="border:1px solid #eee; border-radius:6px; border-top:0;">
                     <div style="max-height: 300px; overflow-y: auto;">
-                        <table class="log-table" style="width:100%; border-collapse:collapse;">
+                        <table class="log-table">
                             <thead style="background:#f9f9f9;">
                                 <tr>
-                                    <th>日期</th>
-                                    <th>动作</th>
-                                    <th>变动</th>
-                                    <th>原因</th>
+                                    <th class="log-col-date">日期</th>
+                                    <th class="log-col-action">动作</th>
+                                    <th class="log-col-val">变动</th>
+                                    <th class="log-col-reason">原因</th>
                                 </tr>
                             </thead>
                             <tbody id="log-tbody">
@@ -254,7 +262,7 @@
     const PROXY = 'https://corsproxy.io/?'; 
     let stocks = JSON.parse(localStorage.getItem('gridStocks')) || [];
     let myChart = null;
-    let batchResults = []; // 存储所有回测结果
+    let batchResults = [];
 
     function initDates() {
         const d = new Date();
@@ -276,17 +284,12 @@
         el.classList.toggle('collapsed');
         const arrow = headerEl.querySelector('.header-arrow');
         if(arrow) {
-            // 简单的旋转逻辑：collapsed 时箭头向下(0deg), 展开时向上(180deg)
-            // CSS中已定义 .arrow 样式，这里我们通过 class 或者 transform 控制
-            if(el.classList.contains('collapsed')) {
-                arrow.style.transform = 'rotate(0deg)';
-            } else {
-                arrow.style.transform = 'rotate(180deg)';
-            }
+            if(el.classList.contains('collapsed')) arrow.style.transform = 'rotate(0deg)';
+            else arrow.style.transform = 'rotate(180deg)';
         }
     }
 
-    // === GitHub 逻辑 (保持不变) ===
+    // === GitHub 逻辑 ===
     function safeB64ToUtf8(str) { return decodeURIComponent(escape(window.atob(str.replace(/\s/g, '')))); }
     function utf8ToB64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
     
@@ -368,22 +371,24 @@
         alert("已保存");
     }
 
+    // === 修改：renderTable 渲染逻辑，调整列顺序 ===
     function renderTable() {
         const tb = document.getElementById('stock-tbody');
         document.getElementById('list-count').innerText = `(${stocks.length})`;
         tb.innerHTML = stocks.map((s, i) => `
             <tr>
-                <td style="text-align:center;"><input type="checkbox" class="stock-chk" value="${i}" checked></td>
                 <td><b>${s.name}</b> <span style="color:#999;font-size:12px">${s.code}</span></td>
                 <td>${s.minCap}-${s.maxCap}亿</td>
-                <td style="text-align:right; white-space:nowrap;">
-                    <button class="btn btn-blue btn-sm" onclick="editStock(${i})">✎</button>
-                    <button class="btn btn-red btn-sm" onclick="delStock(${i})">🗑</button>
+                <td style="text-align:center;">
+                    <div class="op-btn-group">
+                        <button class="btn btn-blue btn-sm" onclick="editStock(${i})">✎</button>
+                        <button class="btn btn-red btn-sm" onclick="delStock(${i})">🗑</button>
+                    </div>
                 </td>
+                <td style="text-align:center;"><input type="checkbox" class="stock-chk" value="${i}" checked></td>
             </tr>
         `).join('');
         
-        // 重新绑定全选状态
         checkAllState();
     }
 
@@ -399,7 +404,6 @@
         else el.checked = false;
     }
 
-    // 监听单个 checkbox 变化更新全选框
     document.addEventListener('change', function(e){
         if(e.target.classList.contains('stock-chk')) checkAllState();
     });
@@ -410,9 +414,7 @@
         document.getElementById('inCode').value = s.code;
         document.getElementById('inMin').value = s.minCap;
         document.getElementById('inMax').value = s.maxCap;
-        // 滚动到顶部
         document.getElementById('card-config').scrollIntoView({behavior: 'smooth'});
-        // 提示用户
         const btn = document.querySelector('.btn-green');
         const oldText = btn.innerText;
         btn.innerText = "📝 修改中...";
@@ -427,7 +429,7 @@
     }
 
     // ==============================================
-    // === 核心回测逻辑 ===
+    // === 核心回测逻辑 (无功能性变动) ===
     // ==============================================
 
     const getEmSecId = c => {
@@ -452,9 +454,7 @@
         return await res.json();
     }
 
-    // --- 1. 单只股票纯计算函数 ---
     async function calculateStock(stock) {
-        // 获取总股本
         let emSecId = getEmSecId(stock.code);
         let emCode = emSecId.split('.')[1];
         
@@ -467,14 +467,11 @@
         let totalShares = 0; 
         if(capJson.data?.diff) {
             let d = Array.isArray(capJson.data.diff) ? capJson.data.diff[0] : capJson.data.diff[emCode];
-            if(d && d.f2 > 0) {
-                totalShares = (d.f20 / d.f2) / 100000000; // 亿
-            }
+            if(d && d.f2 > 0) totalShares = (d.f20 / d.f2) / 100000000;
         }
         
         if(!totalShares) throw new Error(`无法获取股本数据`);
 
-        // 获取K线
         const sd = document.getElementById('inStartDate').value;
         const ed = document.getElementById('inEndDate').value;
         const p1 = Math.floor(new Date(sd).getTime()/1000);
@@ -491,7 +488,6 @@
         
         if(!result || !result.timestamp || result.timestamp.length === 0) throw new Error("该时段无K线数据");
         
-        // 准备计算数据
         let rawData = [];
         const quotes = result.indicators.quote[0];
         const minCap = stock.minCap;
@@ -518,7 +514,6 @@
             }
         });
 
-        // 回测策略逻辑
         const ma = (idx, n) => {
             if(idx<n) return null;
             let sum=0; for(let k=idx-n; k<idx; k++) sum+=rawData[k].close;
@@ -548,10 +543,8 @@
             const targetL = getTargetLeverage(curMv);
             let newL = targetL;
             let reason = "估值驱动";
-
             const nearLowMv = (curMv <= minCap * 1.05);
 
-            // 1. 回撤保护
             let winStart = Math.max(0, i - 20);
             let winNav = 0;
             for(let k=winStart; k<history.length; k++) if(history[k].nav > winNav) winNav = history[k].nav;
@@ -561,72 +554,43 @@
             let curDrawdown = (winNav > 0) ? (winNav - nav) / winNav : 0;
 
             if(curDrawdown > 0.15 && !inProtect) {
-                if(nearLowMv) {
-                    reason = "市值低估跳过止损"; 
-                } else {
-                    inProtect = true;
-                    newL = prevL * 0.4;
-                    reason = `回撤止损(DD:${(curDrawdown*100).toFixed(1)}%)`;
-                    peakNav = nav;
-                }
+                if(nearLowMv) reason = "市值低估跳过止损"; 
+                else { inProtect = true; newL = prevL * 0.4; reason = `回撤止损(DD:${(curDrawdown*100).toFixed(1)}%)`; peakNav = nav; }
             }
 
-            // 2. 保护期
             if(inProtect) {
                 let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20);
                 let trendUp = (m5 && m10 && m20 && m5 > m10 && m10 > m20);
-                
-                if(trendUp && d.valScore > 0) { 
-                    inProtect = false;
-                    newL = targetL; 
-                    reason = "趋势恢复且估值改善";
-                } else {
+                if(trendUp && d.valScore > 0) { inProtect = false; newL = targetL; reason = "趋势恢复且估值改善"; } 
+                else {
                     if(m5 && m10 && m20 && m5 < m10 && m10 < m20) {
                         let slope = (m10 - m20)/m20;
                         let reduce = Math.min(1.0, Math.abs(slope)*25);
                         newL = Math.max(0.01, prevL * (1 - reduce * 0.8));
                         reason = "保护中极速减仓";
-                    } else {
-                        newL = 0.01;
-                        if(prevL > 0.02) reason = "保护中(空仓)";
-                    }
+                    } else { newL = 0.01; if(prevL > 0.02) reason = "保护中(空仓)"; }
                 }
             }
 
-            // 3. 普通趋势
             if(!inProtect) {
                 let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20);
                 if(m5 && m10 && m20 && m5 < m10 && m10 < m20) {
                     let slope = (m10 - m20)/m20;
                     let reduce = Math.min(1.0, Math.abs(slope)*25);
                     let trendL = Math.max(0.01, prevL * (1 - reduce * 0.8));
-                    
-                    if(trendL < newL) {
-                         newL = trendL;
-                         reason = "趋势转弱极速减仓";
-                    }
+                    if(trendL < newL) { newL = trendL; reason = "趋势转弱极速减仓"; }
                 }
             }
 
-            // 4. 上涨趋势
             if(!inProtect && (isUptrend(i))) {
-                if(r < -0.02) {
-                    newL = Math.min(2.0, prevL * 1.05);
-                    reason = "上涨中急跌加仓";
-                } else {
-                    newL = Math.max(prevL, targetL);
-                }
+                if(r < -0.02) { newL = Math.min(2.0, prevL * 1.05); reason = "上涨中急跌加仓"; } 
+                else { newL = Math.max(prevL, targetL); }
             }
 
             if(Math.abs(newL - prevL) > 0.005) { 
                 let action = newL > prevL ? "加仓" : "减仓";
                 let colorClass = newL > prevL ? "bg-red" : "bg-green";
-                changeLogs.push({
-                    date: d.date,
-                    action: `<span class="badge ${colorClass}">${action}</span>`,
-                    val: `${prevL.toFixed(2)} → ${newL.toFixed(2)}`,
-                    reason: reason
-                });
+                changeLogs.push({ date: d.date, action: `<span class="badge ${colorClass}">${action}</span>`, val: `${prevL.toFixed(2)} → ${newL.toFixed(2)}`, reason: reason });
             }
 
             nav = nav * (1 + prevL * r);
@@ -638,69 +602,43 @@
         const last = history[history.length-1];
         const ret = (last.nav - 1)*100;
         const sRet = (last.close / history[0].close - 1)*100;
-        
-        // 计算最大回撤
         let maxDD = 0, p = -999;
-        history.forEach(h => {
-            if(h.nav > p) p = h.nav;
-            let dd = (p - h.nav) / p;
-            if(dd > maxDD) maxDD = dd;
-        });
+        history.forEach(h => { if(h.nav > p) p = h.nav; let dd = (p - h.nav) / p; if(dd > maxDD) maxDD = dd; });
 
         return {
-            stockName: stock.name,
-            stockCode: stock.code,
-            history: history,
-            logs: changeLogs,
-            stats: {
-                ret: ret,
-                stockRet: sRet,
-                alpha: ret - sRet,
-                maxDD: maxDD * 100,
-                avgLev: history.reduce((a,b)=>a+b.leverage,0)/history.length
-            }
+            stockName: stock.name, stockCode: stock.code, history: history, logs: changeLogs,
+            stats: { ret: ret, stockRet: sRet, alpha: ret - sRet, maxDD: maxDD * 100, avgLev: history.reduce((a,b)=>a+b.leverage,0)/history.length }
         };
     }
 
-    // --- 2. 批量运行控制器 (选中版) ---
     async function runBatchBacktest() {
         const checkedBoxes = document.querySelectorAll('.stock-chk:checked');
         if(checkedBoxes.length === 0) return alert("请至少勾选一只股票");
-        
-        // 获取选中股票的索引
         const selectedIndices = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
-
         const btn = document.getElementById('btn-run-all');
         const progress = document.getElementById('batch-progress');
         const sumBox = document.getElementById('batch-summary-box');
         const sumTbody = document.getElementById('summary-tbody');
         const detailView = document.getElementById('detail-view');
 
-        // 状态重置
         btn.innerText = "⏳"; btn.disabled = true;
         detailView.style.display = 'none';
         sumBox.style.display = 'block';
         sumTbody.innerHTML = '';
         progress.style.display = 'block';
-        
-        // 确保展开排行榜
         document.getElementById('summary-content').classList.remove('collapsed');
         document.querySelector('#batch-summary-box .header-arrow').style.transform = 'rotate(180deg)';
-        
         batchResults = [];
-
         let successCount = 0;
         const total = selectedIndices.length;
 
-        // 串行执行循环 (只针对选中的)
         for(let step=0; step < total; step++) {
             const i = selectedIndices[step];
             const s = stocks[i];
             progress.innerHTML = `正在计算 <b>${s.name}</b> (${step+1}/${total})...`;
-            
             try {
                 const res = await calculateStock(s);
-                res.index = i; // 标记ID
+                res.index = i; 
                 batchResults.push(res);
                 appendSummaryRow(res, i);
                 successCount++;
@@ -710,28 +648,19 @@
                 tr.innerHTML = `<td style="text-align:left">${s.name}<br><span style="font-size:10px;color:#999">${s.code}</span></td><td colspan="3" style="text-align:center; color:orange; font-size:12px">❌ ${e.message}</td>`;
                 sumTbody.appendChild(tr);
             }
-
             await new Promise(r => setTimeout(r, 300));
         }
-
         progress.innerHTML = `✅ 运行完成! 成功 ${successCount} / 选中 ${total}`;
         btn.innerText = "🚀 运行选中"; btn.disabled = false;
-
-        // 默认展示第一个成功的结果
-        if(batchResults.length > 0) {
-            showDetail(batchResults[0].index);
-        }
+        if(batchResults.length > 0) showDetail(batchResults[0].index);
     }
 
-    // --- 3. 渲染表格行 ---
     function appendSummaryRow(res, index) {
         const tr = document.createElement('tr');
         tr.id = `row-${index}`;
         tr.onclick = () => showDetail(index);
-        
         const cRet = res.stats.ret >= 0 ? 'val-pos' : 'val-neg';
         const cAlpha = res.stats.alpha >= 0 ? 'val-pos' : 'val-neg';
-        
         tr.innerHTML = `
             <td><b>${res.stockName}</b><br><span style="color:#999;font-size:10px">${res.stockCode}</span></td>
             <td class="${cRet}">${res.stats.ret.toFixed(1)}%</td>
@@ -741,37 +670,22 @@
         document.getElementById('summary-tbody').appendChild(tr);
     }
 
-    // --- 4. 渲染详情 (点击行触发) ---
     function showDetail(index) {
         const res = batchResults.find(r => r.index === index);
         if(!res) return;
-
-        // 高亮行
         document.querySelectorAll('.summary-table tr').forEach(r => r.classList.remove('selected'));
         const row = document.getElementById(`row-${index}`);
         if(row) row.classList.add('selected');
-
-        // 显示区域
         document.getElementById('detail-view').style.display = 'block';
         document.getElementById('detail-name').innerText = res.stockName;
-
-        // 填充统计
         const s = res.stats;
         document.getElementById('val-ret').innerText = s.ret.toFixed(2) + '%';
         document.getElementById('val-ret').className = 'stat-val ' + (s.ret>=0?'win':'loss');
-        
         document.getElementById('val-stock').innerText = s.stockRet.toFixed(2) + '%';
         document.getElementById('val-stock').className = 'stat-val ' + (s.stockRet>=0?'win':'loss');
-        
         document.getElementById('val-lev').innerText = s.avgLev.toFixed(2) + 'x';
-
-        // 渲染图表
         renderChart(res.history);
-
-        // 渲染日志 (注意：默认是折叠的，这里不强行展开，但更新内容)
         renderLog(res.logs);
-
-        // 可选：图表 resize
         if(myChart) myChart.resize();
     }
 
@@ -779,17 +693,16 @@
         const tbody = document.getElementById('log-tbody');
         const countLabel = document.getElementById('log-count');
         countLabel.innerText = `(${logs.length})`;
-        
         if(logs.length === 0) {
             tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">期间无操作</td></tr>';
             return;
         }
         tbody.innerHTML = logs.slice().reverse().map(l => `
             <tr>
-                <td style="white-space:nowrap; color:#666; font-size:11px;">${l.date}</td>
-                <td>${l.action}</td>
-                <td style="font-family:monospace; font-size:11px;">${l.val}</td>
-                <td style="font-size:11px; color:#555;">${l.reason}</td>
+                <td class="log-col-date" style="color:#666;">${l.date}</td>
+                <td class="log-col-action">${l.action}</td>
+                <td class="log-col-val" style="font-family:monospace;">${l.val}</td>
+                <td class="log-col-reason" style="color:#555;" title="${l.reason}">${l.reason}</td>
             </tr>
         `).join('');
     }
@@ -798,63 +711,32 @@
         const dom = document.getElementById('chart-box');
         if(myChart) myChart.clear(); else myChart = echarts.init(dom);
         const dates = hist.map(h=>h.date);
-        
         myChart.setOption({
             tooltip: { 
                 trigger: 'axis', axisPointer: {type: 'cross'},
                 formatter: p => {
                     let h = `<div style="font-size:12px;margin-bottom:5px;">${p[0].name}</div>`;
                     p.forEach(x => {
-                        let val = x.value;
-                        if(x.seriesName==='杠杆') val = val.toFixed(2)+'x';
-                        else val = val.toFixed(2);
-                        let color = x.color;
-                        h += `<div style="font-size:11px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:5px;"></span>${x.seriesName}: <b>${val}</b></div>`
+                        let val = x.value; if(x.seriesName==='杠杆') val = val.toFixed(2)+'x'; else val = val.toFixed(2);
+                        h += `<div style="font-size:11px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${x.color};margin-right:5px;"></span>${x.seriesName}: <b>${val}</b></div>`
                     });
                     return h;
                 },
-                backgroundColor: 'rgba(255,255,255,0.95)',
-                borderColor: '#eee', borderWidth: 1, textStyle: {color:'#333'}
+                backgroundColor: 'rgba(255,255,255,0.95)', borderColor: '#eee', borderWidth: 1, textStyle: {color:'#333'}
             },
             legend: { top: 0, data: ['股价','净值','杠杆'], itemWidth:12, itemHeight:8, textStyle:{fontSize:11} },
-            grid: [
-                {left: 10, right: 10, top:'12%', height:'58%', containLabel: true}, 
-                {left: 10, right: 10, top:'78%', height:'15%', containLabel: true}
-            ],
-            xAxis: [
-                {type:'category', data: dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}, axisLine:{lineStyle:{color:'#eee'}}}, 
-                {type:'category', data: dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}
-            ],
+            grid: [{left: 10, right: 10, top:'12%', height:'58%', containLabel: true}, {left: 10, right: 10, top:'78%', height:'15%', containLabel: true}],
+            xAxis: [{type:'category', data: dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}, axisLine:{lineStyle:{color:'#eee'}}}, {type:'category', data: dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}],
             yAxis: [
-                {   
-                    type:'value', position:'left', 
-                    splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#999'}
-                }, 
-                {   
-                    type:'value', position:'right', 
-                    splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#d32f2f'}
-                },
-                {   
-                    type:'value', gridIndex:1, splitLine:{show:true, lineStyle:{type:'dashed', color:'#eee'}}, min:0, max:2.1, axisLabel:{fontSize:10, color:'#28a745'}
-                }
+                {type:'value', position:'left', splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#999'}}, 
+                {type:'value', position:'right', splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#d32f2f'}},
+                {type:'value', gridIndex:1, splitLine:{show:true, lineStyle:{type:'dashed', color:'#eee'}}, min:0, max:2.1, axisLabel:{fontSize:10, color:'#28a745'}}
             ],
             dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
             series: [
-                {
-                    name:'股价', type:'line', yAxisIndex:0, 
-                    data:hist.map(h=>h.close), 
-                    itemStyle:{color:'#999'}, showSymbol:false, lineStyle: {width: 1}
-                },
-                {
-                    name:'净值', type:'line', yAxisIndex:1, 
-                    data:hist.map(h=>h.nav), 
-                    itemStyle:{color:'#d32f2f'}, showSymbol:false, lineStyle: {width: 2}
-                },
-                {
-                    name:'杠杆', type:'line', xAxisIndex:1, yAxisIndex:2, 
-                    data:hist.map(h=>h.leverage), 
-                    itemStyle:{color:'#28a745'}, step:'end', showSymbol:false, areaStyle:{opacity:0.1}, lineStyle: {width: 1}
-                }
+                {name:'股价', type:'line', yAxisIndex:0, data:hist.map(h=>h.close), itemStyle:{color:'#999'}, showSymbol:false, lineStyle: {width: 1}},
+                {name:'净值', type:'line', yAxisIndex:1, data:hist.map(h=>h.nav), itemStyle:{color:'#d32f2f'}, showSymbol:false, lineStyle: {width: 2}},
+                {name:'杠杆', type:'line', xAxisIndex:1, yAxisIndex:2, data:hist.map(h=>h.leverage), itemStyle:{color:'#28a745'}, step:'end', showSymbol:false, areaStyle:{opacity:0.1}, lineStyle: {width: 1}}
             ]
         });
     }
