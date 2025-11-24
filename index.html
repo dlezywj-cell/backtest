@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (最终完美版)</title>
+    <title>估值杠杆策略 (UI完美修正版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -242,7 +242,7 @@
         if(t) { localStorage.setItem('github_token', t); document.getElementById('token-modal').style.display='none'; uploadToGithub(); }
     }
 
-    // === 股票搜索（5位强制港股） ===
+    // === 股票搜索 ===
     function searchStock() {
         const val = document.getElementById('inName').value.trim();
         if(!val) return;
@@ -253,7 +253,6 @@
                 let r = d.QuotationCodeTable.Data[0];
                 let suffix = "";
                 
-                // 强规则：5位纯数字 -> 港股
                 if (/^\d{5}$/.test(r.Code)) {
                     suffix = ".HK"; 
                 } else if (/^\d{6}$/.test(r.Code)) {
@@ -345,33 +344,22 @@
         }
     }
 
-    // ★★★ 1. 东方财富ID转换 (港股强制5位) ★★★
     const getEmSecId = c => {
         let raw = c.replace(/\.[A-Z]+$/, '');
-        // 核心：5位纯数字 -> 强制港股 (116)
-        if (/^\d{5}$/.test(raw) || c.includes('.HK')) {
-            return '116.' + raw.padStart(5, '0');
-        }
+        if (c.includes('.HK') || /^\d{5}$/.test(raw)) return '116.' + raw.padStart(5, '0');
         if (c.includes('.US')) return '105.' + raw;
-        
-        // 6位数字 -> A股
-        if (/^\d{6}$/.test(raw)) {
-            return (raw.startsWith('6') ? '1.' : '0.') + raw;
-        }
+        if (raw.startsWith('6')) return '1.' + raw;
         return '0.' + raw;
     };
     
-    // ★★★ 2. Yahoo代码转换 (港股强制4位) ★★★
     const toYahoo = c => {
         let raw = c.replace(/\.[A-Z]+$/, '');
-        // 核心：5位纯数字 -> Yahoo港股(4位)
-        if (/^\d{5}$/.test(raw) || c.includes('.HK')) {
+        if (c.includes('.HK') || /^\d{5}$/.test(raw)) {
             let num = parseInt(raw, 10);
-            return num.toString().padStart(4, '0') + '.HK'; // 00388 -> 0388.HK
+            return num.toString().padStart(4, '0') + '.HK';
         }
         if (c.includes('.US')) return raw;
-        // A股
-        if (raw.startsWith('6')) return raw + '.SS';
+        if (c.includes('.SH') || (raw.startsWith('6') && !c.includes('.SZ'))) return raw + '.SS';
         return raw + '.SZ';
     };
 
@@ -503,7 +491,7 @@
 
             const nearLowMv = (curMv <= minCap * 1.05);
 
-            // 1. 回撤保护 (20日滚动)
+            // 1. 回撤保护
             let winStart = Math.max(0, i - 20);
             let winNav = 0;
             for(let k=winStart; k<history.length; k++) if(history[k].nav > winNav) winNav = history[k].nav;
@@ -603,6 +591,7 @@
         renderChart(history);
     }
 
+    // ★★★ 核心：补回被遗漏的 renderLog 函数 ★★★
     function renderLog(logs) {
         const tbody = document.getElementById('log-tbody');
         document.getElementById('log-count').innerText = `(${logs.length})`;
@@ -611,6 +600,7 @@
             tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">无操作记录</td></tr>';
             return;
         }
+        // 倒序渲染：最近的在上面
         tbody.innerHTML = logs.reverse().map(l => `
             <tr>
                 <td style="white-space:nowrap; color:#666; font-size:12px;">${l.date}</td>
@@ -641,10 +631,10 @@
                 }
             },
             legend: { top: 0, data: ['股价','净值','杠杆'] },
-            // 修复点：统一对齐
+            // ★★★ 界面优化：加大右侧留白，强制对齐 ★★★
             grid: [
-                {left:'12%', right:'5%', top:'10%', height:'55%', containLabel: false}, 
-                {left:'12%', right:'5%', top:'75%', height:'15%', containLabel: false}
+                {left:'10%', right:'15%', top:'10%', height:'55%', containLabel: false}, 
+                {left:'10%', right:'15%', top:'75%', height:'15%', containLabel: false}
             ],
             xAxis: [
                 {type:'category', data: dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}}, 
