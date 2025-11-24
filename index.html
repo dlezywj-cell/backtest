@@ -36,17 +36,36 @@
             .run-bar #btn-run-all { width: 100%; margin-top: 8px; padding: 12px; font-size: 16px; font-weight: bold; }
         }
 
-        /* 按钮样式 */
+        /* 按钮基础样式 */
         .btn { border: none; border-radius: 6px; padding: 10px; color: #fff; cursor: pointer; font-weight: 500; display:flex; align-items:center; justify-content:center; transition: opacity 0.2s; }
         .btn:active { opacity: 0.8; }
         .btn:disabled { background: #ccc !important; cursor: not-allowed; }
         .btn-blue { background: #007bff; } 
         .btn-green { background: #28a745; } 
-        .btn-red { background: #dc3545; } 
         .btn-purple { background: #6f42c1; }
         .btn-orange { background: #fd7e14; }
         .btn-gray { background: #6c757d; }
-        .btn-sm { padding: 6px 12px; font-size: 14px; border-radius: 4px; } /* 调整按钮大小 */
+        
+        /* === 新增：自定义图标按钮样式 (编辑与删除) === */
+        .btn-icon-square { 
+            width: 28px; 
+            height: 28px; 
+            padding: 0; 
+            border-radius: 6px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 14px; /* 图标小一点 */
+            line-height: 1;
+        }
+        .btn-edit-yellow { 
+            background: #ffca28; /* 黄色背景 */
+            color: #333;         /* 铅笔颜色深一点 */
+        }
+        .btn-del-red { 
+            background: #ef5350; /* 红色背景 */
+            color: #fff;         /* 白色叉叉 */
+        }
 
         /* === 统计与图表 === */
         .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin-bottom: 15px; margin-top: 15px; }
@@ -70,7 +89,7 @@
         .val-pos { color: #d32f2f; } .val-neg { color: #2e7d32; }
 
         /* === 基础表格 (监控列表) === */
-        .base-table { width: 100%; border-collapse: collapse; table-layout: fixed; } /* 固定布局防止挤压 */
+        .base-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .base-table th { background: #f8f9fa; padding: 10px; text-align: left; font-size: 12px; color:#666; border-bottom: 1px solid #ddd; }
         .base-table td { padding: 12px 5px; border-bottom: 1px solid #eee; text-align: left; font-size: 13px; vertical-align: middle; }
         
@@ -85,8 +104,8 @@
         .section-body.collapsed { display: none; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         
-        /* === 日志表格样式 (修复对齐) === */
-        .log-table { width: 100%; border-collapse: collapse; table-layout: fixed; } /* 关键：固定宽度 */
+        /* === 日志表格样式 === */
+        .log-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .log-table th { background: #fff; color: #666; font-size: 12px; position: sticky; top: 0; border-bottom: 2px solid #eee; text-align: left; padding: 8px 5px; }
         .log-table td { padding: 8px 5px; border-bottom: 1px solid #f0f0f0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
@@ -132,7 +151,7 @@
     </div>
 </div>
 
-<!-- 列表卡片 (修改：Checkbox在最右侧，操作按钮横向居中) -->
+<!-- 列表卡片 -->
 <div class="card open" id="card-list">
     <div class="card-header" onclick="toggleCard('card-list')">
         <div class="header-title"><span>📋 监控列表</span><span id="list-count" style="font-weight:normal;margin-left:5px;color:#999;"></span></div>
@@ -212,7 +231,7 @@
             
             <div id="chart-box"></div>
 
-            <!-- 交易日志 (可折叠，默认折叠，已修复对齐) -->
+            <!-- 交易日志 (可折叠，默认折叠) -->
             <div style="margin-top:20px;">
                 <div class="section-header" onclick="toggleSection('log-content', this)">
                     <span>📜 交易日志 <span id="log-count" style="font-weight:normal; color:#999; font-size:12px;"></span></span> 
@@ -371,7 +390,7 @@
         alert("已保存");
     }
 
-    // === 修改：renderTable 渲染逻辑，调整列顺序 ===
+    // === 修改：renderTable 渲染逻辑，调整按钮样式 ===
     function renderTable() {
         const tb = document.getElementById('stock-tbody');
         document.getElementById('list-count').innerText = `(${stocks.length})`;
@@ -381,8 +400,8 @@
                 <td>${s.minCap}-${s.maxCap}亿</td>
                 <td style="text-align:center;">
                     <div class="op-btn-group">
-                        <button class="btn btn-blue btn-sm" onclick="editStock(${i})">✎</button>
-                        <button class="btn btn-red btn-sm" onclick="delStock(${i})">🗑</button>
+                        <button class="btn btn-edit-yellow btn-icon-square" onclick="editStock(${i})">✎</button>
+                        <button class="btn btn-del-red btn-icon-square" onclick="delStock(${i})">✕</button>
                     </div>
                 </td>
                 <td style="text-align:center;"><input type="checkbox" class="stock-chk" value="${i}" checked></td>
@@ -429,7 +448,7 @@
     }
 
     // ==============================================
-    // === 核心回测逻辑 (无功能性变动) ===
+    // === 核心回测逻辑 (无变动) ===
     // ==============================================
 
     const getEmSecId = c => {
