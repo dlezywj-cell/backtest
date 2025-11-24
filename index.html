@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (UI完美修正版)</title>
+    <title>估值杠杆策略 (Max屏占比版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -371,7 +371,6 @@
     }
 
     async function doBacktest(stock) {
-        // 1. 获取总股本
         let emSecId = getEmSecId(stock.code);
         let emCode = emSecId.split('.')[1];
         
@@ -400,7 +399,6 @@
         
         if(!totalShares) throw new Error(`无法获取股本数据 (SecID: ${emSecId})`);
 
-        // 2. 获取K线
         const sd = document.getElementById('inStartDate').value;
         const ed = document.getElementById('inEndDate').value;
         const p1 = Math.floor(new Date(sd).getTime()/1000);
@@ -417,7 +415,6 @@
         
         if(!result || !result.timestamp) throw new Error("该时间段无K线数据");
         
-        // 3. 准备数据
         let rawData = [];
         const quotes = result.indicators.quote[0];
         const minCap = stock.minCap;
@@ -469,7 +466,6 @@
             return (m5>m10 && m10>m20);
         };
 
-        // === 回测循环 ===
         let nav = 1.0, peakNav = 1.0;
         let prevL = getTargetLeverage(rawData[0].mv); 
         
@@ -491,7 +487,6 @@
 
             const nearLowMv = (curMv <= minCap * 1.05);
 
-            // 1. 回撤保护
             let winStart = Math.max(0, i - 20);
             let winNav = 0;
             for(let k=winStart; k<history.length; k++) if(history[k].nav > winNav) winNav = history[k].nav;
@@ -511,7 +506,6 @@
                 }
             }
 
-            // 2. 保护期内恢复/减仓
             if(inProtect) {
                 let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20);
                 let trendUp = (m5 && m10 && m20 && m5 > m10 && m10 > m20);
@@ -533,7 +527,6 @@
                 }
             }
 
-            // 3. 普通下跌趋势
             if(!inProtect) {
                 let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20);
                 if(m5 && m10 && m20 && m5 < m10 && m10 < m20) {
@@ -548,7 +541,6 @@
                 }
             }
 
-            // 4. 上涨趋势
             if(!inProtect && (isUptrend(i))) {
                 if(r < -0.02) {
                     newL = Math.min(2.0, prevL * 1.05);
@@ -591,7 +583,6 @@
         renderChart(history);
     }
 
-    // ★★★ 核心：补回被遗漏的 renderLog 函数 ★★★
     function renderLog(logs) {
         const tbody = document.getElementById('log-tbody');
         document.getElementById('log-count').innerText = `(${logs.length})`;
@@ -600,7 +591,6 @@
             tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">无操作记录</td></tr>';
             return;
         }
-        // 倒序渲染：最近的在上面
         tbody.innerHTML = logs.reverse().map(l => `
             <tr>
                 <td style="white-space:nowrap; color:#666; font-size:12px;">${l.date}</td>
@@ -631,10 +621,9 @@
                 }
             },
             legend: { top: 0, data: ['股价','净值','杠杆'] },
-            // ★★★ 界面优化：加大右侧留白，强制对齐 ★★★
             grid: [
-                {left:'10%', right:'15%', top:'10%', height:'55%', containLabel: false}, 
-                {left:'10%', right:'15%', top:'75%', height:'15%', containLabel: false}
+                {left: 45, right: 35, top:'10%', height:'55%', containLabel: false}, 
+                {left: 45, right: 35, top:'75%', height:'15%', containLabel: false}
             ],
             xAxis: [
                 {type:'category', data: dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}}, 
