@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (批量版)</title>
+    <title>估值杠杆策略 (批量精修版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -20,6 +20,7 @@
         .card.open .card-header { border-bottom-color: var(--border); }
         .arrow { font-size: 12px; color: #999; transition: transform 0.3s; }
         .card.open .arrow { transform: rotate(180deg); }
+        .card.open .header-arrow { transform: rotate(180deg); } /* 通用箭头 */
 
         /* === 表单与按钮 === */
         .form-row { display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-end; }
@@ -45,7 +46,7 @@
         .btn-purple { background: #6f42c1; }
         .btn-orange { background: #fd7e14; }
         .btn-gray { background: #6c757d; }
-        .btn-sm { padding: 4px 8px; font-size: 12px; border-radius: 4px; margin-left: 4px; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 4px; margin-left: 4px; }
 
         /* === 统计与图表 === */
         .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin-bottom: 15px; margin-top: 15px; }
@@ -55,7 +56,7 @@
         .win { color: #d32f2f; } .loss { color: #2e7d32; }
         #chart-box { width: 100%; height: 400px; }
 
-        /* === 总览表格样式 (新增) === */
+        /* === 总览表格样式 === */
         .summary-wrapper { overflow-x: auto; margin-bottom: 15px; border: 1px solid #eee; border-radius: 6px; }
         .summary-table { width: 100%; font-size: 13px; border-collapse: collapse; background: #fff; min-width: 300px; }
         .summary-table th { background: #f1f3f5; padding: 10px 8px; color: #555; font-weight: 600; font-size: 12px; text-align: right; white-space: nowrap; }
@@ -70,15 +71,22 @@
         .val-pos { color: #d32f2f; }
         .val-neg { color: #2e7d32; }
 
-        /* === 调试面板 === */
-        #debug-panel { background: #fff3cd; color: #856404; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 12px; margin-bottom: 15px; display: none; border: 1px solid #ffeeba; margin-top: 10px; }
-        
-        /* === 基础表格 === */
+        /* === 基础表格 (监控列表) === */
         .base-table { width: 100%; border-collapse: collapse; }
-        .base-table td, .base-table th { padding: 12px; border-bottom: 1px solid #eee; text-align: left; font-size: 13px; }
+        .base-table th { background: #f8f9fa; padding: 10px; text-align: left; font-size: 12px; color:#666; border-bottom: 1px solid #ddd; }
+        .base-table td { padding: 12px 10px; border-bottom: 1px solid #eee; text-align: left; font-size: 13px; vertical-align: middle; }
+        /* Checkbox 样式优化 */
+        input[type="checkbox"] { width: 18px; height: 18px; vertical-align: middle; cursor: pointer; }
+
+        /* === 区域折叠头 === */
+        .section-header { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f8f9fa; border-radius: 6px; cursor: pointer; margin-bottom: 5px; user-select: none; border: 1px solid #eee; }
+        .section-header span { font-weight: 600; font-size: 13px; color: #555; }
+        .section-body { display: block; animation: fadeIn 0.3s; }
+        .section-body.collapsed { display: none; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         
         /* === 日志表格样式 === */
-        .log-table th { background: #f8f9fa; color: #666; font-size: 12px; }
+        .log-table th { background: #fff; color: #666; font-size: 12px; position: sticky; top: 0; }
         .log-table td { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; }
         .badge { padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #fff; font-weight: normal; }
         .bg-red { background: #d32f2f; }
@@ -123,11 +131,23 @@
         <span class="arrow">▼</span>
     </div>
     <div class="card-body" style="padding:0">
-        <div style="overflow-x:auto"><table class="base-table"><tbody id="stock-tbody"></tbody></table></div>
+        <div style="overflow-x:auto">
+            <table class="base-table">
+                <thead>
+                    <tr>
+                        <th style="width:30px; text-align:center;"><input type="checkbox" id="check-all" onchange="toggleAllStocks(this)" checked></th>
+                        <th>股票信息</th>
+                        <th>市值区间</th>
+                        <th style="text-align:right">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="stock-tbody"></tbody>
+            </table>
+        </div>
     </div>
 </div>
 
-<!-- 结果卡片 (核心修改区域) -->
+<!-- 结果卡片 -->
 <div class="card open" id="card-result">
     <div class="card-header" onclick="toggleCard('card-result')">
         <div class="header-title"><span>📊 回测结果 (批量)</span></div>
@@ -137,7 +157,7 @@
         <div class="run-bar">
             <div class="form-group"><label>开始日期</label><input type="date" id="inStartDate"></div>
             <div class="form-group"><label>结束日期</label><input type="date" id="inEndDate"></div>
-            <button class="btn btn-blue" id="btn-run-all" onclick="runBatchBacktest()">🚀 批量运行</button>
+            <button class="btn btn-blue" id="btn-run-all" onclick="runBatchBacktest()">🚀 运行选中</button>
         </div>
 
         <!-- 进度条 -->
@@ -147,21 +167,25 @@
 
         <div id="debug-panel"></div>
 
-        <!-- 总览榜单 -->
-        <div id="batch-summary-box" style="display:none;">
-            <h4 style="margin:10px 0 5px; font-size:13px; color:#666;">📈 收益排行榜 (点击查看详情)</h4>
-            <div class="summary-wrapper">
-                <table class="summary-table">
-                    <thead>
-                        <tr>
-                            <th>股票</th>
-                            <th>策略收益</th>
-                            <th>超额</th>
-                            <th>最大回撤</th>
-                        </tr>
-                    </thead>
-                    <tbody id="summary-tbody"></tbody>
-                </table>
+        <!-- 总览榜单 (可折叠) -->
+        <div id="batch-summary-box" style="display:none; margin-top:15px;">
+            <div class="section-header" onclick="toggleSection('summary-content', this)">
+                <span>📈 收益排行榜</span> <span class="arrow header-arrow">▼</span>
+            </div>
+            <div id="summary-content" class="section-body">
+                <div class="summary-wrapper">
+                    <table class="summary-table">
+                        <thead>
+                            <tr>
+                                <th>股票</th>
+                                <th>策略收益</th>
+                                <th>超额</th>
+                                <th>最大回撤</th>
+                            </tr>
+                        </thead>
+                        <tbody id="summary-tbody"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
         
@@ -180,23 +204,29 @@
             
             <div id="chart-box"></div>
 
-            <!-- 交易日志 (嵌入在详情里) -->
+            <!-- 交易日志 (可折叠，默认折叠) -->
             <div style="margin-top:20px;">
-                <div style="font-weight:600; font-size:13px; margin-bottom:8px; color:#555;">📜 交易日志 <span id="log-count" style="font-weight:normal; color:#999;"></span></div>
-                <div style="max-height: 300px; overflow-y: auto; border:1px solid #eee; border-radius:6px;">
-                    <table class="log-table" style="width:100%; border-collapse:collapse;">
-                        <thead style="position:sticky; top:0; z-index:1;">
-                            <tr>
-                                <th>日期</th>
-                                <th>动作</th>
-                                <th>变动</th>
-                                <th>原因</th>
-                            </tr>
-                        </thead>
-                        <tbody id="log-tbody">
-                            <tr><td colspan="4" style="text-align:center; color:#999;">暂无数据</td></tr>
-                        </tbody>
-                    </table>
+                <div class="section-header" onclick="toggleSection('log-content', this)">
+                    <span>📜 交易日志 <span id="log-count" style="font-weight:normal; color:#999; font-size:12px;"></span></span> 
+                    <span class="arrow header-arrow" style="transform: rotate(0deg);">▼</span>
+                </div>
+                
+                <div id="log-content" class="section-body collapsed" style="border:1px solid #eee; border-radius:6px; border-top:0;">
+                    <div style="max-height: 300px; overflow-y: auto;">
+                        <table class="log-table" style="width:100%; border-collapse:collapse;">
+                            <thead style="background:#f9f9f9;">
+                                <tr>
+                                    <th>日期</th>
+                                    <th>动作</th>
+                                    <th>变动</th>
+                                    <th>原因</th>
+                                </tr>
+                            </thead>
+                            <tbody id="log-tbody">
+                                <tr><td colspan="4" style="text-align:center; color:#999;">暂无数据</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -239,6 +269,21 @@
         const el = document.getElementById(id);
         el.classList.toggle('open');
         if(id === 'card-result' && el.classList.contains('open') && myChart) setTimeout(()=>myChart.resize(), 100);
+    }
+
+    function toggleSection(id, headerEl) {
+        const el = document.getElementById(id);
+        el.classList.toggle('collapsed');
+        const arrow = headerEl.querySelector('.header-arrow');
+        if(arrow) {
+            // 简单的旋转逻辑：collapsed 时箭头向下(0deg), 展开时向上(180deg)
+            // CSS中已定义 .arrow 样式，这里我们通过 class 或者 transform 控制
+            if(el.classList.contains('collapsed')) {
+                arrow.style.transform = 'rotate(0deg)';
+            } else {
+                arrow.style.transform = 'rotate(180deg)';
+            }
+        }
     }
 
     // === GitHub 逻辑 (保持不变) ===
@@ -328,11 +373,50 @@
         document.getElementById('list-count').innerText = `(${stocks.length})`;
         tb.innerHTML = stocks.map((s, i) => `
             <tr>
+                <td style="text-align:center;"><input type="checkbox" class="stock-chk" value="${i}" checked></td>
                 <td><b>${s.name}</b> <span style="color:#999;font-size:12px">${s.code}</span></td>
                 <td>${s.minCap}-${s.maxCap}亿</td>
-                <td style="text-align:right"><button class="btn btn-red btn-sm" onclick="delStock(${i})">删</button></td>
+                <td style="text-align:right; white-space:nowrap;">
+                    <button class="btn btn-blue btn-sm" onclick="editStock(${i})">✎</button>
+                    <button class="btn btn-red btn-sm" onclick="delStock(${i})">🗑</button>
+                </td>
             </tr>
         `).join('');
+        
+        // 重新绑定全选状态
+        checkAllState();
+    }
+
+    function toggleAllStocks(el) {
+        document.querySelectorAll('.stock-chk').forEach(chk => chk.checked = el.checked);
+    }
+
+    function checkAllState() {
+        const all = document.querySelectorAll('.stock-chk');
+        const checked = document.querySelectorAll('.stock-chk:checked');
+        const el = document.getElementById('check-all');
+        if(all.length > 0 && all.length === checked.length) el.checked = true;
+        else el.checked = false;
+    }
+
+    // 监听单个 checkbox 变化更新全选框
+    document.addEventListener('change', function(e){
+        if(e.target.classList.contains('stock-chk')) checkAllState();
+    });
+
+    function editStock(i) {
+        const s = stocks[i];
+        document.getElementById('inName').value = s.name;
+        document.getElementById('inCode').value = s.code;
+        document.getElementById('inMin').value = s.minCap;
+        document.getElementById('inMax').value = s.maxCap;
+        // 滚动到顶部
+        document.getElementById('card-config').scrollIntoView({behavior: 'smooth'});
+        // 提示用户
+        const btn = document.querySelector('.btn-green');
+        const oldText = btn.innerText;
+        btn.innerText = "📝 修改中...";
+        setTimeout(() => btn.innerText = oldText, 1000);
     }
 
     function delStock(i) {
@@ -343,7 +427,7 @@
     }
 
     // ==============================================
-    // === 核心回测逻辑 (已重构为 纯计算 + 批量运行) ===
+    // === 核心回测逻辑 ===
     // ==============================================
 
     const getEmSecId = c => {
@@ -368,14 +452,13 @@
         return await res.json();
     }
 
-    // --- 1. 单只股票纯计算函数 (不操作DOM) ---
+    // --- 1. 单只股票纯计算函数 ---
     async function calculateStock(stock) {
         // 获取总股本
         let emSecId = getEmSecId(stock.code);
         let emCode = emSecId.split('.')[1];
         
         let capJson = await fetchEmShares(emSecId);
-        // US 兼容性处理
         if(stock.code.includes('.US') && (!capJson.data || !capJson.data.diff)) {
             emSecId = '106.' + emCode;
             capJson = await fetchEmShares(emSecId);
@@ -389,7 +472,7 @@
             }
         }
         
-        if(!totalShares) throw new Error(`无法获取股本数据 (SecID: ${emSecId})`);
+        if(!totalShares) throw new Error(`无法获取股本数据`);
 
         // 获取K线
         const sd = document.getElementById('inStartDate').value;
@@ -401,7 +484,7 @@
         const yhUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${yhTicker}?period1=${p1}&period2=${p2}&interval=1d`;
         const hRes = await fetch(PROXY + encodeURIComponent(yhUrl));
         
-        if(!hRes.ok) throw new Error(`Yahoo请求失败 (${hRes.status})`);
+        if(!hRes.ok) throw new Error(`Yahoo请求失败`);
         
         const hJson = await hRes.json();
         const result = hJson.chart.result ? hJson.chart.result[0] : null;
@@ -579,10 +662,14 @@
         };
     }
 
-    // --- 2. 批量运行控制器 ---
+    // --- 2. 批量运行控制器 (选中版) ---
     async function runBatchBacktest() {
-        if(stocks.length === 0) return alert("请先在列表添加股票");
+        const checkedBoxes = document.querySelectorAll('.stock-chk:checked');
+        if(checkedBoxes.length === 0) return alert("请至少勾选一只股票");
         
+        // 获取选中股票的索引
+        const selectedIndices = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+
         const btn = document.getElementById('btn-run-all');
         const progress = document.getElementById('batch-progress');
         const sumBox = document.getElementById('batch-summary-box');
@@ -595,14 +682,21 @@
         sumBox.style.display = 'block';
         sumTbody.innerHTML = '';
         progress.style.display = 'block';
+        
+        // 确保展开排行榜
+        document.getElementById('summary-content').classList.remove('collapsed');
+        document.querySelector('#batch-summary-box .header-arrow').style.transform = 'rotate(180deg)';
+        
         batchResults = [];
 
         let successCount = 0;
+        const total = selectedIndices.length;
 
-        // 串行执行循环
-        for(let i=0; i<stocks.length; i++) {
+        // 串行执行循环 (只针对选中的)
+        for(let step=0; step < total; step++) {
+            const i = selectedIndices[step];
             const s = stocks[i];
-            progress.innerHTML = `正在计算 <b>${s.name}</b> (${i+1}/${stocks.length})...`;
+            progress.innerHTML = `正在计算 <b>${s.name}</b> (${step+1}/${total})...`;
             
             try {
                 const res = await calculateStock(s);
@@ -612,18 +706,16 @@
                 successCount++;
             } catch(e) {
                 console.error(s.name, e);
-                // 错误行展示
                 let tr = document.createElement('tr');
                 tr.innerHTML = `<td style="text-align:left">${s.name}<br><span style="font-size:10px;color:#999">${s.code}</span></td><td colspan="3" style="text-align:center; color:orange; font-size:12px">❌ ${e.message}</td>`;
                 sumTbody.appendChild(tr);
             }
 
-            // 防封控延时 (300ms)
             await new Promise(r => setTimeout(r, 300));
         }
 
-        progress.innerHTML = `✅ 运行完成! 成功 ${successCount} / 总计 ${stocks.length}`;
-        btn.innerText = "🚀 重新运行"; btn.disabled = false;
+        progress.innerHTML = `✅ 运行完成! 成功 ${successCount} / 选中 ${total}`;
+        btn.innerText = "🚀 运行选中"; btn.disabled = false;
 
         // 默认展示第一个成功的结果
         if(batchResults.length > 0) {
@@ -676,7 +768,7 @@
         // 渲染图表
         renderChart(res.history);
 
-        // 渲染日志
+        // 渲染日志 (注意：默认是折叠的，这里不强行展开，但更新内容)
         renderLog(res.logs);
 
         // 可选：图表 resize
@@ -685,7 +777,9 @@
 
     function renderLog(logs) {
         const tbody = document.getElementById('log-tbody');
-        document.getElementById('log-count').innerText = `(${logs.length})`;
+        const countLabel = document.getElementById('log-count');
+        countLabel.innerText = `(${logs.length})`;
+        
         if(logs.length === 0) {
             tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">期间无操作</td></tr>';
             return;
