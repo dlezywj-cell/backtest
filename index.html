@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (UI精修版)</title>
+    <title>估值杠杆策略 (逻辑优化版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -46,26 +46,10 @@
         .btn-orange { background: #fd7e14; }
         .btn-gray { background: #6c757d; }
         
-        /* === 新增：自定义图标按钮样式 (编辑与删除) === */
-        .btn-icon-square { 
-            width: 28px; 
-            height: 28px; 
-            padding: 0; 
-            border-radius: 6px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            font-size: 14px; /* 图标小一点 */
-            line-height: 1;
-        }
-        .btn-edit-yellow { 
-            background: #ffca28; /* 黄色背景 */
-            color: #333;         /* 铅笔颜色深一点 */
-        }
-        .btn-del-red { 
-            background: #ef5350; /* 红色背景 */
-            color: #fff;         /* 白色叉叉 */
-        }
+        /* === 自定义图标按钮样式 (编辑与删除) === */
+        .btn-icon-square { width: 28px; height: 28px; padding: 0; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1; }
+        .btn-edit-yellow { background: #ffca28; color: #333; }
+        .btn-del-red { background: #ef5350; color: #fff; }
 
         /* === 统计与图表 === */
         .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin-bottom: 15px; margin-top: 15px; }
@@ -109,7 +93,6 @@
         .log-table th { background: #fff; color: #666; font-size: 12px; position: sticky; top: 0; border-bottom: 2px solid #eee; text-align: left; padding: 8px 5px; }
         .log-table td { padding: 8px 5px; border-bottom: 1px solid #f0f0f0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
-        /* 日志列宽控制 */
         .log-col-date { width: 22%; }
         .log-col-action { width: 15%; text-align: center !important; }
         .log-col-val { width: 28%; text-align: center !important; }
@@ -390,7 +373,6 @@
         alert("已保存");
     }
 
-    // === 修改：renderTable 渲染逻辑，调整按钮样式 ===
     function renderTable() {
         const tb = document.getElementById('stock-tbody');
         document.getElementById('list-count').innerText = `(${stocks.length})`;
@@ -448,7 +430,7 @@
     }
 
     // ==============================================
-    // === 核心回测逻辑 (无变动) ===
+    // === 核心回测逻辑 (已按要求优化) ===
     // ==============================================
 
     const getEmSecId = c => {
@@ -585,21 +567,41 @@
                     if(m5 && m10 && m20 && m5 < m10 && m10 < m20) {
                         let slope = (m10 - m20)/m20;
                         let reduce = Math.min(1.0, Math.abs(slope)*25);
-                        newL = Math.max(0.01, prevL * (1 - reduce * 0.8));
-                        reason = "保护中极速减仓";
+                        let trendL = Math.max(0.01, prevL * (1 - reduce * 0.8));
+                        if(trendL < newL) { newL = trendL; reason = "保护中极速减仓"; }
                     } else { newL = 0.01; if(prevL > 0.02) reason = "保护中(空仓)"; }
                 }
             }
 
+            // === 修改点：3. 普通趋势 (区分低估与非低估) ===
             if(!inProtect) {
                 let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20);
                 if(m5 && m10 && m20 && m5 < m10 && m10 < m20) {
                     let slope = (m10 - m20)/m20;
-                    let reduce = Math.min(1.0, Math.abs(slope)*25);
-                    let trendL = Math.max(0.01, prevL * (1 - reduce * 0.8));
-                    if(trendL < newL) { newL = trendL; reason = "趋势转弱极速减仓"; }
+                    
+                    let reduceSpeed, reduceMsg;
+
+                    if (curMv <= minCap) {
+                        // 低估区：慢速减仓 (系数0.3, 斜率敏感度12)
+                        let reduce = Math.min(1.0, Math.abs(slope) * 12); 
+                        reduceSpeed = reduce * 0.3; 
+                        reduceMsg = "低估区趋势转弱(慢减仓)";
+                    } else {
+                        // 非低估区：快速减仓 (原参数)
+                        let reduce = Math.min(1.0, Math.abs(slope) * 25);
+                        reduceSpeed = reduce * 0.8;
+                        reduceMsg = "趋势转弱极速减仓";
+                    }
+
+                    let trendL = Math.max(0.01, prevL * (1 - reduceSpeed));
+                    
+                    if(trendL < newL) {
+                         newL = trendL;
+                         reason = reduceMsg;
+                    }
                 }
             }
+            // ===========================================
 
             if(!inProtect && (isUptrend(i))) {
                 if(r < -0.02) { newL = Math.min(2.0, prevL * 1.05); reason = "上涨中急跌加仓"; } 
