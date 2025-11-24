@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (逻辑优化版)</title>
+    <title>估值杠杆策略 (参数全开版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -36,6 +36,13 @@
             .run-bar #btn-run-all { width: 100%; margin-top: 8px; padding: 12px; font-size: 16px; font-weight: bold; }
         }
 
+        /* === 高级参数面板样式 === */
+        #adv-settings { background: #fff; border: 1px dashed #ddd; padding: 10px; border-radius: 6px; margin-top: 5px; display: none; }
+        #adv-settings .form-row { margin-bottom: 8px; }
+        #adv-settings label { color: #888; }
+        #adv-settings input { padding: 6px; font-size: 13px; background: #fafafa; }
+        .toggle-link { display: block; text-align: right; margin-top: 5px; margin-bottom: 5px; color: #007bff; font-size: 12px; cursor: pointer; user-select: none; }
+
         /* 按钮基础样式 */
         .btn { border: none; border-radius: 6px; padding: 10px; color: #fff; cursor: pointer; font-weight: 500; display:flex; align-items:center; justify-content:center; transition: opacity 0.2s; }
         .btn:active { opacity: 0.8; }
@@ -46,7 +53,7 @@
         .btn-orange { background: #fd7e14; }
         .btn-gray { background: #6c757d; }
         
-        /* === 自定义图标按钮样式 (编辑与删除) === */
+        /* === 自定义图标按钮样式 === */
         .btn-icon-square { width: 28px; height: 28px; padding: 0; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1; }
         .btn-edit-yellow { background: #ffca28; color: #333; }
         .btn-del-red { background: #ef5350; color: #fff; }
@@ -77,7 +84,6 @@
         .base-table th { background: #f8f9fa; padding: 10px; text-align: left; font-size: 12px; color:#666; border-bottom: 1px solid #ddd; }
         .base-table td { padding: 12px 5px; border-bottom: 1px solid #eee; text-align: left; font-size: 13px; vertical-align: middle; }
         
-        /* 操作列按钮组居中 */
         .op-btn-group { display: flex; justify-content: center; gap: 8px; } 
         input[type="checkbox"] { width: 18px; height: 18px; vertical-align: middle; cursor: pointer; }
 
@@ -168,6 +174,32 @@
             <div class="form-group"><label>开始日期</label><input type="date" id="inStartDate"></div>
             <div class="form-group"><label>结束日期</label><input type="date" id="inEndDate"></div>
             <button class="btn btn-blue" id="btn-run-all" onclick="runBatchBacktest()">🚀 运行选中</button>
+        </div>
+
+        <!-- 1. 高级参数设置入口 -->
+        <div class="toggle-link" onclick="toggleAdvSettings()">🛠 高级参数设置 ▼</div>
+
+        <!-- 2. 高级参数面板 (默认隐藏) -->
+        <div id="adv-settings">
+            <div style="font-size:12px; color:#007bff; margin-bottom:8px; font-weight:bold;">基础设定</div>
+            <div class="form-row">
+                <div class="form-group"><label>最大杠杆率</label><input type="number" id="pMaxLev" step="0.1" value="2.0"></div>
+                <div class="form-group"></div> <!-- 占位 -->
+            </div>
+            
+            <div style="border-top:1px dashed #eee; margin:8px 0;"></div>
+            <div style="font-size:12px; color:#28a745; margin-bottom:8px; font-weight:bold;">低估区 (市值 < 下限)</div>
+            <div class="form-row">
+                <div class="form-group"><label>敏感度 (越小越迟钝)</label><input type="number" id="pLowSens" value="12"></div>
+                <div class="form-group"><label>最大减仓比例 (0-1)</label><input type="number" id="pLowRed" step="0.1" value="0.3"></div>
+            </div>
+
+            <div style="border-top:1px dashed #eee; margin:8px 0;"></div>
+            <div style="font-size:12px; color:#666; margin-bottom:8px; font-weight:bold;">常态/高估区</div>
+            <div class="form-row">
+                <div class="form-group"><label>敏感度 (默认25)</label><input type="number" id="pNormSens" value="25"></div>
+                <div class="form-group"><label>最大减仓比例 (0-1)</label><input type="number" id="pNormRed" step="0.1" value="0.8"></div>
+            </div>
         </div>
 
         <!-- 进度条 -->
@@ -288,6 +320,16 @@
         if(arrow) {
             if(el.classList.contains('collapsed')) arrow.style.transform = 'rotate(0deg)';
             else arrow.style.transform = 'rotate(180deg)';
+        }
+    }
+
+    // === 新增：切换高级参数显示 ===
+    function toggleAdvSettings() {
+        const el = document.getElementById('adv-settings');
+        if (el.style.display === 'none' || el.style.display === '') {
+            el.style.display = 'block';
+        } else {
+            el.style.display = 'none';
         }
     }
 
@@ -430,7 +472,7 @@
     }
 
     // ==============================================
-    // === 核心回测逻辑 (已按要求优化) ===
+    // === 核心回测逻辑 (读取高级参数) ===
     // ==============================================
 
     const getEmSecId = c => {
@@ -456,6 +498,13 @@
     }
 
     async function calculateStock(stock) {
+        // === 1. 读取高级参数 ===
+        const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
+        const lowSens = parseFloat(document.getElementById('pLowSens').value) || 12;
+        const lowRed = parseFloat(document.getElementById('pLowRed').value) || 0.3;
+        const normSens = parseFloat(document.getElementById('pNormSens').value) || 25;
+        const normRed = parseFloat(document.getElementById('pNormRed').value) || 0.8;
+
         let emSecId = getEmSecId(stock.code);
         let emCode = emSecId.split('.')[1];
         
@@ -495,11 +544,12 @@
         const maxCap = stock.maxCap;
         const midCap = (minCap + maxCap) / 2.0;
 
+        // === 2. 动态杠杆计算 (使用 maxLev) ===
         const getTargetLeverage = (mv) => {
-            if(mv <= minCap) return 2.0;
+            if(mv <= minCap) return maxLev; // 使用参数变量
             if(mv >= maxCap) return 0.01;
             let r = (mv - minCap) / (maxCap - minCap);
-            return 0.01 + (2.0 - 0.01) * Math.exp(-2.5 * r);
+            return 0.01 + (maxLev - 0.01) * Math.exp(-2.5 * r);
         };
 
         result.timestamp.forEach((t, i) => {
@@ -566,14 +616,15 @@
                 else {
                     if(m5 && m10 && m20 && m5 < m10 && m10 < m20) {
                         let slope = (m10 - m20)/m20;
-                        let reduce = Math.min(1.0, Math.abs(slope)*25);
+                        // 这里使用低估区参数也是合理的，因为已经是低位保护
+                        let reduce = Math.min(1.0, Math.abs(slope)*25); 
                         let trendL = Math.max(0.01, prevL * (1 - reduce * 0.8));
                         if(trendL < newL) { newL = trendL; reason = "保护中极速减仓"; }
                     } else { newL = 0.01; if(prevL > 0.02) reason = "保护中(空仓)"; }
                 }
             }
 
-            // === 修改点：3. 普通趋势 (区分低估与非低估) ===
+            // === 3. 普通趋势 (使用高级参数) ===
             if(!inProtect) {
                 let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20);
                 if(m5 && m10 && m20 && m5 < m10 && m10 < m20) {
@@ -582,14 +633,14 @@
                     let reduceSpeed, reduceMsg;
 
                     if (curMv <= minCap) {
-                        // 低估区：慢速减仓 (系数0.3, 斜率敏感度12)
-                        let reduce = Math.min(1.0, Math.abs(slope) * 12); 
-                        reduceSpeed = reduce * 0.3; 
+                        // 低估区：使用自定义参数
+                        let reduce = Math.min(1.0, Math.abs(slope) * lowSens); 
+                        reduceSpeed = reduce * lowRed; 
                         reduceMsg = "低估区趋势转弱(慢减仓)";
                     } else {
-                        // 非低估区：快速减仓 (原参数)
-                        let reduce = Math.min(1.0, Math.abs(slope) * 25);
-                        reduceSpeed = reduce * 0.8;
+                        // 非低估区：使用自定义参数
+                        let reduce = Math.min(1.0, Math.abs(slope) * normSens);
+                        reduceSpeed = reduce * normRed;
                         reduceMsg = "趋势转弱极速减仓";
                     }
 
@@ -601,10 +652,9 @@
                     }
                 }
             }
-            // ===========================================
 
             if(!inProtect && (isUptrend(i))) {
-                if(r < -0.02) { newL = Math.min(2.0, prevL * 1.05); reason = "上涨中急跌加仓"; } 
+                if(r < -0.02) { newL = Math.min(maxLev, prevL * 1.05); reason = "上涨中急跌加仓"; } // 2.0 -> maxLev
                 else { newL = Math.max(prevL, targetL); }
             }
 
