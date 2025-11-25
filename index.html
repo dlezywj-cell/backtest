@@ -800,7 +800,7 @@
             legend: { top: 0, data: ['组合净值', '实际总杠杆'] },
             grid: [{ left: '12%', right: '8%', top: '15%', height: '55%' }, { left: '12%', right: '8%', top: '75%', height: '15%' }],
             xAxis: [{type:'category', data:dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}}, {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}],
-            yAxis: [{type:'value', gridIndex:0, splitLine:{show:false}}, {type:'value', gridIndex:1, splitLine:{show:false}, min:0}],
+            yAxis: [{type:'value', gridIndex:0, scale:true, splitLine:{show:false}}, {type:'value', gridIndex:1, splitLine:{show:false}, min:0}],
             dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
             series: [
                 {name: '组合净值', type: 'line', data: hist.map(h=>h.nav), itemStyle: {color: '#d32f2f'}, lineStyle: {width: 2}, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0},
