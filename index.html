@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (组合筛选完美版)</title>
+    <title>估值杠杆策略 (UI交互终极优化版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -16,14 +16,26 @@
         .card-header { padding: 12px 15px; background: #fff; border-bottom: 1px solid transparent; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 15px; user-select: none; cursor: pointer;}
         .header-title { flex: 1; display: flex; align-items: center; gap: 5px; }
         
-        /* 关键 CSS：控制显示隐藏 */
         .card-body { display: none; padding: 15px; }
         .card.open .card-body { display: block; }
-        
         .card.open .card-header { border-bottom-color: var(--border); }
+        
         .arrow { font-size: 12px; color: #999; transition: transform 0.3s; }
         .card.open .arrow { transform: rotate(180deg); }
-        .card.open .header-arrow { transform: rotate(180deg); }
+
+        /* === 区域折叠头 (Section) - 参考收益排行榜样式 === */
+        .section-header { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f8f9fa; border-radius: 6px; cursor: pointer; margin-bottom: 5px; user-select: none; border: 1px solid #eee; transition: background 0.2s; }
+        .section-header:active { background: #e9ecef; }
+        .section-header span { font-weight: 600; font-size: 13px; color: #555; }
+        
+        /* 箭头旋转逻辑 */
+        .section-header .header-arrow { transform: rotate(0deg); transition: transform 0.3s; }
+        .section-header.expanded .header-arrow { transform: rotate(180deg); }
+
+        .section-body { display: block; animation: fadeIn 0.3s; padding: 5px; border: 1px solid #f8f9fa; border-top: none; margin-bottom: 15px; }
+        .section-body.collapsed { display: none; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
         /* === 表单与按钮 === */
         .form-row { display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-end; }
@@ -31,7 +43,6 @@
         .form-group label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; }
         .form-group input { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
         
-        /* === 运行栏专用样式 === */
         .run-bar { display: flex; gap: 10px; align-items: flex-end; background:#f8f9fa; padding:10px; border-radius:6px; margin-top:0; }
         @media (max-width: 600px) {
             .run-bar { flex-wrap: wrap; }
@@ -39,29 +50,21 @@
             .run-bar #btn-run-all { width: 100%; margin-top: 8px; padding: 12px; font-size: 16px; font-weight: bold; }
         }
 
-        /* === 高级参数面板样式 === */
         #adv-settings { background: #fff; border: 1px dashed #ddd; padding: 10px; border-radius: 6px; margin-top: 5px; display: none; }
         #adv-settings .form-row { margin-bottom: 8px; }
         #adv-settings label { color: #888; }
         #adv-settings input { padding: 6px; font-size: 13px; background: #fafafa; }
         .toggle-link { display: block; text-align: right; margin-top: 5px; margin-bottom: 5px; color: #007bff; font-size: 12px; cursor: pointer; user-select: none; }
 
-        /* 按钮基础样式 */
         .btn { border: none; border-radius: 6px; padding: 10px; color: #fff; cursor: pointer; font-weight: 500; display:flex; align-items:center; justify-content:center; transition: opacity 0.2s; }
         .btn:active { opacity: 0.8; }
         .btn:disabled { background: #ccc !important; cursor: not-allowed; }
-        .btn-blue { background: #007bff; } 
-        .btn-green { background: #28a745; } 
-        .btn-purple { background: #6f42c1; }
-        .btn-orange { background: #fd7e14; }
-        .btn-gray { background: #6c757d; }
+        .btn-blue { background: #007bff; } .btn-green { background: #28a745; } .btn-purple { background: #6f42c1; } .btn-orange { background: #fd7e14; } .btn-gray { background: #6c757d; }
         
-        /* === 自定义图标按钮样式 === */
         .btn-icon-square { width: 28px; height: 28px; padding: 0; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1; }
         .btn-edit-yellow { background: #ffca28; color: #333; }
         .btn-del-red { background: #ef5350; color: #fff; }
 
-        /* === 统计与图表 === */
         .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin-bottom: 15px; margin-top: 15px; }
         .stat-item { background: #f8f9fa; padding: 8px; border-radius: 6px; }
         .stat-val { font-size: 16px; font-weight: bold; }
@@ -69,7 +72,6 @@
         .win { color: #d32f2f; } .loss { color: #2e7d32; }
         #chart-box { width: 100%; height: 400px; }
 
-        /* === 总览表格样式 === */
         .summary-wrapper { overflow-x: auto; margin-bottom: 15px; border: 1px solid #eee; border-radius: 6px; }
         .summary-table { width: 100%; font-size: 13px; border-collapse: collapse; background: #fff; min-width: 300px; }
         .summary-table th { background: #f1f3f5; padding: 10px 8px; color: #555; font-weight: 600; font-size: 12px; text-align: right; white-space: nowrap; }
@@ -82,7 +84,6 @@
         .summary-table tr.selected td { font-weight: 500; }
         .val-pos { color: #d32f2f; } .val-neg { color: #2e7d32; }
 
-        /* === 基础表格 (监控列表) === */
         .base-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .base-table th { background: #f8f9fa; padding: 10px; text-align: left; font-size: 12px; color:#666; border-bottom: 1px solid #ddd; }
         .base-table td { padding: 12px 5px; border-bottom: 1px solid #eee; text-align: left; font-size: 13px; vertical-align: middle; }
@@ -90,14 +91,6 @@
         .op-btn-group { display: flex; justify-content: center; gap: 8px; } 
         input[type="checkbox"] { width: 18px; height: 18px; vertical-align: middle; cursor: pointer; }
 
-        /* === 区域折叠头 === */
-        .section-header { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f8f9fa; border-radius: 6px; cursor: pointer; margin-bottom: 5px; user-select: none; border: 1px solid #eee; }
-        .section-header span { font-weight: 600; font-size: 13px; color: #555; }
-        .section-body { display: block; animation: fadeIn 0.3s; }
-        .section-body.collapsed { display: none; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        
-        /* === 日志表格样式 === */
         .log-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .log-table th { background: #fff; color: #666; font-size: 12px; position: sticky; top: 0; border-bottom: 2px solid #eee; text-align: left; padding: 8px 5px; }
         .log-table td { padding: 8px 5px; border-bottom: 1px solid #f0f0f0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -108,10 +101,8 @@
         .log-col-reason { width: 35%; }
 
         .badge { padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #fff; font-weight: normal; }
-        .bg-red { background: #d32f2f; }
-        .bg-green { background: #2e7d32; }
+        .bg-red { background: #d32f2f; } .bg-green { background: #2e7d32; }
         
-        /* === 模态框 === */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; }
         .modal-box { background: #fff; padding: 20px; border-radius: 12px; width: 85%; max-width: 320px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
     </style>
@@ -169,7 +160,7 @@
 <!-- 结果卡片 -->
 <div class="card open" id="card-result">
     <div class="card-header" onclick="toggleCard('card-result')">
-        <div class="header-title"><span>📊 回测结果 (批量)</span></div>
+        <div class="header-title"><span>📊 回测结果</span></div>
         <span class="arrow">▼</span>
     </div>
     <div class="card-body">
@@ -179,24 +170,20 @@
             <button class="btn btn-blue" id="btn-run-all" onclick="runBatchBacktest()">🚀 运行选中</button>
         </div>
 
-        <!-- 1. 高级参数设置入口 -->
         <div class="toggle-link" onclick="toggleAdvSettings()">🛠 高级参数设置 ▼</div>
 
-        <!-- 2. 高级参数面板 (默认隐藏) -->
         <div id="adv-settings">
             <div style="font-size:12px; color:#007bff; margin-bottom:8px; font-weight:bold;">基础设定</div>
             <div class="form-row">
                 <div class="form-group"><label>最大杠杆率</label><input type="number" id="pMaxLev" step="0.1" value="2.0"></div>
-                <div class="form-group"></div> <!-- 占位 -->
+                <div class="form-group"></div>
             </div>
-            
             <div style="border-top:1px dashed #eee; margin:8px 0;"></div>
             <div style="font-size:12px; color:#28a745; margin-bottom:8px; font-weight:bold;">低估区 (市值 < 下限)</div>
             <div class="form-row">
                 <div class="form-group"><label>敏感度 (越小越迟钝)</label><input type="number" id="pLowSens" value="12"></div>
                 <div class="form-group"><label>最大减仓比例 (0-1)</label><input type="number" id="pLowRed" step="0.1" value="0.3"></div>
             </div>
-
             <div style="border-top:1px dashed #eee; margin:8px 0;"></div>
             <div style="font-size:12px; color:#666; margin-bottom:8px; font-weight:bold;">常态/高估区</div>
             <div class="form-row">
@@ -205,59 +192,37 @@
             </div>
         </div>
 
-        <!-- 进度条 -->
-        <div id="batch-progress" style="display:none; margin:12px 0; padding:8px; background:#e3f2fd; color:#0056b3; font-size:12px; border-radius:4px; text-align:center;">
-            准备就绪
-        </div>
+        <div id="batch-progress" style="display:none; margin:12px 0; padding:8px; background:#e3f2fd; color:#0056b3; font-size:12px; border-radius:4px; text-align:center;">准备就绪</div>
 
-        <div id="debug-panel"></div>
-
-        <!-- 总览榜单 (可折叠) -->
+        <!-- 1. 收益排行榜 (Section Style) -->
         <div id="batch-summary-box" style="display:none; margin-top:15px;">
-            <div class="section-header" onclick="toggleSection('summary-content', this)">
+            <div class="section-header expanded" onclick="toggleSection('summary-content', this)">
                 <span>📈 收益排行榜</span> <span class="arrow header-arrow">▼</span>
             </div>
             <div id="summary-content" class="section-body">
                 <div class="summary-wrapper">
                     <table class="summary-table">
-                        <thead>
-                            <tr>
-                                <th>股票</th>
-                                <th>策略收益</th>
-                                <th>超额</th>
-                                <th>最大回撤</th>
-                            </tr>
-                        </thead>
+                        <thead><tr><th>股票</th><th>策略收益</th><th>超额</th><th>最大回撤</th></tr></thead>
                         <tbody id="summary-tbody"></tbody>
                     </table>
                 </div>
             </div>
         </div>
 
-        <!-- === 组合策略回测面板 (初始隐藏，运行后显示并展开) === -->
-        <div class="card" id="card-portfolio" style="border:1px solid #007bff; display:none; margin-top:15px;">
-            <div class="card-header" style="background:#e3f2fd; color:#0056b3;" onclick="toggleCard('card-portfolio')">
-                <div class="header-title"><span>💰 组合策略 (Portfolio)</span></div>
-                <span class="arrow">▼</span>
+        <!-- 2. 组合策略 (Section Style) -->
+        <div id="portfolio-section" style="display:none;">
+            <div class="section-header" onclick="toggleSection('portfolio-content', this)">
+                <span>💰 组合策略 (Portfolio)</span> <span class="arrow header-arrow">▼</span>
             </div>
-            <div class="card-body">
+            <div id="portfolio-content" class="section-body collapsed">
                 <div class="form-row">
-                    <div class="form-group">
-                        <label>组合总杠杆上限</label>
-                        <input type="number" id="pGlobalLev" step="0.1" value="2.0">
-                    </div>
-                    <div class="form-group">
-                        <label>单股准入门槛 (Min Threshold)</label>
-                        <input type="number" id="pMinPos" step="0.1" value="0.4">
-                    </div>
+                    <div class="form-group"><label>组合总杠杆上限</label><input type="number" id="pGlobalLev" step="0.1" value="2.0"></div>
+                    <div class="form-group"><label>单股准入门槛</label><input type="number" id="pMinPos" step="0.1" value="0.4"></div>
                 </div>
                 <div style="text-align:right; margin-bottom:10px;">
                     <button class="btn btn-orange" onclick="runPortfolioStrategy()" style="width:100%">🔄 重新计算组合</button>
-                    <div style="font-size:11px; color:#666; margin-top:5px; text-align:left;">
-                        逻辑：先剔除【原始需求 < 门槛】的股票。若剩余股票总和仍超上限，则会被稀释。
-                    </div>
+                    <div style="font-size:11px; color:#666; margin-top:5px; text-align:left;">逻辑：剔除意愿 < 门槛的股票。若剩余总和仍超上限则稀释。</div>
                 </div>
-
                 <div class="stat-grid">
                     <div class="stat-item"><div class="stat-val" id="port-ret">--</div><div class="stat-lbl">组合总收益</div></div>
                     <div class="stat-item"><div class="stat-val" id="port-dd">--</div><div class="stat-lbl">最大回撤</div></div>
@@ -267,17 +232,14 @@
             </div>
         </div>
 
-        <!-- === 每日持仓结构卡片 (初始隐藏，运行后显示但默认折叠) === -->
-        <div class="card" id="card-holdings" style="display:none; margin-top:12px; border:1px solid #eee;">
-            <div class="card-header" onclick="toggleCard('card-holdings')">
-                <div class="header-title"><span>📚 每日持仓结构 (Holdings Structure)</span></div>
-                <span class="arrow">▼</span>
+        <!-- 3. 每日持仓结构 (Section Style) -->
+        <div id="holdings-section" style="display:none;">
+            <div class="section-header" onclick="toggleSection('holdings-content', this)">
+                <span>📚 每日持仓结构 (Holdings Structure)</span> <span class="arrow header-arrow">▼</span>
             </div>
-            <div class="card-body">
+            <div id="holdings-content" class="section-body collapsed">
                 <div id="holdings-chart" style="width: 100%; height: 400px;"></div>
-                <div style="text-align:center; font-size:11px; color:#999; margin-top:5px;">
-                    图表展示了每一天【真实分配】给各只股票的杠杆率堆叠情况。
-                </div>
+                <div style="text-align:center; font-size:11px; color:#999; margin-top:5px;">图表展示了每一天【真实分配】给各只股票的杠杆率堆叠情况。</div>
             </div>
         </div>
         
@@ -287,22 +249,17 @@
                 <span id="detail-name" style="font-weight:bold; font-size:16px; color:#333;"></span>
                 <span style="font-size:11px; background:#eee; padding:2px 6px; border-radius:4px; color:#666;">当前选中</span>
             </div>
-            
             <div class="stat-grid">
                 <div class="stat-item"><div class="stat-val" id="val-ret">--</div><div class="stat-lbl">策略收益</div></div>
                 <div class="stat-item"><div class="stat-val" id="val-stock">--</div><div class="stat-lbl">股价涨跌</div></div>
                 <div class="stat-item"><div class="stat-val" id="val-lev">--</div><div class="stat-lbl">平均杠杆</div></div>
             </div>
-            
             <div id="chart-box"></div>
-
-            <!-- 交易日志 (可折叠，默认折叠) -->
             <div style="margin-top:20px;">
                 <div class="section-header" onclick="toggleSection('log-content', this)">
                     <span>📜 交易日志 <span id="log-count" style="font-weight:normal; color:#999; font-size:12px;"></span></span> 
-                    <span class="arrow header-arrow" style="transform: rotate(0deg);">▼</span>
+                    <span class="arrow header-arrow">▼</span>
                 </div>
-                
                 <div id="log-content" class="section-body collapsed" style="border:1px solid #eee; border-radius:6px; border-top:0;">
                     <div style="max-height: 300px; overflow-y: auto;">
                         <table class="log-table">
@@ -314,9 +271,7 @@
                                     <th class="log-col-reason">原因</th>
                                 </tr>
                             </thead>
-                            <tbody id="log-tbody">
-                                <tr><td colspan="4" style="text-align:center; color:#999;">暂无数据</td></tr>
-                            </tbody>
+                            <tbody id="log-tbody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -359,31 +314,35 @@
     initDates();
     renderTable();
 
-    // === 核心逻辑修复：确保点击能切换，且展开时重绘图表 ===
+    // === 卡片/区域 切换逻辑 (修复版) ===
     function toggleCard(id) { 
         const el = document.getElementById(id);
         if(!el) return;
-        
-        // 切换 open 类
         el.classList.toggle('open');
-        
-        // 关键点：如果展开了，延迟调整图表大小，解决“挤在最左边”的问题
-        if(el.classList.contains('open')) {
-            setTimeout(() => {
-                if(id === 'card-result' && myChart) myChart.resize();
-                if(id === 'card-portfolio' && portfolioChart) portfolioChart.resize();
-                if(id === 'card-holdings' && holdingsChart) holdingsChart.resize();
-            }, 200); // 200ms 等待 DOM 渲染和动画
+        if(el.classList.contains('open') && id === 'card-result' && myChart) {
+            setTimeout(() => myChart.resize(), 200);
         }
     }
 
     function toggleSection(id, headerEl) {
         const el = document.getElementById(id);
-        el.classList.toggle('collapsed');
-        const arrow = headerEl.querySelector('.header-arrow');
-        if(arrow) {
-            if(el.classList.contains('collapsed')) arrow.style.transform = 'rotate(0deg)';
-            else arrow.style.transform = 'rotate(180deg)';
+        const isCollapsed = el.classList.contains('collapsed');
+        
+        // 切换 collapsed 类
+        if(isCollapsed) {
+            el.classList.remove('collapsed');
+            headerEl.classList.add('expanded'); // 旋转箭头
+        } else {
+            el.classList.add('collapsed');
+            headerEl.classList.remove('expanded'); // 复原箭头
+        }
+
+        // 如果是展开动作，且涉及图表，需要 resize
+        if(isCollapsed) { // 意味着现在展开了
+            setTimeout(() => {
+                if(id === 'portfolio-content' && portfolioChart) portfolioChart.resize();
+                if(id === 'holdings-content' && holdingsChart) holdingsChart.resize();
+            }, 100); // 短暂延迟让 DOM 渲染完成
         }
     }
 
@@ -396,9 +355,9 @@
         }
     }
 
+    // === GitHub & Stock 逻辑 (保持不变) ===
     function safeB64ToUtf8(str) { return decodeURIComponent(escape(window.atob(str.replace(/\s/g, '')))); }
     function utf8ToB64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
-    
     async function uploadToGithub() {
         let token = localStorage.getItem("github_token");
         if (!token) { document.getElementById('token-modal').style.display='flex'; return; }
@@ -412,7 +371,6 @@
         } catch (e) { alert("❌ " + e.message); if(e.message.includes("401")) localStorage.removeItem("github_token"); } 
         finally { btn.innerText = origin; btn.disabled = false; }
     }
-    
     async function syncFromGithub() {
         let token = localStorage.getItem("github_token");
         const btn = document.getElementById('btn-pull'); const origin = btn.innerText; btn.innerText = "⏳"; btn.disabled = true;
@@ -430,308 +388,117 @@
             if(Array.isArray(data) && confirm(`覆盖本地 ${stocks.length} 条数据?`)) { stocks = data; localStorage.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); }
         } catch (e) { alert("❌ " + e.message); } finally { btn.innerText = origin; btn.disabled = false; }
     }
-    
     function saveToken() {
         const t = document.getElementById('gh-token-input').value.trim();
         if(t) { localStorage.setItem('github_token', t); document.getElementById('token-modal').style.display='none'; uploadToGithub(); }
     }
-
-    // === 股票搜索与管理 ===
     function searchStock() {
-        const val = document.getElementById('inName').value.trim();
-        if(!val) return;
+        const val = document.getElementById('inName').value.trim(); if(!val) return;
         const s = document.createElement('script');
         s.src = `https://searchapi.eastmoney.com/api/suggest/get?input=${encodeURIComponent(val)}&type=14&token=D43BF722C8E33BD5D50F639205545E43&cb=handleSearch`;
         window.handleSearch = (d) => {
             if(d?.QuotationCodeTable?.Data?.[0]) {
-                let r = d.QuotationCodeTable.Data[0];
-                let suffix = "";
-                if (/^\d{5}$/.test(r.Code)) suffix = ".HK"; 
-                else if (/^\d{6}$/.test(r.Code)) suffix = r.Code.startsWith('6') ? ".SH" : ".SZ";
-                else if (!/^\d+$/.test(r.Code)) suffix = ".US"; 
-                else {
-                    if(r.MarketType == "1") suffix = ".SH"; 
-                    else if(r.MarketType == "2") suffix = ".SZ";
-                    else if(r.MarketType == "5") suffix = ".HK"; 
-                }
-                document.getElementById('inCode').value = r.Code + suffix;
-                document.getElementById('inName').value = r.Name;
-            } else alert("未找到");
-            s.remove();
+                let r = d.QuotationCodeTable.Data[0]; let suffix = "";
+                if (/^\d{5}$/.test(r.Code)) suffix = ".HK"; else if (/^\d{6}$/.test(r.Code)) suffix = r.Code.startsWith('6') ? ".SH" : ".SZ"; else if (!/^\d+$/.test(r.Code)) suffix = ".US"; else { if(r.MarketType == "1") suffix = ".SH"; else if(r.MarketType == "2") suffix = ".SZ"; else if(r.MarketType == "5") suffix = ".HK"; }
+                document.getElementById('inCode').value = r.Code + suffix; document.getElementById('inName').value = r.Name;
+            } else alert("未找到"); s.remove();
         }
         document.body.appendChild(s);
     }
-
     function saveStock() {
-        const code = document.getElementById('inCode').value;
-        const name = document.getElementById('inName').value;
-        const min = parseFloat(document.getElementById('inMin').value);
-        const max = parseFloat(document.getElementById('inMax').value);
+        const code = document.getElementById('inCode').value; const name = document.getElementById('inName').value; const min = parseFloat(document.getElementById('inMin').value); const max = parseFloat(document.getElementById('inMax').value);
         if(!code || isNaN(min)) return alert("请填写完整");
-        
-        const item = { code, name, minCap: min, maxCap: max };
-        const idx = stocks.findIndex(s => s.code === code);
-        if(idx >= 0) stocks[idx] = item; else stocks.push(item);
-        localStorage.setItem('gridStocks', JSON.stringify(stocks));
-        renderTable();
-        alert("已保存");
+        const item = { code, name, minCap: min, maxCap: max }; const idx = stocks.findIndex(s => s.code === code);
+        if(idx >= 0) stocks[idx] = item; else stocks.push(item); localStorage.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); alert("已保存");
     }
-
     function renderTable() {
-        const tb = document.getElementById('stock-tbody');
-        document.getElementById('list-count').innerText = `(${stocks.length})`;
-        tb.innerHTML = stocks.map((s, i) => `
-            <tr>
-                <td><b>${s.name}</b> <span style="color:#999;font-size:12px">${s.code}</span></td>
-                <td>${s.minCap}-${s.maxCap}亿</td>
-                <td style="text-align:center;">
-                    <div class="op-btn-group">
-                        <button class="btn btn-edit-yellow btn-icon-square" onclick="editStock(${i})">✎</button>
-                        <button class="btn btn-del-red btn-icon-square" onclick="delStock(${i})">✕</button>
-                    </div>
-                </td>
-                <td style="text-align:center;"><input type="checkbox" class="stock-chk" value="${i}" checked></td>
-            </tr>
-        `).join('');
-        
+        const tb = document.getElementById('stock-tbody'); document.getElementById('list-count').innerText = `(${stocks.length})`;
+        tb.innerHTML = stocks.map((s, i) => `<tr><td><b>${s.name}</b> <span style="color:#999;font-size:12px">${s.code}</span></td><td>${s.minCap}-${s.maxCap}亿</td><td style="text-align:center;"><div class="op-btn-group"><button class="btn btn-edit-yellow btn-icon-square" onclick="editStock(${i})">✎</button><button class="btn btn-del-red btn-icon-square" onclick="delStock(${i})">✕</button></div></td><td style="text-align:center;"><input type="checkbox" class="stock-chk" value="${i}" checked></td></tr>`).join('');
         checkAllState();
     }
+    function toggleAllStocks(el) { document.querySelectorAll('.stock-chk').forEach(chk => chk.checked = el.checked); }
+    function checkAllState() { const all = document.querySelectorAll('.stock-chk'); const checked = document.querySelectorAll('.stock-chk:checked'); document.getElementById('check-all').checked = (all.length > 0 && all.length === checked.length); }
+    document.addEventListener('change', function(e){ if(e.target.classList.contains('stock-chk')) checkAllState(); });
+    function editStock(i) { const s = stocks[i]; document.getElementById('inName').value = s.name; document.getElementById('inCode').value = s.code; document.getElementById('inMin').value = s.minCap; document.getElementById('inMax').value = s.maxCap; document.getElementById('card-config').scrollIntoView({behavior: 'smooth'}); }
+    function delStock(i) { if(!confirm("确认删除？")) return; stocks.splice(i, 1); localStorage.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); }
 
-    function toggleAllStocks(el) {
-        document.querySelectorAll('.stock-chk').forEach(chk => chk.checked = el.checked);
-    }
-
-    function checkAllState() {
-        const all = document.querySelectorAll('.stock-chk');
-        const checked = document.querySelectorAll('.stock-chk:checked');
-        const el = document.getElementById('check-all');
-        if(all.length > 0 && all.length === checked.length) el.checked = true;
-        else el.checked = false;
-    }
-
-    document.addEventListener('change', function(e){
-        if(e.target.classList.contains('stock-chk')) checkAllState();
-    });
-
-    function editStock(i) {
-        const s = stocks[i];
-        document.getElementById('inName').value = s.name;
-        document.getElementById('inCode').value = s.code;
-        document.getElementById('inMin').value = s.minCap;
-        document.getElementById('inMax').value = s.maxCap;
-        document.getElementById('card-config').scrollIntoView({behavior: 'smooth'});
-        const btn = document.querySelector('.btn-green');
-        const oldText = btn.innerText;
-        btn.innerText = "📝 修改中...";
-        setTimeout(() => btn.innerText = oldText, 1000);
-    }
-
-    function delStock(i) {
-        if(!confirm("确认删除？")) return;
-        stocks.splice(i, 1);
-        localStorage.setItem('gridStocks', JSON.stringify(stocks));
-        renderTable();
-    }
-
-    // ==============================================
-    // === 核心回测逻辑 ===
-    // ==============================================
-
-    const getEmSecId = c => {
-        let raw = c.replace(/\.[A-Z]+$/, '');
-        if (c.includes('.HK') || /^\d{5}$/.test(raw)) return '116.' + raw.padStart(5, '0');
-        if (c.includes('.US')) return '105.' + raw;
-        if (raw.startsWith('6')) return '1.' + raw;
-        return '0.' + raw;
-    };
-    
-    const toYahoo = c => {
-        let raw = c.replace(/\.[A-Z]+$/, '');
-        if (c.includes('.HK') || /^\d{5}$/.test(raw)) return parseInt(raw, 10).toString().padStart(4, '0') + '.HK';
-        if (c.includes('.US')) return raw;
-        if (c.includes('.SH') || (raw.startsWith('6') && !c.includes('.SZ'))) return raw + '.SS';
-        return raw + '.SZ';
-    };
-
-    async function fetchEmShares(secId) {
-        const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${secId}&fields=f2,f20&invt=2&fltt=2`;
-        const res = await fetch(PROXY + encodeURIComponent(url));
-        return await res.json();
-    }
+    // === 回测逻辑 ===
+    const getEmSecId = c => { let raw = c.replace(/\.[A-Z]+$/, ''); if (c.includes('.HK') || /^\d{5}$/.test(raw)) return '116.' + raw.padStart(5, '0'); if (c.includes('.US')) return '105.' + raw; if (raw.startsWith('6')) return '1.' + raw; return '0.' + raw; };
+    const toYahoo = c => { let raw = c.replace(/\.[A-Z]+$/, ''); if (c.includes('.HK') || /^\d{5}$/.test(raw)) return parseInt(raw, 10).toString().padStart(4, '0') + '.HK'; if (c.includes('.US')) return raw; if (c.includes('.SH') || (raw.startsWith('6') && !c.includes('.SZ'))) return raw + '.SS'; return raw + '.SZ'; };
+    async function fetchEmShares(secId) { const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${secId}&fields=f2,f20&invt=2&fltt=2`; const res = await fetch(PROXY + encodeURIComponent(url)); return await res.json(); }
 
     async function calculateStock(stock) {
         const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
-        const lowSens = parseFloat(document.getElementById('pLowSens').value) || 12;
-        const lowRed = parseFloat(document.getElementById('pLowRed').value) || 0.3;
-        const normSens = parseFloat(document.getElementById('pNormSens').value) || 25;
-        const normRed = parseFloat(document.getElementById('pNormRed').value) || 0.8;
-
-        let emSecId = getEmSecId(stock.code);
-        let emCode = emSecId.split('.')[1];
+        const lowSens = parseFloat(document.getElementById('pLowSens').value) || 12; const lowRed = parseFloat(document.getElementById('pLowRed').value) || 0.3;
+        const normSens = parseFloat(document.getElementById('pNormSens').value) || 25; const normRed = parseFloat(document.getElementById('pNormRed').value) || 0.8;
         
+        let emSecId = getEmSecId(stock.code); let emCode = emSecId.split('.')[1];
         let capJson = await fetchEmShares(emSecId);
-        if(stock.code.includes('.US') && (!capJson.data || !capJson.data.diff)) {
-            emSecId = '106.' + emCode;
-            capJson = await fetchEmShares(emSecId);
-        }
-
+        if(stock.code.includes('.US') && (!capJson.data || !capJson.data.diff)) { emSecId = '106.' + emCode; capJson = await fetchEmShares(emSecId); }
         let totalShares = 0; 
-        if(capJson.data?.diff) {
-            let d = Array.isArray(capJson.data.diff) ? capJson.data.diff[0] : capJson.data.diff[emCode];
-            if(d && d.f2 > 0) totalShares = (d.f20 / d.f2) / 100000000;
-        }
-        
+        if(capJson.data?.diff) { let d = Array.isArray(capJson.data.diff) ? capJson.data.diff[0] : capJson.data.diff[emCode]; if(d && d.f2 > 0) totalShares = (d.f20 / d.f2) / 100000000; }
         if(!totalShares) throw new Error(`无法获取股本数据`);
 
-        const sd = document.getElementById('inStartDate').value;
-        const ed = document.getElementById('inEndDate').value;
-        const p1 = Math.floor(new Date(sd).getTime()/1000);
-        const p2 = Math.floor(new Date(ed).getTime()/1000) + 86400;
-        
+        const sd = document.getElementById('inStartDate').value; const ed = document.getElementById('inEndDate').value;
+        const p1 = Math.floor(new Date(sd).getTime()/1000); const p2 = Math.floor(new Date(ed).getTime()/1000) + 86400;
         const yhTicker = toYahoo(stock.code);
-        const yhUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${yhTicker}?period1=${p1}&period2=${p2}&interval=1d`;
-        const hRes = await fetch(PROXY + encodeURIComponent(yhUrl));
-        
+        const hRes = await fetch(PROXY + encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yhTicker}?period1=${p1}&period2=${p2}&interval=1d`));
         if(!hRes.ok) throw new Error(`Yahoo请求失败`);
-        
-        const hJson = await hRes.json();
-        const result = hJson.chart.result ? hJson.chart.result[0] : null;
-        
+        const hJson = await hRes.json(); const result = hJson.chart.result ? hJson.chart.result[0] : null;
         if(!result || !result.timestamp || result.timestamp.length === 0) throw new Error("该时段无K线数据");
         
-        let rawData = [];
-        const quotes = result.indicators.quote[0];
-        const minCap = stock.minCap;
-        const maxCap = stock.maxCap;
-        const midCap = (minCap + maxCap) / 2.0;
-
-        const getTargetLeverage = (mv) => {
-            if(mv <= minCap) return maxLev; 
-            if(mv >= maxCap) return 0.01;
-            let r = (mv - minCap) / (maxCap - minCap);
-            return 0.01 + (maxLev - 0.01) * Math.exp(-2.5 * r);
-        };
+        let rawData = []; const quotes = result.indicators.quote[0];
+        const minCap = stock.minCap; const maxCap = stock.maxCap; const midCap = (minCap + maxCap) / 2.0;
+        const getTargetLeverage = (mv) => { if(mv <= minCap) return maxLev; if(mv >= maxCap) return 0.01; let r = (mv - minCap) / (maxCap - minCap); return 0.01 + (maxLev - 0.01) * Math.exp(-2.5 * r); };
 
         result.timestamp.forEach((t, i) => {
             if(quotes.close[i]) {
-                let c = parseFloat(quotes.close[i].toFixed(2));
-                let mv = c * totalShares; 
-                rawData.push({
-                    date: new Date(t*1000).toISOString().split('T')[0],
-                    close: c,
-                    mv: mv,
-                    valScore: (mv<=minCap)?1:(mv>=maxCap)?-1:((mv<=midCap)?(midCap-mv)/(midCap-minCap):-(mv-midCap)/(maxCap-midCap))
-                });
+                let c = parseFloat(quotes.close[i].toFixed(2)); let mv = c * totalShares; 
+                rawData.push({ date: new Date(t*1000).toISOString().split('T')[0], close: c, mv: mv, valScore: (mv<=minCap)?1:(mv>=maxCap)?-1:((mv<=midCap)?(midCap-mv)/(midCap-minCap):-(mv-midCap)/(maxCap-midCap)) });
             }
         });
 
-        const ma = (idx, n) => {
-            if(idx<n) return null;
-            let sum=0; for(let k=idx-n; k<idx; k++) sum+=rawData[k].close;
-            return sum/n;
-        };
-        const isUptrend = (i) => {
-            if(i<20) return false;
-            let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20);
-            if(!m5||!m10||!m20) return false;
-            return (m5>m10 && m10>m20);
-        };
+        const ma = (idx, n) => { if(idx<n) return null; let sum=0; for(let k=idx-n; k<idx; k++) sum+=rawData[k].close; return sum/n; };
+        const isUptrend = (i) => { if(i<20) return false; let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20); if(!m5||!m10||!m20) return false; return (m5>m10 && m10>m20); };
 
-        let nav = 1.0, peakNav = 1.0;
-        let prevL = getTargetLeverage(rawData[0].mv); 
-        let inProtect = false;
-        let history = [];
-        let changeLogs = [];
-
+        let nav = 1.0, peakNav = 1.0, prevL = getTargetLeverage(rawData[0].mv), inProtect = false, history = [], changeLogs = [];
         history.push({date: rawData[0].date, nav:1.0, close:rawData[0].close, leverage:prevL});
 
         for(let i=1; i<rawData.length; i++) {
-            const d = rawData[i];
-            const prevD = rawData[i-1];
-            const r = d.close / prevD.close - 1;
-            const curMv = d.mv;
-            
-            const targetL = getTargetLeverage(curMv);
-            let newL = targetL;
-            let reason = "估值驱动";
+            const d = rawData[i]; const prevD = rawData[i-1]; const r = d.close / prevD.close - 1; const curMv = d.mv;
+            const targetL = getTargetLeverage(curMv); let newL = targetL; let reason = "估值驱动";
             const nearLowMv = (curMv <= minCap * 1.05);
-
-            let winStart = Math.max(0, i - 20);
-            let winNav = 0;
-            for(let k=winStart; k<history.length; k++) if(history[k].nav > winNav) winNav = history[k].nav;
-            if(i < 20) winNav = peakNav; 
-            if(nav > winNav) winNav = nav;
-
+            let winStart = Math.max(0, i - 20); let winNav = 0; for(let k=winStart; k<history.length; k++) if(history[k].nav > winNav) winNav = history[k].nav; if(i < 20) winNav = peakNav; if(nav > winNav) winNav = nav;
             let curDrawdown = (winNav > 0) ? (winNav - nav) / winNav : 0;
 
             if(curDrawdown > 0.15 && !inProtect) {
-                if(nearLowMv) reason = "市值低估跳过止损"; 
-                else { inProtect = true; newL = prevL * 0.4; reason = `回撤止损(DD:${(curDrawdown*100).toFixed(1)}%)`; peakNav = nav; }
+                if(nearLowMv) reason = "市值低估跳过止损"; else { inProtect = true; newL = prevL * 0.4; reason = `回撤止损(DD:${(curDrawdown*100).toFixed(1)}%)`; peakNav = nav; }
             }
-
             if(inProtect) {
-                let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20);
-                let trendUp = (m5 && m10 && m20 && m5 > m10 && m10 > m20);
+                let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20); let trendUp = (m5 && m10 && m20 && m5 > m10 && m10 > m20);
                 if(trendUp && d.valScore > 0) { inProtect = false; newL = targetL; reason = "趋势恢复且估值改善"; } 
                 else {
-                    if(m5 && m10 && m20 && m5 < m10 && m10 < m20) {
-                        let slope = (m10 - m20)/m20;
-                        let reduce = Math.min(1.0, Math.abs(slope)*25); 
-                        let trendL = Math.max(0.01, prevL * (1 - reduce * 0.8));
-                        if(trendL < newL) { newL = trendL; reason = "保护中极速减仓"; }
-                    } else { newL = 0.01; if(prevL > 0.02) reason = "保护中(空仓)"; }
+                    if(m5 && m10 && m20 && m5 < m10 && m10 < m20) { let slope = (m10 - m20)/m20; let reduce = Math.min(1.0, Math.abs(slope)*25); let trendL = Math.max(0.01, prevL * (1 - reduce * 0.8)); if(trendL < newL) { newL = trendL; reason = "保护中极速减仓"; } } 
+                    else { newL = 0.01; if(prevL > 0.02) reason = "保护中(空仓)"; }
                 }
             }
-
             if(!inProtect) {
                 let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20);
                 if(m5 && m10 && m20 && m5 < m10 && m10 < m20) {
-                    let slope = (m10 - m20)/m20;
-                    let reduceSpeed, reduceMsg;
-                    if (curMv <= minCap) {
-                        let reduce = Math.min(1.0, Math.abs(slope) * lowSens); 
-                        reduceSpeed = reduce * lowRed; 
-                        reduceMsg = "低估区趋势转弱(慢减仓)";
-                    } else {
-                        let reduce = Math.min(1.0, Math.abs(slope) * normSens);
-                        reduceSpeed = reduce * normRed;
-                        reduceMsg = "趋势转弱极速减仓";
-                    }
-                    let trendL = Math.max(0.01, prevL * (1 - reduceSpeed));
-                    if(trendL < newL) { newL = trendL; reason = reduceMsg; }
+                    let slope = (m10 - m20)/m20; let reduceSpeed, reduceMsg;
+                    if (curMv <= minCap) { let reduce = Math.min(1.0, Math.abs(slope) * lowSens); reduceSpeed = reduce * lowRed; reduceMsg = "低估区趋势转弱(慢减仓)"; } 
+                    else { let reduce = Math.min(1.0, Math.abs(slope) * normSens); reduceSpeed = reduce * normRed; reduceMsg = "趋势转弱极速减仓"; }
+                    let trendL = Math.max(0.01, prevL * (1 - reduceSpeed)); if(trendL < newL) { newL = trendL; reason = reduceMsg; }
                 }
             }
-
-            if(!inProtect && (isUptrend(i))) {
-                if(r < -0.02) { newL = Math.min(maxLev, prevL * 1.05); reason = "上涨中急跌加仓"; } 
-                else { newL = Math.max(prevL, targetL); }
-            }
-
-            if(Math.abs(newL - prevL) > 0.005) { 
-                let action = newL > prevL ? "加仓" : "减仓";
-                let colorClass = newL > prevL ? "bg-red" : "bg-green";
-                changeLogs.push({ date: d.date, action: `<span class="badge ${colorClass}">${action}</span>`, val: `${prevL.toFixed(2)} → ${newL.toFixed(2)}`, reason: reason });
-            }
-
-            nav = nav * (1 + prevL * r);
-            if(nav > peakNav) peakNav = nav;
-            history.push({date: d.date, nav, close: d.close, leverage: newL});
-            prevL = newL;
+            if(!inProtect && (isUptrend(i))) { if(r < -0.02) { newL = Math.min(maxLev, prevL * 1.05); reason = "上涨中急跌加仓"; } else { newL = Math.max(prevL, targetL); } }
+            if(Math.abs(newL - prevL) > 0.005) { changeLogs.push({ date: d.date, action: `<span class="badge ${newL>prevL?'bg-red':'bg-green'}">${newL>prevL?'加仓':'减仓'}</span>`, val: `${prevL.toFixed(2)} → ${newL.toFixed(2)}`, reason: reason }); }
+            nav = nav * (1 + prevL * r); if(nav > peakNav) peakNav = nav; history.push({date: d.date, nav, close: d.close, leverage: newL}); prevL = newL;
         }
-
-        const last = history[history.length-1];
-        const ret = (last.nav - 1)*100;
-        const sRet = (last.close / history[0].close - 1)*100;
-        let maxDD = 0, p = -999;
-        history.forEach(h => { if(h.nav > p) p = h.nav; let dd = (p - h.nav) / p; if(dd > maxDD) maxDD = dd; });
-
-        return {
-            stockName: stock.name, stockCode: stock.code, history: history, logs: changeLogs,
-            stats: { ret: ret, stockRet: sRet, alpha: ret - sRet, maxDD: maxDD * 100, avgLev: history.reduce((a,b)=>a+b.leverage,0)/history.length }
-        };
+        const last = history[history.length-1]; const ret = (last.nav - 1)*100; const sRet = (last.close / history[0].close - 1)*100; let maxDD = 0, p = -999; history.forEach(h => { if(h.nav > p) p = h.nav; let dd = (p - h.nav) / p; if(dd > maxDD) maxDD = dd; });
+        return { stockName: stock.name, stockCode: stock.code, history: history, logs: changeLogs, stats: { ret: ret, stockRet: sRet, alpha: ret - sRet, maxDD: maxDD * 100, avgLev: history.reduce((a,b)=>a+b.leverage,0)/history.length } };
     }
 
-    // === 组合回测逻辑：确保运行结束后自动展示并渲染 ===
     async function runBatchBacktest() {
         const checkedBoxes = document.querySelectorAll('.stock-chk:checked');
         if(checkedBoxes.length === 0) return alert("请至少勾选一只股票");
@@ -741,43 +508,25 @@
         const sumBox = document.getElementById('batch-summary-box');
         const sumTbody = document.getElementById('summary-tbody');
         const detailView = document.getElementById('detail-view');
-        
-        // 获取新卡片元素
-        const portCard = document.getElementById('card-portfolio');
-        const holdCard = document.getElementById('card-holdings');
+        const portSection = document.getElementById('portfolio-section');
+        const holdSection = document.getElementById('holdings-section');
 
         btn.innerText = "⏳"; btn.disabled = true;
         detailView.style.display = 'none';
+        portSection.style.display = 'none'; // 运行前隐藏
+        holdSection.style.display = 'none';
         
-        // 关键步骤：运行前先把两个卡片隐藏，避免旧数据闪烁
-        portCard.style.display = 'none';
-        holdCard.style.display = 'none';
+        sumBox.style.display = 'block'; sumTbody.innerHTML = ''; progress.style.display = 'block';
+        document.getElementById('summary-content').classList.remove('collapsed'); 
+        document.querySelector('#batch-summary-box .section-header').classList.add('expanded');
         
-        sumBox.style.display = 'block';
-        sumTbody.innerHTML = '';
-        progress.style.display = 'block';
-        document.getElementById('summary-content').classList.remove('collapsed');
-        document.querySelector('#batch-summary-box .header-arrow').style.transform = 'rotate(180deg)';
-        batchResults = [];
-        let successCount = 0;
-        const total = selectedIndices.length;
-
+        batchResults = []; let successCount = 0; const total = selectedIndices.length;
         for(let step=0; step < total; step++) {
-            const i = selectedIndices[step];
-            const s = stocks[i];
+            const i = selectedIndices[step]; const s = stocks[i];
             progress.innerHTML = `正在计算 <b>${s.name}</b> (${step+1}/${total})...`;
             try {
-                const res = await calculateStock(s);
-                res.index = i; 
-                batchResults.push(res);
-                appendSummaryRow(res, i);
-                successCount++;
-            } catch(e) {
-                console.error(s.name, e);
-                let tr = document.createElement('tr');
-                tr.innerHTML = `<td style="text-align:left">${s.name}<br><span style="font-size:10px;color:#999">${s.code}</span></td><td colspan="3" style="text-align:center; color:orange; font-size:12px">❌ ${e.message}</td>`;
-                sumTbody.appendChild(tr);
-            }
+                const res = await calculateStock(s); res.index = i; batchResults.push(res); appendSummaryRow(res, i); successCount++;
+            } catch(e) { console.error(s.name, e); sumTbody.innerHTML += `<tr><td style="text-align:left">${s.name}<br><span style="font-size:10px;color:#999">${s.code}</span></td><td colspan="3" style="text-align:center; color:orange; font-size:12px">❌ ${e.message}</td></tr>`; }
             await new Promise(r => setTimeout(r, 300));
         }
         progress.innerHTML = `✅ 运行完成! 成功 ${successCount} / 选中 ${total}`;
@@ -786,383 +535,133 @@
         if(batchResults.length > 0) {
             showDetail(batchResults[0].index);
             
-            // 1. 先把卡片设为可见（此时还不知道大小）
-            portCard.style.display = 'block';
-            holdCard.style.display = 'block';
+            // 显示组合区域
+            portSection.style.display = 'block';
+            holdSection.style.display = 'block';
 
-            // 2. 强制两者都为 open 状态（为了让 ECharts 获取正确的宽度初始化）
-            portCard.classList.add('open');
-            holdCard.classList.add('open'); 
+            // 默认状态：组合展开，持仓折叠
+            const portHeader = portSection.querySelector('.section-header');
+            const portContent = document.getElementById('portfolio-content');
+            portContent.classList.remove('collapsed');
+            portHeader.classList.add('expanded');
 
-            // 3. 计算数据并渲染图表（此时 DOM 是可见的，宽度正确）
+            const holdHeader = holdSection.querySelector('.section-header');
+            const holdContent = document.getElementById('holdings-content');
+            holdContent.classList.add('collapsed');
+            holdHeader.classList.remove('expanded');
+
+            // 计算并绘制
             runPortfolioStrategy();
-
-            // 4. 图表渲染完成后，再把持仓卡片折叠起来
-            // 这里的 setTimeout 是为了确保 echarts.init 已经执行完毕
-            setTimeout(() => {
-                // 强制重绘一次，修复可能的宽度问题
-                if(portfolioChart) portfolioChart.resize();
-                if(holdingsChart) holdingsChart.resize();
-                
-                // 然后再折叠持仓卡片
-                holdCard.classList.remove('open');
-            }, 100);
+            setTimeout(() => { if(portfolioChart) portfolioChart.resize(); }, 200);
         }
     }
 
     function appendSummaryRow(res, index) {
-        const tr = document.createElement('tr');
-        tr.id = `row-${index}`;
-        tr.onclick = () => showDetail(index);
-        const cRet = res.stats.ret >= 0 ? 'val-pos' : 'val-neg';
-        const cAlpha = res.stats.alpha >= 0 ? 'val-pos' : 'val-neg';
-        tr.innerHTML = `
-            <td><b>${res.stockName}</b><br><span style="color:#999;font-size:10px">${res.stockCode}</span></td>
-            <td class="${cRet}">${res.stats.ret.toFixed(1)}%</td>
-            <td class="${cAlpha}">${res.stats.alpha > 0 ? '+' : ''}${res.stats.alpha.toFixed(1)}%</td>
-            <td style="color:#555;">${res.stats.maxDD.toFixed(1)}%</td>
-        `;
+        const tr = document.createElement('tr'); tr.id = `row-${index}`; tr.onclick = () => showDetail(index);
+        const cRet = res.stats.ret >= 0 ? 'val-pos' : 'val-neg'; const cAlpha = res.stats.alpha >= 0 ? 'val-pos' : 'val-neg';
+        tr.innerHTML = `<td><b>${res.stockName}</b><br><span style="color:#999;font-size:10px">${res.stockCode}</span></td><td class="${cRet}">${res.stats.ret.toFixed(1)}%</td><td class="${cAlpha}">${res.stats.alpha > 0 ? '+' : ''}${res.stats.alpha.toFixed(1)}%</td><td style="color:#555;">${res.stats.maxDD.toFixed(1)}%</td>`;
         document.getElementById('summary-tbody').appendChild(tr);
     }
 
     function showDetail(index) {
-        const res = batchResults.find(r => r.index === index);
-        if(!res) return;
+        const res = batchResults.find(r => r.index === index); if(!res) return;
         document.querySelectorAll('.summary-table tr').forEach(r => r.classList.remove('selected'));
-        const row = document.getElementById(`row-${index}`);
-        if(row) row.classList.add('selected');
+        document.getElementById(`row-${index}`).classList.add('selected');
         document.getElementById('detail-view').style.display = 'block';
         document.getElementById('detail-name').innerText = res.stockName;
         const s = res.stats;
-        document.getElementById('val-ret').innerText = s.ret.toFixed(2) + '%';
-        document.getElementById('val-ret').className = 'stat-val ' + (s.ret>=0?'win':'loss');
-        document.getElementById('val-stock').innerText = s.stockRet.toFixed(2) + '%';
-        document.getElementById('val-stock').className = 'stat-val ' + (s.stockRet>=0?'win':'loss');
+        document.getElementById('val-ret').innerText = s.ret.toFixed(2) + '%'; document.getElementById('val-ret').className = 'stat-val ' + (s.ret>=0?'win':'loss');
+        document.getElementById('val-stock').innerText = s.stockRet.toFixed(2) + '%'; document.getElementById('val-stock').className = 'stat-val ' + (s.stockRet>=0?'win':'loss');
         document.getElementById('val-lev').innerText = s.avgLev.toFixed(2) + 'x';
-        renderChart(res.history);
-        renderLog(res.logs);
-        if(myChart) myChart.resize();
+        renderChart(res.history); renderLog(res.logs); if(myChart) myChart.resize();
     }
 
     function renderLog(logs) {
-        const tbody = document.getElementById('log-tbody');
-        const countLabel = document.getElementById('log-count');
-        countLabel.innerText = `(${logs.length})`;
-        if(logs.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">期间无操作</td></tr>';
-            return;
-        }
-        tbody.innerHTML = logs.slice().reverse().map(l => `
-            <tr>
-                <td class="log-col-date" style="color:#666;">${l.date}</td>
-                <td class="log-col-action">${l.action}</td>
-                <td class="log-col-val" style="font-family:monospace;">${l.val}</td>
-                <td class="log-col-reason" style="color:#555;" title="${l.reason}">${l.reason}</td>
-            </tr>
-        `).join('');
+        const tbody = document.getElementById('log-tbody'); document.getElementById('log-count').innerText = `(${logs.length})`;
+        if(logs.length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">期间无操作</td></tr>'; return; }
+        tbody.innerHTML = logs.slice().reverse().map(l => `<tr><td class="log-col-date" style="color:#666;">${l.date}</td><td class="log-col-action">${l.action}</td><td class="log-col-val" style="font-family:monospace;">${l.val}</td><td class="log-col-reason" style="color:#555;" title="${l.reason}">${l.reason}</td></tr>`).join('');
     }
 
     function renderChart(hist) {
-        const dom = document.getElementById('chart-box');
-        if(myChart) myChart.clear(); else myChart = echarts.init(dom);
+        const dom = document.getElementById('chart-box'); if(myChart) myChart.clear(); else myChart = echarts.init(dom);
         const dates = hist.map(h=>h.date);
         myChart.setOption({
-            tooltip: { 
-                trigger: 'axis', axisPointer: {type: 'cross'},
-                formatter: p => {
-                    let h = `<div style="font-size:12px;margin-bottom:5px;">${p[0].name}</div>`;
-                    p.forEach(x => {
-                        let val = x.value; if(x.seriesName==='杠杆') val = val.toFixed(2)+'x'; else val = val.toFixed(2);
-                        h += `<div style="font-size:11px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${x.color};margin-right:5px;"></span>${x.seriesName}: <b>${val}</b></div>`
-                    });
-                    return h;
-                },
-                backgroundColor: 'rgba(255,255,255,0.95)', borderColor: '#eee', borderWidth: 1, textStyle: {color:'#333'}
-            },
+            tooltip: { trigger: 'axis', axisPointer: {type: 'cross'}, formatter: p => { let h = `<div style="font-size:12px;margin-bottom:5px;">${p[0].name}</div>`; p.forEach(x => { let val = x.value; if(x.seriesName==='杠杆') val = val.toFixed(2)+'x'; else val = val.toFixed(2); h += `<div style="font-size:11px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${x.color};margin-right:5px;"></span>${x.seriesName}: <b>${val}</b></div>` }); return h; }, backgroundColor: 'rgba(255,255,255,0.95)', borderColor: '#eee', borderWidth: 1, textStyle: {color:'#333'} },
             legend: { top: 0, data: ['股价','净值','杠杆'], itemWidth:12, itemHeight:8, textStyle:{fontSize:11} },
             grid: [{left: 10, right: 10, top:'12%', height:'58%', containLabel: true}, {left: 10, right: 10, top:'78%', height:'15%', containLabel: true}],
             xAxis: [{type:'category', data: dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}, axisLine:{lineStyle:{color:'#eee'}}}, {type:'category', data: dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}],
-            yAxis: [
-                {type:'value', position:'left', splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#999'}}, 
-                {type:'value', position:'right', splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#d32f2f'}},
-                {type:'value', gridIndex:1, splitLine:{show:true, lineStyle:{type:'dashed', color:'#eee'}}, min:0, max:2.1, axisLabel:{fontSize:10, color:'#28a745'}}
-            ],
+            yAxis: [{type:'value', position:'left', splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#999'}}, {type:'value', position:'right', splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#d32f2f'}}, {type:'value', gridIndex:1, splitLine:{show:true, lineStyle:{type:'dashed', color:'#eee'}}, min:0, max:2.1, axisLabel:{fontSize:10, color:'#28a745'}}],
             dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
-            series: [
-                {name:'股价', type:'line', yAxisIndex:0, data:hist.map(h=>h.close), itemStyle:{color:'#999'}, showSymbol:false, lineStyle: {width: 1}},
-                {name:'净值', type:'line', yAxisIndex:1, data:hist.map(h=>h.nav), itemStyle:{color:'#d32f2f'}, showSymbol:false, lineStyle: {width: 2}},
-                {name:'杠杆', type:'line', xAxisIndex:1, yAxisIndex:2, data:hist.map(h=>h.leverage), itemStyle:{color:'#28a745'}, step:'end', showSymbol:false, areaStyle:{opacity:0.1}, lineStyle: {width: 1}}
-            ]
+            series: [{name:'股价', type:'line', yAxisIndex:0, data:hist.map(h=>h.close), itemStyle:{color:'#999'}, showSymbol:false, lineStyle: {width: 1}}, {name:'净值', type:'line', yAxisIndex:1, data:hist.map(h=>h.nav), itemStyle:{color:'#d32f2f'}, showSymbol:false, lineStyle: {width: 2}}, {name:'杠杆', type:'line', xAxisIndex:1, yAxisIndex:2, data:hist.map(h=>h.leverage), itemStyle:{color:'#28a745'}, step:'end', showSymbol:false, areaStyle:{opacity:0.1}, lineStyle: {width: 1}}]
         });
     }
 
-    // ==============================================
-    // === 组合回测逻辑 (Portfolio Backtest) ===
-    // ==============================================
-    
+    // === 组合逻辑 ===
     function runPortfolioStrategy() {
         if (!batchResults || batchResults.length === 0) return alert("请先运行【批量回测】生成数据");
-
         const globalMaxLev = parseFloat(document.getElementById('pGlobalLev').value) || 2.0;
         const minPosThreshold = parseFloat(document.getElementById('pMinPos').value) || 0.4;
         
         let dateMap = {}; 
+        batchResults.forEach((res, stockIdx) => { res.history.forEach(day => { if (!dateMap[day.date]) { dateMap[day.date] = { date: day.date, stocks: {} }; } dateMap[day.date].stocks[stockIdx] = { close: day.close, idealLev: day.leverage }; }); });
+        const sortedDates = Object.keys(dateMap).sort(); if (sortedDates.length < 2) return alert("有效日期数据不足");
+
+        let portNav = 1.0; let portHistory = []; let maxDD = 0; let peak = 1.0; let prevAllocatedLevs = {}; 
         
-        batchResults.forEach((res, stockIdx) => {
-            res.history.forEach(day => {
-                if (!dateMap[day.date]) {
-                    dateMap[day.date] = { date: day.date, stocks: {} };
-                }
-                dateMap[day.date].stocks[stockIdx] = {
-                    close: day.close,
-                    idealLev: day.leverage 
-                };
-            });
-        });
-
-        const sortedDates = Object.keys(dateMap).sort();
-        if (sortedDates.length < 2) return alert("有效日期数据不足");
-
-        let portNav = 1.0;
-        let portHistory = [];
-        let maxDD = 0;
-        let peak = 1.0;
-        let prevAllocatedLevs = {}; 
-        
-        const firstDate = sortedDates[0];
-        const firstData = dateMap[firstDate];
-        let initialBreakdown = {};
-        
-        // === 筛选逻辑：第一天 ===
-        let sumIdeal = 0;
-        let validStocks = {}; 
-
-        batchResults.forEach((res, idx) => {
-            if (firstData.stocks[idx]) {
-                const rawL = firstData.stocks[idx].idealLev;
-                if(rawL >= minPosThreshold) {
-                    validStocks[idx] = rawL;
-                    sumIdeal += rawL;
-                }
-            }
-        });
-
-        let scaleFactor = 1.0;
-        if (sumIdeal > globalMaxLev) scaleFactor = globalMaxLev / sumIdeal;
-
-        batchResults.forEach((res, idx) => {
-            if (validStocks[idx] !== undefined) {
-                const val = validStocks[idx] * scaleFactor;
-                prevAllocatedLevs[idx] = val;
-                initialBreakdown[res.stockName] = val;
-            } else {
-                prevAllocatedLevs[idx] = 0;
-            }
-        });
-
-        portHistory.push({
-            date: firstDate,
-            nav: 1.0,
-            totalLev: sumIdeal * scaleFactor,
-            rawLev: sumIdeal,
-            breakdown: initialBreakdown 
-        });
+        const firstDate = sortedDates[0]; const firstData = dateMap[firstDate]; let initialBreakdown = {};
+        let sumIdeal = 0; let validStocks = {}; 
+        batchResults.forEach((res, idx) => { if (firstData.stocks[idx]) { const rawL = firstData.stocks[idx].idealLev; if(rawL >= minPosThreshold) { validStocks[idx] = rawL; sumIdeal += rawL; } } });
+        let scaleFactor = 1.0; if (sumIdeal > globalMaxLev) scaleFactor = globalMaxLev / sumIdeal;
+        batchResults.forEach((res, idx) => { if (validStocks[idx] !== undefined) { const val = validStocks[idx] * scaleFactor; prevAllocatedLevs[idx] = val; initialBreakdown[res.stockName] = val; } else { prevAllocatedLevs[idx] = 0; } });
+        portHistory.push({ date: firstDate, nav: 1.0, totalLev: sumIdeal * scaleFactor, rawLev: sumIdeal, breakdown: initialBreakdown });
 
         for (let i = 1; i < sortedDates.length; i++) {
-            const currDate = sortedDates[i];
-            const prevDate = sortedDates[i-1];
-            const currData = dateMap[currDate];
-            const prevData = dateMap[prevDate];
-
-            // A. 计算 PnL
+            const currDate = sortedDates[i]; const prevDate = sortedDates[i-1]; const currData = dateMap[currDate]; const prevData = dateMap[prevDate];
             let dayPnLComponent = 0;
-            batchResults.forEach((res, idx) => {
-                const sCurr = currData.stocks[idx];
-                const sPrev = prevData.stocks[idx];
-                const allocatedL = prevAllocatedLevs[idx] || 0;
-                if (sCurr && sPrev && sPrev.close > 0) {
-                    const r = (sCurr.close - sPrev.close) / sPrev.close;
-                    dayPnLComponent += (r * allocatedL);
-                }
-            });
+            batchResults.forEach((res, idx) => { const sCurr = currData.stocks[idx]; const sPrev = prevData.stocks[idx]; const allocatedL = prevAllocatedLevs[idx] || 0; if (sCurr && sPrev && sPrev.close > 0) { const r = (sCurr.close - sPrev.close) / sPrev.close; dayPnLComponent += (r * allocatedL); } });
+            portNav = portNav * (1 + dayPnLComponent); if (portNav > peak) peak = portNav; const dd = (peak - portNav) / peak; if (dd > maxDD) maxDD = dd;
 
-            portNav = portNav * (1 + dayPnLComponent);
-            if (portNav > peak) peak = portNav;
-            const dd = (peak - portNav) / peak;
-            if (dd > maxDD) maxDD = dd;
-
-            // B. 准备明天的仓位
-            let currentSumIdeal = 0;
-            let currentValidStocks = {};
-
-            // 第一步：遍历筛选
-            batchResults.forEach((res, idx) => {
-                if (currData.stocks[idx]) {
-                    const rawL = currData.stocks[idx].idealLev;
-                    if(rawL >= minPosThreshold) {
-                        currentValidStocks[idx] = rawL;
-                        currentSumIdeal += rawL;
-                    }
-                }
-            });
-
-            // 第二步：计算缩放系数
-            let k = 1.0;
-            if (currentSumIdeal > globalMaxLev) k = globalMaxLev / currentSumIdeal;
-
-            // 第三步：分配真实仓位
-            let currentActualTotalLev = 0;
-            let dailyBreakdown = {}; 
-
-            batchResults.forEach((res, idx) => {
-                if (currentValidStocks[idx] !== undefined) {
-                    const actualL = currentValidStocks[idx] * k;
-                    prevAllocatedLevs[idx] = actualL;
-                    currentActualTotalLev += actualL;
-                    dailyBreakdown[res.stockName] = actualL;
-                } else {
-                    prevAllocatedLevs[idx] = 0;
-                }
-            });
-
-            portHistory.push({
-                date: currDate,
-                nav: portNav,
-                totalLev: currentActualTotalLev,
-                rawLev: currentSumIdeal,
-                breakdown: dailyBreakdown
-            });
+            let currentSumIdeal = 0; let currentValidStocks = {};
+            batchResults.forEach((res, idx) => { if (currData.stocks[idx]) { const rawL = currData.stocks[idx].idealLev; if(rawL >= minPosThreshold) { currentValidStocks[idx] = rawL; currentSumIdeal += rawL; } } });
+            let k = 1.0; if (currentSumIdeal > globalMaxLev) k = globalMaxLev / currentSumIdeal;
+            let currentActualTotalLev = 0; let dailyBreakdown = {}; 
+            batchResults.forEach((res, idx) => { if (currentValidStocks[idx] !== undefined) { const actualL = currentValidStocks[idx] * k; prevAllocatedLevs[idx] = actualL; currentActualTotalLev += actualL; dailyBreakdown[res.stockName] = actualL; } else { prevAllocatedLevs[idx] = 0; } });
+            portHistory.push({ date: currDate, nav: portNav, totalLev: currentActualTotalLev, rawLev: currentSumIdeal, breakdown: dailyBreakdown });
         }
-
-        renderPortfolioStats(portHistory, maxDD);
-        renderHoldingsChart(portHistory);
+        renderPortfolioStats(portHistory, maxDD); renderHoldingsChart(portHistory);
     }
 
     function renderPortfolioStats(hist, maxDD) {
-        const last = hist[hist.length - 1];
-        const ret = (last.nav - 1) * 100;
-        const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
-
-        const setVal = (id, val, isPct=true, isColor=true) => {
-            const el = document.getElementById(id);
-            el.innerText = val.toFixed(2) + (isPct ? '%' : 'x');
-            if(isColor) el.className = 'stat-val ' + (val>=0 ? 'win' : 'loss');
-        };
-
-        setVal('port-ret', ret);
-        setVal('port-lev', avgLev, false, false);
-        
-        const ddEl = document.getElementById('port-dd');
-        ddEl.innerText = (maxDD * 100).toFixed(2) + '%';
-        ddEl.className = 'stat-val loss'; 
-
-        const dom = document.getElementById('portfolio-chart');
-        if (portfolioChart) portfolioChart.dispose();
-        portfolioChart = echarts.init(dom);
-
+        const last = hist[hist.length - 1]; const ret = (last.nav - 1) * 100; const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
+        document.getElementById('port-ret').innerText = ret.toFixed(2) + '%'; document.getElementById('port-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
+        document.getElementById('port-lev').innerText = avgLev.toFixed(2) + 'x'; document.getElementById('port-lev').className = 'stat-val';
+        const ddEl = document.getElementById('port-dd'); ddEl.innerText = (maxDD * 100).toFixed(2) + '%'; ddEl.className = 'stat-val loss'; 
+        const dom = document.getElementById('portfolio-chart'); if (portfolioChart) portfolioChart.dispose(); portfolioChart = echarts.init(dom);
         const dates = hist.map(h => h.date);
-        
         portfolioChart.setOption({
-            tooltip: {
-                trigger: 'axis', axisPointer: {type: 'cross'},
-                formatter: p => {
-                    let h = `<div style="font-size:12px;margin-bottom:5px;">${p[0].name}</div>`;
-                    p.forEach(x => {
-                        let val = parseFloat(x.value).toFixed(2);
-                        if(x.seriesName.includes('杠杆')) val += 'x';
-                        h += `<div style="font-size:11px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${x.color};margin-right:5px;"></span>${x.seriesName}: <b>${val}</b></div>`
-                    });
-                    return h;
-                },
-                backgroundColor: 'rgba(255,255,255,0.95)'
-            },
+            tooltip: { trigger: 'axis', axisPointer: {type: 'cross'}, formatter: p => { let h = `<div style="font-size:12px;margin-bottom:5px;">${p[0].name}</div>`; p.forEach(x => { let val = parseFloat(x.value).toFixed(2); if(x.seriesName.includes('杠杆')) val += 'x'; h += `<div style="font-size:11px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${x.color};margin-right:5px;"></span>${x.seriesName}: <b>${val}</b></div>` }); return h; }, backgroundColor: 'rgba(255,255,255,0.95)' },
             legend: { top: 0, data: ['组合净值', '实际总杠杆', '原始需求杠杆'] },
             grid: [{left:10, right:10, top:'15%', height:'55%', containLabel:true}, {left:10, right:10, top:'75%', height:'15%', containLabel:true}],
-            xAxis: [
-                {type:'category', data:dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}},
-                {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}
-            ],
-            yAxis: [
-                {type:'value', gridIndex:0, splitLine:{show:false}},
-                {type:'value', gridIndex:1, splitLine:{show:false}, min:0}
-            ],
+            xAxis: [{type:'category', data:dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}}, {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}],
+            yAxis: [{type:'value', gridIndex:0, splitLine:{show:false}}, {type:'value', gridIndex:1, splitLine:{show:false}, min:0}],
             dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
             series: [
-                {
-                    name: '组合净值', type: 'line', data: hist.map(h=>h.nav), 
-                    itemStyle: {color: '#d32f2f'}, lineStyle: {width: 2}, showSymbol: false,
-                    xAxisIndex: 0, yAxisIndex: 0
-                },
-                {
-                    name: '实际总杠杆', type: 'line', data: hist.map(h=>h.totalLev), 
-                    itemStyle: {color: '#1976d2'}, lineStyle: {width: 1}, showSymbol: false,
-                    xAxisIndex: 1, yAxisIndex: 1, areaStyle: {opacity: 0.2}
-                },
-                {
-                    name: '原始需求杠杆', type: 'line', data: hist.map(h=>h.rawLev),
-                    itemStyle: {color: '#999'}, lineStyle: {width: 1, type: 'dashed'}, showSymbol: false,
-                    xAxisIndex: 1, yAxisIndex: 1
-                }
+                {name: '组合净值', type: 'line', data: hist.map(h=>h.nav), itemStyle: {color: '#d32f2f'}, lineStyle: {width: 2}, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0},
+                {name: '实际总杠杆', type: 'line', data: hist.map(h=>h.totalLev), itemStyle: {color: '#1976d2'}, lineStyle: {width: 1}, showSymbol: false, xAxisIndex: 1, yAxisIndex: 1, areaStyle: {opacity: 0.2}},
+                {name: '原始需求杠杆', type: 'line', data: hist.map(h=>h.rawLev), itemStyle: {color: '#999'}, lineStyle: {width: 1, type: 'dashed'}, showSymbol: false, xAxisIndex: 1, yAxisIndex: 1}
             ]
         });
     }
 
-    // === 渲染持仓结构堆叠图 ===
     function renderHoldingsChart(hist) {
-        const dom = document.getElementById('holdings-chart');
-        if (holdingsChart) holdingsChart.dispose();
-        holdingsChart = echarts.init(dom);
-
-        const dates = hist.map(h => h.date);
-        
-        // 获取所有涉及的股票名称
-        const allStockNames = batchResults.map(r => r.stockName);
-        
-        const seriesData = allStockNames.map(name => {
-            return {
-                name: name,
-                type: 'line',
-                stack: 'Total', 
-                areaStyle: {},  
-                emphasis: { focus: 'series' },
-                showSymbol: false,
-                lineStyle: { width: 0 }, 
-                data: hist.map(h => h.breakdown[name] || 0) 
-            };
-        });
-
+        const dom = document.getElementById('holdings-chart'); if (holdingsChart) holdingsChart.dispose(); holdingsChart = echarts.init(dom);
+        const dates = hist.map(h => h.date); const allStockNames = batchResults.map(r => r.stockName);
+        const seriesData = allStockNames.map(name => { return { name: name, type: 'line', stack: 'Total', areaStyle: {}, emphasis: { focus: 'series' }, showSymbol: false, lineStyle: { width: 0 }, data: hist.map(h => h.breakdown[name] || 0) }; });
         holdingsChart.setOption({
-            tooltip: {
-                trigger: 'axis',
-                axisPointer: { type: 'cross', label: { backgroundColor: '#6a7985' } },
-                formatter: function (params) {
-                    let h = `<div style="font-size:12px;margin-bottom:5px;">${params[0].name}</div>`;
-                    let sum = 0;
-                    params.forEach(p => {
-                        const val = parseFloat(p.value);
-                        if(val > 0.001) { 
-                            h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:10px;">
-                                    <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span>
-                                    <b>${val.toFixed(2)}x</b>
-                                  </div>`;
-                            sum += val;
-                        }
-                    });
-                    h += `<div style="border-top:1px solid #eee; margin-top:5px; padding-top:2px; font-weight:bold; text-align:right;">总杠杆: ${sum.toFixed(2)}x</div>`;
-                    return h;
-                }
-            },
-            legend: {
-                data: allStockNames,
-                type: 'scroll',
-                top: 0,
-                textStyle: { fontSize: 10 }
-            },
-            grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-            xAxis: { type: 'category', boundaryGap: false, data: dates },
-            yAxis: { type: 'value', min: 0 },
-            dataZoom: [{type:'inside'}, {type:'slider', bottom:0, height:20}],
-            series: seriesData
+            tooltip: { trigger: 'axis', axisPointer: { type: 'cross', label: { backgroundColor: '#6a7985' } }, formatter: function (params) { let h = `<div style="font-size:12px;margin-bottom:5px;">${params[0].name}</div>`; let sum = 0; params.forEach(p => { const val = parseFloat(p.value); if(val > 0.001) { h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:10px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span><b>${val.toFixed(2)}x</b></div>`; sum += val; } }); h += `<div style="border-top:1px solid #eee; margin-top:5px; padding-top:2px; font-weight:bold; text-align:right;">总杠杆: ${sum.toFixed(2)}x</div>`; return h; } },
+            legend: { data: allStockNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+            xAxis: { type: 'category', boundaryGap: false, data: dates }, yAxis: { type: 'value', min: 0 },
+            dataZoom: [{type:'inside'}, {type:'slider', bottom:0, height:20}], series: seriesData
         });
     }
 </script>
