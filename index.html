@@ -891,10 +891,13 @@
         });
     }
 
-    // === 新增：交易明细渲染逻辑 ===
+    // === 新增：交易明细渲染逻辑 (修正为显示仓位百分比) ===
     function renderTradeLog(hist) {
         const container = document.getElementById('trade-log-list');
         container.innerHTML = '';
+        
+        // 获取配置的最大杠杆率，用于计算仓位百分比
+        const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
 
         // 倒序遍历（从最近日期开始）
         for (let i = hist.length - 1; i > 0; i--) {
@@ -906,12 +909,17 @@
             const allStocks = new Set([...Object.keys(today.breakdown), ...Object.keys(yesterday.breakdown)]);
             
             allStocks.forEach(name => {
-                const now = today.breakdown[name] || 0;
-                const prev = yesterday.breakdown[name] || 0;
-                const diff = now - prev;
-                // 忽略微小误差，阈值设为 0.005 杠杆变化
-                if (Math.abs(diff) > 0.005) {
-                    changes.push({name, diff, now, prev});
+                const nowLev = today.breakdown[name] || 0;
+                const prevLev = yesterday.breakdown[name] || 0;
+                
+                // 将杠杆数转换为占总容量的仓位百分比
+                const nowPos = (nowLev / maxLev) * 100;
+                const prevPos = (prevLev / maxLev) * 100;
+                const diffPos = nowPos - prevPos;
+
+                // 忽略微小误差，阈值设为 0.1% 仓位变化
+                if (Math.abs(diffPos) > 0.1) {
+                    changes.push({name, diffPos, nowPos, prevPos});
                 }
             });
 
@@ -919,7 +927,7 @@
             if (changes.length === 0) continue;
 
             // 按变化幅度绝对值从大到小排序
-            changes.sort((a,b) => Math.abs(b.diff) - Math.abs(a.diff));
+            changes.sort((a,b) => Math.abs(b.diffPos) - Math.abs(a.diffPos));
 
             // 构建HTML
             const dayId = `log-day-${i}`;
@@ -940,15 +948,15 @@
             
             let html = '';
             changes.forEach(c => {
-                const isBuy = c.diff > 0;
+                const isBuy = c.diffPos > 0;
                 const color = isBuy ? '#d32f2f' : '#2e7d32';
                 const sign = isBuy ? '+' : '';
                 html += `
                     <div class="daily-item">
                         <span style="font-weight:500;">${c.name}</span>
                         <span>
-                            <span style="color:${color}; font-weight:bold; margin-right:8px;">${sign}${c.diff.toFixed(2)}x</span>
-                            <span style="color:#999;">(${c.prev.toFixed(2)} → ${c.now.toFixed(2)})</span>
+                            <span style="color:${color}; font-weight:bold; margin-right:8px;">${sign}${c.diffPos.toFixed(1)}%</span>
+                            <span style="color:#999;">(${c.prevPos.toFixed(1)}% → ${c.nowPos.toFixed(1)}%)</span>
                         </span>
                     </div>
                 `;
