@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (严格对齐版)</title>
+    <title>估值杠杆策略 (组合仓位版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -90,7 +90,6 @@
         .base-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .base-table th { background: #f8f9fa; padding: 10px; text-align: left; font-size: 12px; color:#666; border-bottom: 1px solid #ddd; }
         .base-table td { padding: 12px 5px; border-bottom: 1px solid #eee; text-align: left; font-size: 13px; vertical-align: middle; transition: all 0.2s; }
-        
         .base-table tbody tr:hover { background-color: #f0f7ff; }
         .base-table tbody tr:hover td { border-bottom-color: #d0e3fc; }
         
@@ -100,7 +99,6 @@
         .log-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .log-table th { background: #fff; color: #666; font-size: 12px; position: sticky; top: 0; border-bottom: 2px solid #eee; text-align: left; padding: 8px 5px; }
         .log-table td { padding: 8px 5px; border-bottom: 1px solid #f0f0f0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        
         .log-col-date { width: 22%; }
         .log-col-action { width: 15%; text-align: center !important; }
         .log-col-val { width: 28%; text-align: center !important; }
@@ -210,7 +208,7 @@
         <!-- 结果统一展示容器 -->
         <div id="results-container" style="display:none; margin-top:15px;">
 
-            <!-- 1. 收益排行榜 (默认展开) -->
+            <!-- 1. 收益排行榜 -->
             <div id="batch-summary-box" style="margin-bottom:15px;">
                 <div class="section-header expanded" onclick="toggleSection('summary-content', this)">
                     <span>📈 收益排行榜</span> 
@@ -226,7 +224,7 @@
                 </div>
             </div>
 
-            <!-- 2. 组合策略 (默认展开) -->
+            <!-- 2. 组合策略 -->
             <div id="portfolio-section" style="margin-bottom:15px;">
                 <div class="section-header expanded" onclick="toggleSection('portfolio-content', this)">
                     <span>💰 组合策略 (Portfolio)</span> 
@@ -234,12 +232,12 @@
                 </div>
                 <div id="portfolio-content" class="section-body">
                     <div class="form-row">
-                        <div class="form-group"><label>组合总杠杆上限</label><input type="number" id="pGlobalLev" step="0.1" value="2.0"></div>
-                        <div class="form-group"><label>单股准入门槛</label><input type="number" id="pMinPos" step="0.1" value="0.4"></div>
+                        <div class="form-group"><label>默认杠杆率 (Default)</label><input type="number" id="pGlobalLev" step="0.1" value="2.0"></div>
+                        <div class="form-group"><label>剔除门槛 (Min Threshold)</label><input type="number" id="pMinPos" step="0.1" value="0.4"></div>
                     </div>
                     <div style="text-align:right; margin-bottom:10px;">
                         <button class="btn btn-orange" onclick="runPortfolioStrategy()" style="width:100%">🔄 重新计算组合</button>
-                        <div style="font-size:11px; color:#666; margin-top:5px; text-align:left;">逻辑：剔除意愿 < 门槛的股票。若剩余总和仍超上限则稀释。</div>
+                        <div style="font-size:11px; color:#666; margin-top:5px; text-align:left;">逻辑：总仓位=Σ原始/(N×默认)。单股分配=原始×总仓位。低于门槛剔除。</div>
                     </div>
                     <div class="stat-grid">
                         <div class="stat-item"><div class="stat-val" id="port-ret">--</div><div class="stat-lbl">组合总收益</div></div>
@@ -250,7 +248,7 @@
                 </div>
             </div>
 
-            <!-- 3. 每日持仓结构 (默认折叠) -->
+            <!-- 3. 每日持仓结构 -->
             <div id="holdings-section" style="margin-bottom:15px;">
                 <div class="section-header" onclick="toggleSection('holdings-content', this)">
                     <span>📚 每日持仓结构 (Holdings Structure)</span> 
@@ -612,85 +610,150 @@
         tbody.innerHTML = logs.slice().reverse().map(l => `<tr><td class="log-col-date" style="color:#666;">${l.date}</td><td class="log-col-action">${l.action}</td><td class="log-col-val" style="font-family:monospace;">${l.val}</td><td class="log-col-reason" style="color:#555;" title="${l.reason}">${l.reason}</td></tr>`).join('');
     }
 
-    // === 核心修改：渲染单股图表 (严格对齐版) ===
     function renderChart(hist) {
         const dom = document.getElementById('chart-box'); if(myChart) myChart.clear(); else myChart = echarts.init(dom);
         const dates = hist.map(h=>h.date);
         myChart.setOption({
-            // 1. 添加 link 属性，让轴指示器上下联动
-            tooltip: { 
-                trigger: 'axis', 
-                axisPointer: { type: 'cross', link: { xAxisIndex: 'all' } }, 
-                formatter: p => { 
-                    let h = `<div style="font-size:12px;margin-bottom:5px;">${p[0].name}</div>`; 
-                    p.forEach(x => { 
-                        let val = x.value; 
-                        if(x.seriesName==='杠杆') val = val.toFixed(2)+'x'; else val = val.toFixed(2); 
-                        h += `<div style="font-size:11px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${x.color};margin-right:5px;"></span>${x.seriesName}: <b>${val}</b></div>` 
-                    }); 
-                    return h; 
-                }, 
-                backgroundColor: 'rgba(255,255,255,0.95)', 
-                borderColor: '#eee', 
-                borderWidth: 1, 
-                textStyle: {color:'#333'} 
-            },
+            tooltip: { trigger: 'axis', axisPointer: { type: 'cross', link: { xAxisIndex: 'all' } }, formatter: p => { let h = `<div style="font-size:12px;margin-bottom:5px;">${p[0].name}</div>`; p.forEach(x => { let val = x.value; if(x.seriesName==='杠杆') val = val.toFixed(2)+'x'; else val = val.toFixed(2); h += `<div style="font-size:11px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${x.color};margin-right:5px;"></span>${x.seriesName}: <b>${val}</b></div>` }); return h; }, backgroundColor: 'rgba(255,255,255,0.95)', borderColor: '#eee', borderWidth: 1, textStyle: {color:'#333'} },
             legend: { top: 0, data: ['股价','净值','杠杆'], itemWidth:12, itemHeight:8, textStyle:{fontSize:11} },
-            // 2. 移除 containLabel: true，使用固定边距强制对齐
-            grid: [
-                { left: '12%', right: '8%', top: '12%', height: '58%' }, 
-                { left: '12%', right: '8%', top: '78%', height: '15%' }
-            ],
-            xAxis: [
-                {type:'category', data: dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}, axisLine:{lineStyle:{color:'#eee'}}}, 
-                {type:'category', data: dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}
-            ],
-            yAxis: [
-                {type:'value', position:'left', splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#999'}}, 
-                {type:'value', position:'right', splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#d32f2f'}}, 
-                {type:'value', gridIndex:1, splitLine:{show:true, lineStyle:{type:'dashed', color:'#eee'}}, min:0, max:2.1, axisLabel:{fontSize:10, color:'#28a745'}}
-            ],
+            grid: [{ left: '12%', right: '8%', top: '12%', height: '58%' }, { left: '12%', right: '8%', top: '78%', height: '15%' }],
+            xAxis: [{type:'category', data: dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}, axisLine:{lineStyle:{color:'#eee'}}}, {type:'category', data: dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}],
+            yAxis: [{type:'value', position:'left', splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#999'}}, {type:'value', position:'right', splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#d32f2f'}}, {type:'value', gridIndex:1, splitLine:{show:true, lineStyle:{type:'dashed', color:'#eee'}}, min:0, max:2.1, axisLabel:{fontSize:10, color:'#28a745'}}],
             dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
             series: [{name:'股价', type:'line', yAxisIndex:0, data:hist.map(h=>h.close), itemStyle:{color:'#999'}, showSymbol:false, lineStyle: {width: 1}}, {name:'净值', type:'line', yAxisIndex:1, data:hist.map(h=>h.nav), itemStyle:{color:'#d32f2f'}, showSymbol:false, lineStyle: {width: 2}}, {name:'杠杆', type:'line', xAxisIndex:1, yAxisIndex:2, data:hist.map(h=>h.leverage), itemStyle:{color:'#28a745'}, step:'end', showSymbol:false, areaStyle:{opacity:0.1}, lineStyle: {width: 1}}]
         });
     }
 
-    // === 组合逻辑 ===
+    // === 核心修改：组合策略新逻辑 (总仓位版) ===
     function runPortfolioStrategy() {
         if (!batchResults || batchResults.length === 0) return alert("请先运行【批量回测】生成数据");
-        const globalMaxLev = parseFloat(document.getElementById('pGlobalLev').value) || 2.0;
+        
+        // 1. 获取参数
+        const defaultLev = parseFloat(document.getElementById('pGlobalLev').value) || 2.0; 
         const minPosThreshold = parseFloat(document.getElementById('pMinPos').value) || 0.4;
-        
+        const stockCount = batchResults.length; // 分母：选中股票总数
+
+        // 2. 数据准备 (Date Map)
         let dateMap = {}; 
-        batchResults.forEach((res, stockIdx) => { res.history.forEach(day => { if (!dateMap[day.date]) { dateMap[day.date] = { date: day.date, stocks: {} }; } dateMap[day.date].stocks[stockIdx] = { close: day.close, idealLev: day.leverage }; }); });
-        const sortedDates = Object.keys(dateMap).sort(); if (sortedDates.length < 2) return alert("有效日期数据不足");
+        batchResults.forEach((res, stockIdx) => { 
+            res.history.forEach(day => { 
+                if (!dateMap[day.date]) { dateMap[day.date] = { date: day.date, stocks: {} }; } 
+                dateMap[day.date].stocks[stockIdx] = { close: day.close, idealLev: day.leverage }; 
+            }); 
+        });
+        const sortedDates = Object.keys(dateMap).sort(); 
+        if (sortedDates.length < 2) return alert("有效日期数据不足");
 
-        let portNav = 1.0; let portHistory = []; let maxDD = 0; let peak = 1.0; let prevAllocatedLevs = {}; 
+        let portNav = 1.0; 
+        let portHistory = []; 
+        let maxDD = 0; 
+        let peak = 1.0; 
         
-        const firstDate = sortedDates[0]; const firstData = dateMap[firstDate]; let initialBreakdown = {};
-        let sumIdeal = 0; let validStocks = {}; 
-        batchResults.forEach((res, idx) => { if (firstData.stocks[idx]) { const rawL = firstData.stocks[idx].idealLev; if(rawL >= minPosThreshold) { validStocks[idx] = rawL; sumIdeal += rawL; } } });
-        let scaleFactor = 1.0; if (sumIdeal > globalMaxLev) scaleFactor = globalMaxLev / sumIdeal;
-        batchResults.forEach((res, idx) => { if (validStocks[idx] !== undefined) { const val = validStocks[idx] * scaleFactor; prevAllocatedLevs[idx] = val; initialBreakdown[res.stockName] = val; } else { prevAllocatedLevs[idx] = 0; } });
-        portHistory.push({ date: firstDate, nav: 1.0, totalLev: sumIdeal * scaleFactor, rawLev: sumIdeal, breakdown: initialBreakdown });
+        // 记录上一日分配的杠杆（用于计算 T 日收益）
+        let prevAllocatedLevs = {}; 
+        batchResults.forEach((_, idx) => prevAllocatedLevs[idx] = 0);
 
+        // --- 处理第一天 (初始化仓位，无收益) ---
+        const firstDate = sortedDates[0];
+        const firstData = dateMap[firstDate];
+        let firstSumRaw = 0;
+        let firstValidStocks = {}; 
+        
+        batchResults.forEach((res, idx) => {
+            if (firstData.stocks[idx]) {
+                const rawL = firstData.stocks[idx].idealLev;
+                if(rawL >= minPosThreshold) {
+                    firstValidStocks[idx] = rawL;
+                    firstSumRaw += rawL;
+                }
+            }
+        });
+
+        // 公式：总仓位 = Σ原始 / (N * 默认)
+        let firstTotalPos = firstSumRaw / (stockCount * defaultLev);
+        // 公式：实际总杠杆 (显示用) = 默认 * 总仓位
+        let firstActualTotal = defaultLev * firstTotalPos; 
+
+        // 分配
+        let firstBreakdown = {};
+        batchResults.forEach((res, idx) => {
+            if (firstValidStocks[idx] !== undefined) {
+                // 公式：分配 = 原始 * 总仓位
+                const alloc = firstValidStocks[idx] * firstTotalPos;
+                prevAllocatedLevs[idx] = alloc;
+                firstBreakdown[res.stockName] = alloc;
+            } else {
+                prevAllocatedLevs[idx] = 0;
+            }
+        });
+
+        portHistory.push({ date: firstDate, nav: 1.0, totalLev: firstActualTotal, breakdown: firstBreakdown });
+
+        // --- 循环后续日期 ---
         for (let i = 1; i < sortedDates.length; i++) {
-            const currDate = sortedDates[i]; const prevDate = sortedDates[i-1]; const currData = dateMap[currDate]; const prevData = dateMap[prevDate];
-            let dayPnLComponent = 0;
-            batchResults.forEach((res, idx) => { const sCurr = currData.stocks[idx]; const sPrev = prevData.stocks[idx]; const allocatedL = prevAllocatedLevs[idx] || 0; if (sCurr && sPrev && sPrev.close > 0) { const r = (sCurr.close - sPrev.close) / sPrev.close; dayPnLComponent += (r * allocatedL); } });
-            portNav = portNav * (1 + dayPnLComponent); if (portNav > peak) peak = portNav; const dd = (peak - portNav) / peak; if (dd > maxDD) maxDD = dd;
+            const currDate = sortedDates[i];
+            const prevDate = sortedDates[i-1];
+            const currData = dateMap[currDate];
+            const prevData = dateMap[prevDate];
 
-            let currentSumIdeal = 0; let currentValidStocks = {};
-            batchResults.forEach((res, idx) => { if (currData.stocks[idx]) { const rawL = currData.stocks[idx].idealLev; if(rawL >= minPosThreshold) { currentValidStocks[idx] = rawL; currentSumIdeal += rawL; } } });
-            let k = 1.0; if (currentSumIdeal > globalMaxLev) k = globalMaxLev / currentSumIdeal;
-            let currentActualTotalLev = 0; let dailyBreakdown = {}; 
-            batchResults.forEach((res, idx) => { if (currentValidStocks[idx] !== undefined) { const actualL = currentValidStocks[idx] * k; prevAllocatedLevs[idx] = actualL; currentActualTotalLev += actualL; dailyBreakdown[res.stockName] = actualL; } else { prevAllocatedLevs[idx] = 0; } });
-            portHistory.push({ date: currDate, nav: portNav, totalLev: currentActualTotalLev, rawLev: currentSumIdeal, breakdown: dailyBreakdown });
+            // 1. 计算当日收益 (基于 T-1 确定的 Allocated Levs)
+            let dayPnLComponent = 0;
+            // 假设资金均分为 N 份 (Equal Capital Allocation)
+            const weight = 1.0 / stockCount; 
+            
+            batchResults.forEach((res, idx) => {
+                const sCurr = currData.stocks[idx];
+                const sPrev = prevData.stocks[idx];
+                const allocatedL = prevAllocatedLevs[idx] || 0;
+                
+                if (sCurr && sPrev && sPrev.close > 0) {
+                    const r = (sCurr.close - sPrev.close) / sPrev.close;
+                    dayPnLComponent += (r * allocatedL * weight);
+                }
+            });
+
+            // 更新净值
+            portNav = portNav * (1 + dayPnLComponent); 
+            if (portNav > peak) peak = portNav;
+            const dd = (peak - portNav) / peak;
+            if (dd > maxDD) maxDD = dd;
+
+            // 2. 计算新的分配 (T日的信号 -> T+1日的仓位)
+            let currentSumRaw = 0;
+            let currentValidStocks = {};
+            
+            batchResults.forEach((res, idx) => {
+                if (currData.stocks[idx]) {
+                    const rawL = currData.stocks[idx].idealLev;
+                    if(rawL >= minPosThreshold) {
+                        currentValidStocks[idx] = rawL;
+                        currentSumRaw += rawL;
+                    }
+                }
+            });
+
+            // 应用新逻辑
+            const totalPos = currentSumRaw / (stockCount * defaultLev);
+            const actualTotal = defaultLev * totalPos; 
+            
+            let dailyBreakdown = {};
+            batchResults.forEach((res, idx) => {
+                if (currentValidStocks[idx] !== undefined) {
+                    const alloc = currentValidStocks[idx] * totalPos;
+                    prevAllocatedLevs[idx] = alloc;
+                    dailyBreakdown[res.stockName] = alloc;
+                } else {
+                    prevAllocatedLevs[idx] = 0;
+                }
+            });
+
+            portHistory.push({ date: currDate, nav: portNav, totalLev: actualTotal, breakdown: dailyBreakdown });
         }
-        renderPortfolioStats(portHistory, maxDD); renderHoldingsChart(portHistory);
+        
+        renderPortfolioStats(portHistory, maxDD); 
+        renderHoldingsChart(portHistory);
     }
 
-    // === 核心修改：渲染组合图表 (严格对齐版) ===
     function renderPortfolioStats(hist, maxDD) {
         const last = hist[hist.length - 1]; const ret = (last.nav - 1) * 100; const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
         document.getElementById('port-ret').innerText = ret.toFixed(2) + '%'; document.getElementById('port-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
@@ -699,21 +762,15 @@
         const dom = document.getElementById('portfolio-chart'); if (portfolioChart) portfolioChart.dispose(); portfolioChart = echarts.init(dom);
         const dates = hist.map(h => h.date);
         portfolioChart.setOption({
-            // 1. 轴联动
             tooltip: { trigger: 'axis', axisPointer: {type: 'cross', link: {xAxisIndex: 'all'}}, formatter: p => { let h = `<div style="font-size:12px;margin-bottom:5px;">${p[0].name}</div>`; p.forEach(x => { let val = parseFloat(x.value).toFixed(2); if(x.seriesName.includes('杠杆')) val += 'x'; h += `<div style="font-size:11px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${x.color};margin-right:5px;"></span>${x.seriesName}: <b>${val}</b></div>` }); return h; }, backgroundColor: 'rgba(255,255,255,0.95)' },
-            legend: { top: 0, data: ['组合净值', '实际总杠杆', '原始需求杠杆'] },
-            // 2. 强制边距对齐
-            grid: [
-                { left: '12%', right: '8%', top: '15%', height: '55%' }, 
-                { left: '12%', right: '8%', top: '75%', height: '15%' }
-            ],
+            legend: { top: 0, data: ['组合净值', '实际总杠杆'] },
+            grid: [{ left: '12%', right: '8%', top: '15%', height: '55%' }, { left: '12%', right: '8%', top: '75%', height: '15%' }],
             xAxis: [{type:'category', data:dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}}, {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}],
             yAxis: [{type:'value', gridIndex:0, splitLine:{show:false}}, {type:'value', gridIndex:1, splitLine:{show:false}, min:0}],
             dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
             series: [
                 {name: '组合净值', type: 'line', data: hist.map(h=>h.nav), itemStyle: {color: '#d32f2f'}, lineStyle: {width: 2}, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0},
-                {name: '实际总杠杆', type: 'line', data: hist.map(h=>h.totalLev), itemStyle: {color: '#1976d2'}, lineStyle: {width: 1}, showSymbol: false, xAxisIndex: 1, yAxisIndex: 1, areaStyle: {opacity: 0.2}},
-                {name: '原始需求杠杆', type: 'line', data: hist.map(h=>h.rawLev), itemStyle: {color: '#999'}, lineStyle: {width: 1, type: 'dashed'}, showSymbol: false, xAxisIndex: 1, yAxisIndex: 1}
+                {name: '实际总杠杆', type: 'line', data: hist.map(h=>h.totalLev), itemStyle: {color: '#1976d2'}, lineStyle: {width: 1}, showSymbol: false, xAxisIndex: 1, yAxisIndex: 1, areaStyle: {opacity: 0.2}}
             ]
         });
     }
