@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (组合仓位版)</title>
+    <title>估值杠杆策略 (最终完善版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -184,7 +184,7 @@
         <div id="adv-settings">
             <div style="font-size:12px; color:#007bff; margin-bottom:8px; font-weight:bold;">基础设定</div>
             <div class="form-row">
-                <div class="form-group"><label>最大杠杆率</label><input type="number" id="pMaxLev" step="0.1" value="2.0"></div>
+                <div class="form-group"><label>最大杠杆率 (默认组合杠杆)</label><input type="number" id="pMaxLev" step="0.1" value="2.0"></div>
                 <div class="form-group"></div>
             </div>
             <div style="border-top:1px dashed #eee; margin:8px 0;"></div>
@@ -232,12 +232,15 @@
                 </div>
                 <div id="portfolio-content" class="section-body">
                     <div class="form-row">
-                        <div class="form-group"><label>默认杠杆率 (Default)</label><input type="number" id="pGlobalLev" step="0.1" value="2.0"></div>
                         <div class="form-group"><label>剔除门槛 (Min Threshold)</label><input type="number" id="pMinPos" step="0.1" value="0.4"></div>
+                        <div class="form-group"></div>
                     </div>
                     <div style="text-align:right; margin-bottom:10px;">
                         <button class="btn btn-orange" onclick="runPortfolioStrategy()" style="width:100%">🔄 重新计算组合</button>
-                        <div style="font-size:11px; color:#666; margin-top:5px; text-align:left;">逻辑：总仓位=Σ原始/(N×默认)。单股分配=原始×总仓位。低于门槛剔除。</div>
+                        <div style="font-size:11px; color:#666; margin-top:5px; text-align:left;">
+                            逻辑：总仓位=Σ原始/(N×最大杠杆)。<br>
+                            单股分配=原始×总仓位。低于门槛剔除。
+                        </div>
                     </div>
                     <div class="stat-grid">
                         <div class="stat-item"><div class="stat-val" id="port-ret">--</div><div class="stat-lbl">组合总收益</div></div>
@@ -610,11 +613,26 @@
         tbody.innerHTML = logs.slice().reverse().map(l => `<tr><td class="log-col-date" style="color:#666;">${l.date}</td><td class="log-col-action">${l.action}</td><td class="log-col-val" style="font-family:monospace;">${l.val}</td><td class="log-col-reason" style="color:#555;" title="${l.reason}">${l.reason}</td></tr>`).join('');
     }
 
+    // === 图表渲染：单股详情 (带联动) ===
     function renderChart(hist) {
         const dom = document.getElementById('chart-box'); if(myChart) myChart.clear(); else myChart = echarts.init(dom);
         const dates = hist.map(h=>h.date);
         myChart.setOption({
-            tooltip: { trigger: 'axis', axisPointer: { type: 'cross', link: { xAxisIndex: 'all' } }, formatter: p => { let h = `<div style="font-size:12px;margin-bottom:5px;">${p[0].name}</div>`; p.forEach(x => { let val = x.value; if(x.seriesName==='杠杆') val = val.toFixed(2)+'x'; else val = val.toFixed(2); h += `<div style="font-size:11px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${x.color};margin-right:5px;"></span>${x.seriesName}: <b>${val}</b></div>` }); return h; }, backgroundColor: 'rgba(255,255,255,0.95)', borderColor: '#eee', borderWidth: 1, textStyle: {color:'#333'} },
+            // 关键：trigger: 'axis' 配合 formatter 遍历 params，实现上下图表同时显示数据
+            tooltip: { 
+                trigger: 'axis', 
+                axisPointer: { type: 'cross', link: { xAxisIndex: 'all' } }, 
+                formatter: p => { 
+                    let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${p[0].name}</div>`; 
+                    p.forEach(x => { 
+                        let val = x.value; 
+                        if(x.seriesName==='杠杆') val = val.toFixed(2)+'x'; else val = val.toFixed(2); 
+                        h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${x.color};margin-right:5px;"></span>${x.seriesName}</span><b>${val}</b></div>` 
+                    }); 
+                    return h; 
+                }, 
+                backgroundColor: 'rgba(255,255,255,0.95)', borderColor: '#eee', borderWidth: 1, textStyle: {color:'#333'} 
+            },
             legend: { top: 0, data: ['股价','净值','杠杆'], itemWidth:12, itemHeight:8, textStyle:{fontSize:11} },
             grid: [{ left: '12%', right: '8%', top: '12%', height: '58%' }, { left: '12%', right: '8%', top: '78%', height: '15%' }],
             xAxis: [{type:'category', data: dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}, axisLine:{lineStyle:{color:'#eee'}}}, {type:'category', data: dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}],
@@ -624,16 +642,15 @@
         });
     }
 
-    // === 核心修改：组合策略新逻辑 (总仓位版) ===
+    // === 组合策略新逻辑 (使用 pMaxLev) ===
     function runPortfolioStrategy() {
         if (!batchResults || batchResults.length === 0) return alert("请先运行【批量回测】生成数据");
         
-        // 1. 获取参数
-        const defaultLev = parseFloat(document.getElementById('pGlobalLev').value) || 2.0; 
+        // 修改：直接使用 pMaxLev，不再使用 pGlobalLev
+        const defaultLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0; 
         const minPosThreshold = parseFloat(document.getElementById('pMinPos').value) || 0.4;
-        const stockCount = batchResults.length; // 分母：选中股票总数
+        const stockCount = batchResults.length; 
 
-        // 2. 数据准备 (Date Map)
         let dateMap = {}; 
         batchResults.forEach((res, stockIdx) => { 
             res.history.forEach(day => { 
@@ -649,11 +666,9 @@
         let maxDD = 0; 
         let peak = 1.0; 
         
-        // 记录上一日分配的杠杆（用于计算 T 日收益）
         let prevAllocatedLevs = {}; 
         batchResults.forEach((_, idx) => prevAllocatedLevs[idx] = 0);
 
-        // --- 处理第一天 (初始化仓位，无收益) ---
         const firstDate = sortedDates[0];
         const firstData = dateMap[firstDate];
         let firstSumRaw = 0;
@@ -669,16 +684,12 @@
             }
         });
 
-        // 公式：总仓位 = Σ原始 / (N * 默认)
         let firstTotalPos = firstSumRaw / (stockCount * defaultLev);
-        // 公式：实际总杠杆 (显示用) = 默认 * 总仓位
         let firstActualTotal = defaultLev * firstTotalPos; 
 
-        // 分配
         let firstBreakdown = {};
         batchResults.forEach((res, idx) => {
             if (firstValidStocks[idx] !== undefined) {
-                // 公式：分配 = 原始 * 总仓位
                 const alloc = firstValidStocks[idx] * firstTotalPos;
                 prevAllocatedLevs[idx] = alloc;
                 firstBreakdown[res.stockName] = alloc;
@@ -689,16 +700,13 @@
 
         portHistory.push({ date: firstDate, nav: 1.0, totalLev: firstActualTotal, breakdown: firstBreakdown });
 
-        // --- 循环后续日期 ---
         for (let i = 1; i < sortedDates.length; i++) {
             const currDate = sortedDates[i];
             const prevDate = sortedDates[i-1];
             const currData = dateMap[currDate];
             const prevData = dateMap[prevDate];
 
-            // 1. 计算当日收益 (基于 T-1 确定的 Allocated Levs)
             let dayPnLComponent = 0;
-            // 假设资金均分为 N 份 (Equal Capital Allocation)
             const weight = 1.0 / stockCount; 
             
             batchResults.forEach((res, idx) => {
@@ -712,13 +720,11 @@
                 }
             });
 
-            // 更新净值
             portNav = portNav * (1 + dayPnLComponent); 
             if (portNav > peak) peak = portNav;
             const dd = (peak - portNav) / peak;
             if (dd > maxDD) maxDD = dd;
 
-            // 2. 计算新的分配 (T日的信号 -> T+1日的仓位)
             let currentSumRaw = 0;
             let currentValidStocks = {};
             
@@ -732,7 +738,6 @@
                 }
             });
 
-            // 应用新逻辑
             const totalPos = currentSumRaw / (stockCount * defaultLev);
             const actualTotal = defaultLev * totalPos; 
             
@@ -754,6 +759,7 @@
         renderHoldingsChart(portHistory);
     }
 
+    // === 图表渲染：组合策略 (带联动) ===
     function renderPortfolioStats(hist, maxDD) {
         const last = hist[hist.length - 1]; const ret = (last.nav - 1) * 100; const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
         document.getElementById('port-ret').innerText = ret.toFixed(2) + '%'; document.getElementById('port-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
@@ -762,7 +768,21 @@
         const dom = document.getElementById('portfolio-chart'); if (portfolioChart) portfolioChart.dispose(); portfolioChart = echarts.init(dom);
         const dates = hist.map(h => h.date);
         portfolioChart.setOption({
-            tooltip: { trigger: 'axis', axisPointer: {type: 'cross', link: {xAxisIndex: 'all'}}, formatter: p => { let h = `<div style="font-size:12px;margin-bottom:5px;">${p[0].name}</div>`; p.forEach(x => { let val = parseFloat(x.value).toFixed(2); if(x.seriesName.includes('杠杆')) val += 'x'; h += `<div style="font-size:11px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${x.color};margin-right:5px;"></span>${x.seriesName}: <b>${val}</b></div>` }); return h; }, backgroundColor: 'rgba(255,255,255,0.95)' },
+            // 关键：联动显示净值与杠杆
+            tooltip: { 
+                trigger: 'axis', 
+                axisPointer: {type: 'cross', link: {xAxisIndex: 'all'}}, 
+                formatter: p => { 
+                    let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${p[0].name}</div>`; 
+                    p.forEach(x => { 
+                        let val = parseFloat(x.value).toFixed(2); 
+                        if(x.seriesName.includes('杠杆')) val += 'x'; 
+                        h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${x.color};margin-right:5px;"></span>${x.seriesName}</span><b>${val}</b></div>` 
+                    }); 
+                    return h; 
+                }, 
+                backgroundColor: 'rgba(255,255,255,0.95)' 
+            },
             legend: { top: 0, data: ['组合净值', '实际总杠杆'] },
             grid: [{ left: '12%', right: '8%', top: '15%', height: '55%' }, { left: '12%', right: '8%', top: '75%', height: '15%' }],
             xAxis: [{type:'category', data:dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}}, {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}],
@@ -775,12 +795,45 @@
         });
     }
 
+    // === 图表渲染：持仓结构 (显示仓位占比) ===
     function renderHoldingsChart(hist) {
         const dom = document.getElementById('holdings-chart'); if (holdingsChart) holdingsChart.dispose(); holdingsChart = echarts.init(dom);
         const dates = hist.map(h => h.date); const allStockNames = batchResults.map(r => r.stockName);
         const seriesData = allStockNames.map(name => { return { name: name, type: 'line', stack: 'Total', areaStyle: {}, emphasis: { focus: 'series' }, showSymbol: false, lineStyle: { width: 0 }, data: hist.map(h => h.breakdown[name] || 0) }; });
+        
         holdingsChart.setOption({
-            tooltip: { trigger: 'axis', axisPointer: { type: 'cross', label: { backgroundColor: '#6a7985' } }, formatter: function (params) { let h = `<div style="font-size:12px;margin-bottom:5px;">${params[0].name}</div>`; let sum = 0; params.forEach(p => { const val = parseFloat(p.value); if(val > 0.001) { h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:10px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span><b>${val.toFixed(2)}x</b></div>`; sum += val; } }); h += `<div style="border-top:1px solid #eee; margin-top:5px; padding-top:2px; font-weight:bold; text-align:right;">总杠杆: ${sum.toFixed(2)}x</div>`; return h; } },
+            tooltip: { 
+                trigger: 'axis', 
+                axisPointer: { type: 'cross', label: { backgroundColor: '#6a7985' } }, 
+                formatter: function (params) { 
+                    // 获取 pMaxLev (默认杠杆率)
+                    const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
+                    
+                    let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${params[0].name}</div>`; 
+                    let sum = 0; 
+                    params.forEach(p => { 
+                        const val = parseFloat(p.value); 
+                        if(val > 0.001) { 
+                            // 计算持仓占比 = 分配杠杆 / 最大杠杆
+                            const posPct = (val / maxLev * 100).toFixed(1) + '%';
+                            
+                            h += `<div style="font-size:11px; display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:2px;">
+                                    <span style="min-width:70px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span>
+                                    <div style="text-align:right">
+                                        <b>${val.toFixed(2)}x</b> 
+                                        <span style="color:#888; margin-left:6px; font-size:10px;">(仓位:${posPct})</span>
+                                    </div>
+                                  </div>`; 
+                            sum += val; 
+                        } 
+                    }); 
+                    const totalPos = (sum / maxLev * 100).toFixed(1) + '%';
+                    h += `<div style="border-top:1px solid #eee; margin-top:5px; padding-top:4px; font-weight:bold; text-align:right;">
+                            总杠杆: ${sum.toFixed(2)}x <span style="color:#d32f2f; margin-left:6px;">(总仓位:${totalPos})</span>
+                          </div>`; 
+                    return h; 
+                } 
+            },
             legend: { data: allStockNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
             xAxis: { type: 'category', boundaryGap: false, data: dates }, yAxis: { type: 'value', min: 0 },
             dataZoom: [{type:'inside'}, {type:'slider', bottom:0, height:20}], series: seriesData
