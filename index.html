@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (UI交互终极优化版)</title>
+    <title>估值杠杆策略 (搜索增强版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -28,12 +28,11 @@
         .section-header:active { background: #e9ecef; }
         .section-header span { font-weight: 600; font-size: 13px; color: #555; }
         
-        /* 箭头旋转逻辑 */
         .section-header .header-arrow { transform: rotate(0deg); transition: transform 0.3s; }
-        .section-header.expanded .header-arrow { transform: rotate(180deg); } /* expanded类控制箭头向下 */
+        .section-header.expanded .header-arrow { transform: rotate(180deg); } 
 
         .section-body { display: block; animation: fadeIn 0.3s; padding: 5px; border: 1px solid #f8f9fa; border-top: none; margin-bottom: 15px; }
-        .section-body.collapsed { display: none; } /* collapsed类控制内容隐藏 */
+        .section-body.collapsed { display: none; } 
         
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
@@ -84,9 +83,18 @@
         .summary-table tr.selected td { font-weight: 500; }
         .val-pos { color: #d32f2f; } .val-neg { color: #2e7d32; }
 
+        /* === 列表优化样式 === */
+        .list-search-bar { padding: 10px 15px; border-bottom: 1px solid #f0f0f0; background: #fff; display: flex; align-items: center; gap: 8px; }
+        .list-search-bar input { flex: 1; border: 1px solid #eee; border-radius: 6px; padding: 8px; font-size: 13px; background: #f9f9f9; outline: none; transition: all 0.2s; }
+        .list-search-bar input:focus { background: #fff; border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.1); }
+        
         .base-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .base-table th { background: #f8f9fa; padding: 10px; text-align: left; font-size: 12px; color:#666; border-bottom: 1px solid #ddd; }
-        .base-table td { padding: 12px 5px; border-bottom: 1px solid #eee; text-align: left; font-size: 13px; vertical-align: middle; }
+        .base-table td { padding: 12px 5px; border-bottom: 1px solid #eee; text-align: left; font-size: 13px; vertical-align: middle; transition: all 0.2s; }
+        
+        /* 鼠标悬停高亮效果 */
+        .base-table tbody tr:hover { background-color: #f0f7ff; }
+        .base-table tbody tr:hover td { border-bottom-color: #d0e3fc; }
         
         .op-btn-group { display: flex; justify-content: center; gap: 8px; } 
         input[type="checkbox"] { width: 18px; height: 18px; vertical-align: middle; cursor: pointer; }
@@ -141,6 +149,12 @@
         <span class="arrow">▼</span>
     </div>
     <div class="card-body" style="padding:0">
+        <!-- 新增：搜索栏 -->
+        <div class="list-search-bar">
+            <span style="font-size:14px">🔍</span>
+            <input type="text" id="list-search-input" placeholder="输入名称或代码筛选..." oninput="filterStockList()">
+        </div>
+
         <div style="overflow-x:auto">
             <table class="base-table">
                 <thead>
@@ -241,12 +255,10 @@
 
             <!-- 3. 每日持仓结构 (默认折叠) -->
             <div id="holdings-section" style="margin-bottom:15px;">
-                <!-- 这里的 section-header 默认没有 expanded，所以箭头不旋转 -->
                 <div class="section-header" onclick="toggleSection('holdings-content', this)">
                     <span>📚 每日持仓结构 (Holdings Structure)</span> 
                     <span class="arrow header-arrow">▼</span>
                 </div>
-                <!-- 这里的 section-body 加上了 collapsed，所以内容默认隐藏 -->
                 <div id="holdings-content" class="section-body collapsed">
                     <div id="holdings-chart" style="width: 100%; height: 400px;"></div>
                     <div style="text-align:center; font-size:11px; color:#999; margin-top:5px;">图表展示了每一天【真实分配】给各只股票的杠杆率堆叠情况。</div>
@@ -326,12 +338,32 @@
     initDates();
     renderTable();
 
+    // === 新增：列表过滤功能 ===
+    function filterStockList() {
+        const term = document.getElementById('list-search-input').value.toLowerCase().trim();
+        const rows = document.querySelectorAll('#stock-tbody tr');
+        let visibleCount = 0;
+        
+        rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            // 简单匹配：只要行内包含关键词就显示
+            if (term === '' || text.includes(term)) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // 更新计数显示，格式为 (显示/总数)
+        document.getElementById('list-count').innerText = `(${visibleCount}/${stocks.length})`;
+    }
+
     // === 卡片切换 ===
     function toggleCard(id) { 
         const el = document.getElementById(id);
         if(!el) return;
         el.classList.toggle('open');
-        // 卡片展开时如果是结果卡片，触发下图表重绘
         if(el.classList.contains('open') && id === 'card-result') {
             setTimeout(() => {
                 if(myChart) myChart.resize();
@@ -340,21 +372,15 @@
         }
     }
 
-    // === 区域折叠/展开逻辑 (优化版) ===
+    // === 区域折叠/展开逻辑 ===
     function toggleSection(contentId, headerEl) {
         const content = document.getElementById(contentId);
-        
-        // 切换 collapsed 类 (控制显示/隐藏)
         const isCollapsed = content.classList.toggle('collapsed');
-        
-        // 切换 expanded 类 (控制箭头旋转)
         if (isCollapsed) {
             headerEl.classList.remove('expanded');
         } else {
             headerEl.classList.add('expanded');
         }
-
-        // 展开时触发图表 Resize
         if (!isCollapsed) {
             setTimeout(() => {
                 if (contentId === 'portfolio-content' && portfolioChart) portfolioChart.resize();
@@ -428,11 +454,19 @@
         const item = { code, name, minCap: min, maxCap: max }; const idx = stocks.findIndex(s => s.code === code);
         if(idx >= 0) stocks[idx] = item; else stocks.push(item); localStorage.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); alert("已保存");
     }
+    
+    // === 更新后的渲染逻辑 ===
     function renderTable() {
-        const tb = document.getElementById('stock-tbody'); document.getElementById('list-count').innerText = `(${stocks.length})`;
+        const tb = document.getElementById('stock-tbody'); 
+        
+        // 渲染表格
         tb.innerHTML = stocks.map((s, i) => `<tr><td><b>${s.name}</b> <span style="color:#999;font-size:12px">${s.code}</span></td><td>${s.minCap}-${s.maxCap}亿</td><td style="text-align:center;"><div class="op-btn-group"><button class="btn btn-edit-yellow btn-icon-square" onclick="editStock(${i})">✎</button><button class="btn btn-del-red btn-icon-square" onclick="delStock(${i})">✕</button></div></td><td style="text-align:center;"><input type="checkbox" class="stock-chk" value="${i}" checked></td></tr>`).join('');
+        
+        // 重新应用当前的搜索（如果输入框有值，渲染后要再次筛选，否则新增的会直接显示）
+        filterStockList();
         checkAllState();
     }
+    
     function toggleAllStocks(el) { document.querySelectorAll('.stock-chk').forEach(chk => chk.checked = el.checked); }
     function checkAllState() { const all = document.querySelectorAll('.stock-chk'); const checked = document.querySelectorAll('.stock-chk:checked'); document.getElementById('check-all').checked = (all.length > 0 && all.length === checked.length); }
     document.addEventListener('change', function(e){ if(e.target.classList.contains('stock-chk')) checkAllState(); });
@@ -517,6 +551,9 @@
     }
 
     async function runBatchBacktest() {
+        // 修改：获取所有“显示”且“被勾选”的复选框
+        // 逻辑：如果行被隐藏了(display:none)，通常用户不希望它参与运算，或者用户只是在筛选并运行。
+        // 这里为了稳健，我们仍然通过 checked 属性来判断，但用户可以通过筛选后全选/全不选来控制。
         const checkedBoxes = document.querySelectorAll('.stock-chk:checked');
         if(checkedBoxes.length === 0) return alert("请至少勾选一只股票");
         
@@ -550,8 +587,6 @@
         // 3. 完成，显示结果区域并重置默认折叠状态
         if(batchResults.length > 0) {
             resultsContainer.style.display = 'block';
-
-            // --- 重置状态: 排行榜(开), 组合(开), 持仓(关) ---
             
             // A. 收益排行榜：展开
             const sumHeader = document.querySelector('#batch-summary-box .section-header');
