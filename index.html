@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (参数全开 + 组合增强版)</title>
+    <title>估值杠杆策略 (组合持仓透视版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -231,7 +231,7 @@
             </div>
         </div>
 
-        <!-- === 新增：组合策略回测面板 === -->
+        <!-- === 组合策略回测面板 === -->
         <div class="card" id="card-portfolio" style="border:1px solid #007bff; display:none; margin-top:15px;">
             <div class="card-header" style="background:#e3f2fd; color:#0056b3;" onclick="toggleCard('card-portfolio')">
                 <div class="header-title"><span>💰 组合策略 (Portfolio)</span></div>
@@ -240,26 +240,36 @@
             <div class="card-body">
                 <div class="form-row">
                     <div class="form-group">
-                        <label>组合目标总杠杆 (Global Max Leverage)</label>
+                        <label>组合目标总杠杆</label>
                         <div style="display:flex; gap:10px;">
                             <input type="number" id="pGlobalLev" step="0.1" value="2.0" style="flex:1;">
                             <button class="btn btn-orange" onclick="runPortfolioStrategy()">🔄 重新计算组合</button>
                         </div>
                         <div style="font-size:11px; color:#666; margin-top:5px;">
-                            逻辑: 若各股所需杠杆之和 > 总杠杆，则按权重比例稀释；否则按个股策略执行。
+                            逻辑: 原始总需求若超限，则按权重稀释至目标杠杆。
                         </div>
                     </div>
                 </div>
-
-                <!-- 组合统计 -->
                 <div class="stat-grid">
                     <div class="stat-item"><div class="stat-val" id="port-ret">--</div><div class="stat-lbl">组合总收益</div></div>
                     <div class="stat-item"><div class="stat-val" id="port-dd">--</div><div class="stat-lbl">最大回撤</div></div>
                     <div class="stat-item"><div class="stat-val" id="port-lev">--</div><div class="stat-lbl">平均占用杠杆</div></div>
                 </div>
-
-                <!-- 组合图表 -->
                 <div id="portfolio-chart" style="width: 100%; height: 350px;"></div>
+            </div>
+        </div>
+
+        <!-- === 新增：每日持仓结构卡片 === -->
+        <div class="card" id="card-holdings" style="display:none; margin-top:12px; border:1px solid #eee;">
+            <div class="card-header" onclick="toggleCard('card-holdings')">
+                <div class="header-title"><span>📚 每日持仓结构 (Holdings Structure)</span></div>
+                <span class="arrow">▼</span>
+            </div>
+            <div class="card-body">
+                <div id="holdings-chart" style="width: 100%; height: 400px;"></div>
+                <div style="text-align:center; font-size:11px; color:#999; margin-top:5px;">
+                    图表展示了每一天【真实分配】给各只股票的杠杆率堆叠情况。高度代表总仓位。
+                </div>
             </div>
         </div>
         
@@ -329,7 +339,8 @@
     let stocks = JSON.parse(localStorage.getItem('gridStocks')) || [];
     let myChart = null;
     let batchResults = [];
-    let portfolioChart = null; // 组合图表实例
+    let portfolioChart = null; 
+    let holdingsChart = null; // 新增：持仓结构图表实例
 
     function initDates() {
         const d = new Date();
@@ -345,6 +356,7 @@
         el.classList.toggle('open');
         if(id === 'card-result' && el.classList.contains('open') && myChart) setTimeout(()=>myChart.resize(), 100);
         if(id === 'card-portfolio' && el.classList.contains('open') && portfolioChart) setTimeout(()=>portfolioChart.resize(), 100);
+        if(id === 'card-holdings' && el.classList.contains('open') && holdingsChart) setTimeout(()=>holdingsChart.resize(), 100);
     }
 
     function toggleSection(id, headerEl) {
@@ -532,7 +544,6 @@
     }
 
     async function calculateStock(stock) {
-        // === 1. 读取高级参数 ===
         const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
         const lowSens = parseFloat(document.getElementById('pLowSens').value) || 12;
         const lowRed = parseFloat(document.getElementById('pLowRed').value) || 0.3;
@@ -578,9 +589,8 @@
         const maxCap = stock.maxCap;
         const midCap = (minCap + maxCap) / 2.0;
 
-        // === 2. 动态杠杆计算 (使用 maxLev) ===
         const getTargetLeverage = (mv) => {
-            if(mv <= minCap) return maxLev; // 使用参数变量
+            if(mv <= minCap) return maxLev; 
             if(mv >= maxCap) return 0.01;
             let r = (mv - minCap) / (maxCap - minCap);
             return 0.01 + (maxLev - 0.01) * Math.exp(-2.5 * r);
@@ -650,7 +660,6 @@
                 else {
                     if(m5 && m10 && m20 && m5 < m10 && m10 < m20) {
                         let slope = (m10 - m20)/m20;
-                        // 这里使用低估区参数也是合理的，因为已经是低位保护
                         let reduce = Math.min(1.0, Math.abs(slope)*25); 
                         let trendL = Math.max(0.01, prevL * (1 - reduce * 0.8));
                         if(trendL < newL) { newL = trendL; reason = "保护中极速减仓"; }
@@ -658,37 +667,27 @@
                 }
             }
 
-            // === 3. 普通趋势 (使用高级参数) ===
             if(!inProtect) {
                 let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20);
                 if(m5 && m10 && m20 && m5 < m10 && m10 < m20) {
                     let slope = (m10 - m20)/m20;
-                    
                     let reduceSpeed, reduceMsg;
-
                     if (curMv <= minCap) {
-                        // 低估区：使用自定义参数
                         let reduce = Math.min(1.0, Math.abs(slope) * lowSens); 
                         reduceSpeed = reduce * lowRed; 
                         reduceMsg = "低估区趋势转弱(慢减仓)";
                     } else {
-                        // 非低估区：使用自定义参数
                         let reduce = Math.min(1.0, Math.abs(slope) * normSens);
                         reduceSpeed = reduce * normRed;
                         reduceMsg = "趋势转弱极速减仓";
                     }
-
                     let trendL = Math.max(0.01, prevL * (1 - reduceSpeed));
-                    
-                    if(trendL < newL) {
-                         newL = trendL;
-                         reason = reduceMsg;
-                    }
+                    if(trendL < newL) { newL = trendL; reason = reduceMsg; }
                 }
             }
 
             if(!inProtect && (isUptrend(i))) {
-                if(r < -0.02) { newL = Math.min(maxLev, prevL * 1.05); reason = "上涨中急跌加仓"; } // 2.0 -> maxLev
+                if(r < -0.02) { newL = Math.min(maxLev, prevL * 1.05); reason = "上涨中急跌加仓"; } 
                 else { newL = Math.max(prevL, targetL); }
             }
 
@@ -728,7 +727,8 @@
 
         btn.innerText = "⏳"; btn.disabled = true;
         detailView.style.display = 'none';
-        document.getElementById('card-portfolio').style.display = 'none'; // 先隐藏组合卡片
+        document.getElementById('card-portfolio').style.display = 'none'; 
+        document.getElementById('card-holdings').style.display = 'none';
         sumBox.style.display = 'block';
         sumTbody.innerHTML = '';
         progress.style.display = 'block';
@@ -759,17 +759,17 @@
         progress.innerHTML = `✅ 运行完成! 成功 ${successCount} / 选中 ${total}`;
         btn.innerText = "🚀 运行选中"; btn.disabled = false;
         
-        // 如果有成功的结果，则显示第一只详情，并启动组合计算
         if(batchResults.length > 0) {
             showDetail(batchResults[0].index);
             
-            // === 新增：自动显示并计算组合策略 ===
             document.getElementById('card-portfolio').style.display = 'block';
+            document.getElementById('card-holdings').style.display = 'block';
             setTimeout(() => {
                 runPortfolioStrategy();
                 if(!document.getElementById('card-portfolio').classList.contains('open')) {
                     document.getElementById('card-portfolio').classList.add('open');
                 }
+                // card-holdings remains closed by default
             }, 500);
         }
     }
@@ -871,7 +871,7 @@
         
         let dateMap = {}; 
         
-        // 1. 数据对齐：遍历所有股票数据，建立日期索引
+        // 1. 数据对齐
         batchResults.forEach((res, stockIdx) => {
             res.history.forEach(day => {
                 if (!dateMap[day.date]) {
@@ -879,12 +879,11 @@
                 }
                 dateMap[day.date].stocks[stockIdx] = {
                     close: day.close,
-                    idealLev: day.leverage // 这是当日收盘计算出、作用于明日的杠杆
+                    idealLev: day.leverage 
                 };
             });
         });
 
-        // 2. 日期排序
         const sortedDates = Object.keys(dateMap).sort();
         if (sortedDates.length < 2) return alert("有效日期数据不足");
 
@@ -894,33 +893,37 @@
         let maxDD = 0;
         let peak = 1.0;
 
-        // 记录上一日分配给各股的“实际杠杆权重”
         let prevAllocatedLevs = {}; 
         
         // --- 初始化第一天 ---
         const firstDate = sortedDates[0];
         const firstData = dateMap[firstDate];
         
-        // 计算第一天原本想要的杠杆总和 (作为初始建仓)
         let sumIdeal = 0;
         batchResults.forEach((res, idx) => {
             if (firstData.stocks[idx]) sumIdeal += firstData.stocks[idx].idealLev;
         });
 
-        // 初始分配比例
         let scaleFactor = 1.0;
         if (sumIdeal > globalMaxLev) scaleFactor = globalMaxLev / sumIdeal;
 
+        let initialBreakdown = {};
         batchResults.forEach((res, idx) => {
-            if (firstData.stocks[idx]) prevAllocatedLevs[idx] = firstData.stocks[idx].idealLev * scaleFactor;
-            else prevAllocatedLevs[idx] = 0;
+            if (firstData.stocks[idx]) {
+                const val = firstData.stocks[idx].idealLev * scaleFactor;
+                prevAllocatedLevs[idx] = val;
+                initialBreakdown[res.stockName] = val;
+            } else {
+                prevAllocatedLevs[idx] = 0;
+            }
         });
 
         portHistory.push({
             date: firstDate,
             nav: 1.0,
             totalLev: sumIdeal * scaleFactor,
-            rawLev: sumIdeal
+            rawLev: sumIdeal,
+            breakdown: initialBreakdown // 记录第一天的持仓
         });
 
         // --- 从第二天开始循环 ---
@@ -930,46 +933,42 @@
             const currData = dateMap[currDate];
             const prevData = dateMap[prevDate];
 
-            // A. 计算当天组合收益
-            // 组合收益 = Sum( 个股涨跌幅 * 实际分配的杠杆 )
+            // A. 计算 PnL
             let dayPnLComponent = 0;
-            
             batchResults.forEach((res, idx) => {
                 const sCurr = currData.stocks[idx];
                 const sPrev = prevData.stocks[idx];
                 const allocatedL = prevAllocatedLevs[idx] || 0;
-
-                // 只有当今天和昨天都有数据时，才能计算涨跌幅
                 if (sCurr && sPrev && sPrev.close > 0) {
                     const r = (sCurr.close - sPrev.close) / sPrev.close;
                     dayPnLComponent += (r * allocatedL);
                 }
             });
 
-            // 更新净值
             portNav = portNav * (1 + dayPnLComponent);
-
-            // 统计回撤
             if (portNav > peak) peak = portNav;
             const dd = (peak - portNav) / peak;
             if (dd > maxDD) maxDD = dd;
 
-            // B. 准备明天的仓位 (计算今晚的杠杆需求)
+            // B. 准备明天的仓位 (并记录下来作为“今天的持仓结构”)
+            // 注意：图表上我们通常想看“这一天持有多少”，所以我们记录刚刚算出来的 allocation
             let currentSumIdeal = 0;
             batchResults.forEach((res, idx) => {
                 if (currData.stocks[idx]) currentSumIdeal += currData.stocks[idx].idealLev;
             });
 
-            // 检查是否超限
             let k = 1.0;
             if (currentSumIdeal > globalMaxLev) k = globalMaxLev / currentSumIdeal;
 
             let currentActualTotalLev = 0;
+            let dailyBreakdown = {}; // 用于存储当天的持仓细节
+
             batchResults.forEach((res, idx) => {
                 if (currData.stocks[idx]) {
                     const actualL = currData.stocks[idx].idealLev * k;
                     prevAllocatedLevs[idx] = actualL;
                     currentActualTotalLev += actualL;
+                    dailyBreakdown[res.stockName] = actualL;
                 } else {
                     prevAllocatedLevs[idx] = 0;
                 }
@@ -979,11 +978,13 @@
                 date: currDate,
                 nav: portNav,
                 totalLev: currentActualTotalLev,
-                rawLev: currentSumIdeal
+                rawLev: currentSumIdeal,
+                breakdown: dailyBreakdown
             });
         }
 
         renderPortfolioStats(portHistory, maxDD);
+        renderHoldingsChart(portHistory);
     }
 
     function renderPortfolioStats(hist, maxDD) {
@@ -1052,6 +1053,66 @@
                     xAxisIndex: 1, yAxisIndex: 1
                 }
             ]
+        });
+    }
+
+    // === 新增：渲染持仓结构堆叠图 ===
+    function renderHoldingsChart(hist) {
+        const dom = document.getElementById('holdings-chart');
+        if (holdingsChart) holdingsChart.dispose();
+        holdingsChart = echarts.init(dom);
+
+        const dates = hist.map(h => h.date);
+        
+        // 获取所有涉及的股票名称
+        const allStockNames = batchResults.map(r => r.stockName);
+        
+        // 构建 Series 数据
+        const seriesData = allStockNames.map(name => {
+            return {
+                name: name,
+                type: 'line',
+                stack: 'Total', // 堆叠的关键
+                areaStyle: {},  // 填充颜色
+                emphasis: { focus: 'series' },
+                showSymbol: false,
+                lineStyle: { width: 0 }, // 隐藏线，只显示色块更干净，或者设为0.5
+                data: hist.map(h => h.breakdown[name] || 0) // 如果某天没有该股，则为0
+            };
+        });
+
+        holdingsChart.setOption({
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'cross', label: { backgroundColor: '#6a7985' } },
+                formatter: function (params) {
+                    let h = `<div style="font-size:12px;margin-bottom:5px;">${params[0].name}</div>`;
+                    let sum = 0;
+                    params.forEach(p => {
+                        const val = parseFloat(p.value);
+                        if(val > 0.001) { // 只显示持仓大于0的
+                            h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:10px;">
+                                    <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span>
+                                    <b>${val.toFixed(2)}x</b>
+                                  </div>`;
+                            sum += val;
+                        }
+                    });
+                    h += `<div style="border-top:1px solid #eee; margin-top:5px; padding-top:2px; font-weight:bold; text-align:right;">总杠杆: ${sum.toFixed(2)}x</div>`;
+                    return h;
+                }
+            },
+            legend: {
+                data: allStockNames,
+                type: 'scroll', // 股票多了可以滚动
+                top: 0,
+                textStyle: { fontSize: 10 }
+            },
+            grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+            xAxis: { type: 'category', boundaryGap: false, data: dates },
+            yAxis: { type: 'value', min: 0 },
+            dataZoom: [{type:'inside'}, {type:'slider', bottom:0, height:20}],
+            series: seriesData
         });
     }
 </script>
