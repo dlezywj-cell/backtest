@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (逻辑闭环版)</title>
+    <title>估值杠杆策略 (终极完美版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -83,6 +83,7 @@
         .summary-table tr.selected td { font-weight: 500; }
         .val-pos { color: #d32f2f; } .val-neg { color: #2e7d32; }
 
+        /* === 列表优化样式 === */
         .list-search-bar { padding: 10px 15px; border-bottom: 1px solid #f0f0f0; background: #fff; display: flex; align-items: center; gap: 8px; }
         .list-search-bar input { flex: 1; border: 1px solid #eee; border-radius: 6px; padding: 8px; font-size: 13px; background: #f9f9f9; outline: none; transition: all 0.2s; }
         .list-search-bar input:focus { background: #fff; border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.1); }
@@ -90,6 +91,7 @@
         .base-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .base-table th { background: #f8f9fa; padding: 10px; text-align: left; font-size: 12px; color:#666; border-bottom: 1px solid #ddd; }
         .base-table td { padding: 12px 5px; border-bottom: 1px solid #eee; text-align: left; font-size: 13px; vertical-align: middle; transition: all 0.2s; }
+        
         .base-table tbody tr:hover { background-color: #f0f7ff; }
         .base-table tbody tr:hover td { border-bottom-color: #d0e3fc; }
         
@@ -819,16 +821,20 @@
                 axisPointer: { type: 'cross', label: { backgroundColor: '#6a7985' } }, 
                 formatter: function (params) { 
                     const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
-                    const stockCount = batchResults.length;
-
+                    
                     let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${params[0].name}</div>`; 
                     let sum = 0; 
-                    params.forEach(p => { 
+                    
+                    // 按数值大小排序，方便查看主要持仓
+                    const sortedParams = params.sort((a, b) => parseFloat(b.value) - parseFloat(a.value));
+
+                    sortedParams.forEach(p => { 
                         const val = parseFloat(p.value); 
                         if(val > 0.001) { 
-                            // 因为 val 已经是加权后的 (Alloc * 1/N)，我们需要还原成“名义杠杆”来计算占满仓的比例
-                            // 持仓占比 = (val * N) / MaxLev
-                            const posPct = ((val * stockCount) / maxLev * 100).toFixed(1) + '%';
+                            // === 修正处 ===
+                            // 计算的是占总账户最大杠杆的比例
+                            const posPct = (val / maxLev * 100).toFixed(2) + '%';
+                            
                             h += `<div style="font-size:11px; display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:2px;">
                                     <span style="min-width:70px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span>
                                     <div style="text-align:right">
@@ -839,17 +845,22 @@
                             sum += val; 
                         } 
                     }); 
-                    // 总仓位 = 当前总杠杆 / 最大杠杆
-                    const totalPos = (sum / maxLev * 100).toFixed(1) + '%';
+                    
+                    // 总仓位 = 总杠杆 / 默认最大杠杆 (分母保持一致)
+                    const totalPos = (sum / maxLev * 100).toFixed(2) + '%';
+                    
                     h += `<div style="border-top:1px solid #eee; margin-top:5px; padding-top:4px; font-weight:bold; text-align:right;">
                             总杠杆: ${sum.toFixed(2)}x <span style="color:#d32f2f; margin-left:6px;">(总仓位:${totalPos})</span>
                           </div>`; 
                     return h; 
                 } 
             },
-            legend: { data: allStockNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-            xAxis: { type: 'category', boundaryGap: false, data: dates }, yAxis: { type: 'value', min: 0 },
-            dataZoom: [{type:'inside'}, {type:'slider', bottom:0, height:20}], series: seriesData
+            legend: { data: allStockNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, 
+            grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+            xAxis: { type: 'category', boundaryGap: false, data: dates }, 
+            yAxis: { type: 'value', min: 0 },
+            dataZoom: [{type:'inside'}, {type:'slider', bottom:0, height:20}], 
+            series: seriesData
         });
     }
 </script>
