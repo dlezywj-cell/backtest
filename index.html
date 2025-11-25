@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (最终完善版)</title>
+    <title>估值杠杆策略 (总仓位联动版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -613,12 +613,12 @@
         tbody.innerHTML = logs.slice().reverse().map(l => `<tr><td class="log-col-date" style="color:#666;">${l.date}</td><td class="log-col-action">${l.action}</td><td class="log-col-val" style="font-family:monospace;">${l.val}</td><td class="log-col-reason" style="color:#555;" title="${l.reason}">${l.reason}</td></tr>`).join('');
     }
 
-    // === 图表渲染：单股详情 (带联动) ===
+    // === 图表渲染：单股详情 ===
     function renderChart(hist) {
         const dom = document.getElementById('chart-box'); if(myChart) myChart.clear(); else myChart = echarts.init(dom);
         const dates = hist.map(h=>h.date);
         myChart.setOption({
-            // 关键：trigger: 'axis' 配合 formatter 遍历 params，实现上下图表同时显示数据
+            // 联动修复：axisPointer 强制同步
             tooltip: { 
                 trigger: 'axis', 
                 axisPointer: { type: 'cross', link: { xAxisIndex: 'all' } }, 
@@ -642,11 +642,11 @@
         });
     }
 
-    // === 组合策略新逻辑 (使用 pMaxLev) ===
+    // === 核心逻辑：组合策略 ===
     function runPortfolioStrategy() {
         if (!batchResults || batchResults.length === 0) return alert("请先运行【批量回测】生成数据");
         
-        // 修改：直接使用 pMaxLev，不再使用 pGlobalLev
+        // 参数获取
         const defaultLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0; 
         const minPosThreshold = parseFloat(document.getElementById('pMinPos').value) || 0.4;
         const stockCount = batchResults.length; 
@@ -669,6 +669,7 @@
         let prevAllocatedLevs = {}; 
         batchResults.forEach((_, idx) => prevAllocatedLevs[idx] = 0);
 
+        // 初始化第一天
         const firstDate = sortedDates[0];
         const firstData = dateMap[firstDate];
         let firstSumRaw = 0;
@@ -684,13 +685,15 @@
             }
         });
 
+        // 核心修正逻辑 1: 计算总仓位和实际总杠杆
         let firstTotalPos = firstSumRaw / (stockCount * defaultLev);
         let firstActualTotal = defaultLev * firstTotalPos; 
 
+        // 核心修正逻辑 2: 单股分配缩放到真实仓位 (Raw * TotalPos)
         let firstBreakdown = {};
         batchResults.forEach((res, idx) => {
             if (firstValidStocks[idx] !== undefined) {
-                const alloc = firstValidStocks[idx] * firstTotalPos;
+                const alloc = firstValidStocks[idx] * firstTotalPos; // 这里是关键：真实持仓杠杆
                 prevAllocatedLevs[idx] = alloc;
                 firstBreakdown[res.stockName] = alloc;
             } else {
@@ -700,6 +703,7 @@
 
         portHistory.push({ date: firstDate, nav: 1.0, totalLev: firstActualTotal, breakdown: firstBreakdown });
 
+        // 循环后续日期
         for (let i = 1; i < sortedDates.length; i++) {
             const currDate = sortedDates[i];
             const prevDate = sortedDates[i-1];
@@ -738,13 +742,14 @@
                 }
             });
 
+            // 再次应用核心逻辑
             const totalPos = currentSumRaw / (stockCount * defaultLev);
             const actualTotal = defaultLev * totalPos; 
             
             let dailyBreakdown = {};
             batchResults.forEach((res, idx) => {
                 if (currentValidStocks[idx] !== undefined) {
-                    const alloc = currentValidStocks[idx] * totalPos;
+                    const alloc = currentValidStocks[idx] * totalPos; // 真实持仓杠杆
                     prevAllocatedLevs[idx] = alloc;
                     dailyBreakdown[res.stockName] = alloc;
                 } else {
@@ -759,7 +764,7 @@
         renderHoldingsChart(portHistory);
     }
 
-    // === 图表渲染：组合策略 (带联动) ===
+    // === 图表渲染：组合策略 ===
     function renderPortfolioStats(hist, maxDD) {
         const last = hist[hist.length - 1]; const ret = (last.nav - 1) * 100; const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
         document.getElementById('port-ret').innerText = ret.toFixed(2) + '%'; document.getElementById('port-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
@@ -768,7 +773,7 @@
         const dom = document.getElementById('portfolio-chart'); if (portfolioChart) portfolioChart.dispose(); portfolioChart = echarts.init(dom);
         const dates = hist.map(h => h.date);
         portfolioChart.setOption({
-            // 关键：联动显示净值与杠杆
+            // 联动修复：axisPointer 强制同步
             tooltip: { 
                 trigger: 'axis', 
                 axisPointer: {type: 'cross', link: {xAxisIndex: 'all'}}, 
@@ -806,7 +811,6 @@
                 trigger: 'axis', 
                 axisPointer: { type: 'cross', label: { backgroundColor: '#6a7985' } }, 
                 formatter: function (params) { 
-                    // 获取 pMaxLev (默认杠杆率)
                     const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
                     
                     let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${params[0].name}</div>`; 
@@ -814,9 +818,7 @@
                     params.forEach(p => { 
                         const val = parseFloat(p.value); 
                         if(val > 0.001) { 
-                            // 计算持仓占比 = 分配杠杆 / 最大杠杆
                             const posPct = (val / maxLev * 100).toFixed(1) + '%';
-                            
                             h += `<div style="font-size:11px; display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:2px;">
                                     <span style="min-width:70px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span>
                                     <div style="text-align:right">
