@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (交互修复完美版)</title>
+    <title>估值杠杆策略 (组合筛选完美版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -15,8 +15,11 @@
         .card { background: var(--card); border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 12px; overflow: hidden; transition: all 0.3s; }
         .card-header { padding: 12px 15px; background: #fff; border-bottom: 1px solid transparent; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 15px; user-select: none; cursor: pointer;}
         .header-title { flex: 1; display: flex; align-items: center; gap: 5px; }
+        
+        /* 关键 CSS：控制显示隐藏 */
         .card-body { display: none; padding: 15px; }
         .card.open .card-body { display: block; }
+        
         .card.open .card-header { border-bottom-color: var(--border); }
         .arrow { font-size: 12px; color: #999; transition: transform 0.3s; }
         .card.open .arrow { transform: rotate(180deg); }
@@ -356,20 +359,21 @@
     initDates();
     renderTable();
 
-    // === 核心修复 1: 通用卡片切换逻辑 ===
-    // 增加逻辑：当卡片展开时，尝试调整内部图表的大小，解决渲染问题
+    // === 核心逻辑修复：确保点击能切换，且展开时重绘图表 ===
     function toggleCard(id) { 
         const el = document.getElementById(id);
         if(!el) return;
+        
+        // 切换 open 类
         el.classList.toggle('open');
         
-        // 如果是展开状态，延迟调整图表大小
+        // 关键点：如果展开了，延迟调整图表大小，解决“挤在最左边”的问题
         if(el.classList.contains('open')) {
             setTimeout(() => {
                 if(id === 'card-result' && myChart) myChart.resize();
                 if(id === 'card-portfolio' && portfolioChart) portfolioChart.resize();
                 if(id === 'card-holdings' && holdingsChart) holdingsChart.resize();
-            }, 100);
+            }, 200); // 200ms 等待 DOM 渲染和动画
         }
     }
 
@@ -727,7 +731,7 @@
         };
     }
 
-    // === 核心修复 2: 运行结束后的卡片状态管理 ===
+    // === 组合回测逻辑：确保运行结束后自动展示并渲染 ===
     async function runBatchBacktest() {
         const checkedBoxes = document.querySelectorAll('.stock-chk:checked');
         if(checkedBoxes.length === 0) return alert("请至少勾选一只股票");
@@ -745,7 +749,7 @@
         btn.innerText = "⏳"; btn.disabled = true;
         detailView.style.display = 'none';
         
-        // 运行前先隐藏组合卡片
+        // 关键步骤：运行前先把两个卡片隐藏，避免旧数据闪烁
         portCard.style.display = 'none';
         holdCard.style.display = 'none';
         
@@ -782,23 +786,27 @@
         if(batchResults.length > 0) {
             showDetail(batchResults[0].index);
             
-            // 计算数据
-            runPortfolioStrategy();
-
-            // 1. 设置卡片 DOM 可见
+            // 1. 先把卡片设为可见（此时还不知道大小）
             portCard.style.display = 'block';
             holdCard.style.display = 'block';
 
-            // 2. 状态控制：
-            // 组合卡片：强制展开 (add open)
+            // 2. 强制两者都为 open 状态（为了让 ECharts 获取正确的宽度初始化）
             portCard.classList.add('open');
-            // 持仓卡片：强制折叠 (remove open)
-            holdCard.classList.remove('open');
+            holdCard.classList.add('open'); 
 
-            // 3. 立即触发图表 Resize (因为 display:none -> block 后 canvas 大小需要更新)
+            // 3. 计算数据并渲染图表（此时 DOM 是可见的，宽度正确）
+            runPortfolioStrategy();
+
+            // 4. 图表渲染完成后，再把持仓卡片折叠起来
+            // 这里的 setTimeout 是为了确保 echarts.init 已经执行完毕
             setTimeout(() => {
+                // 强制重绘一次，修复可能的宽度问题
                 if(portfolioChart) portfolioChart.resize();
-            }, 50);
+                if(holdingsChart) holdingsChart.resize();
+                
+                // 然后再折叠持仓卡片
+                holdCard.classList.remove('open');
+            }, 100);
         }
     }
 
@@ -932,7 +940,6 @@
         batchResults.forEach((res, idx) => {
             if (firstData.stocks[idx]) {
                 const rawL = firstData.stocks[idx].idealLev;
-                // 只有原始意愿 >= 门槛，才参与分配
                 if(rawL >= minPosThreshold) {
                     validStocks[idx] = rawL;
                     sumIdeal += rawL;
@@ -1100,6 +1107,7 @@
         });
     }
 
+    // === 渲染持仓结构堆叠图 ===
     function renderHoldingsChart(hist) {
         const dom = document.getElementById('holdings-chart');
         if (holdingsChart) holdingsChart.dispose();
