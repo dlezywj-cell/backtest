@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (参数全开版)</title>
+    <title>估值杠杆策略 (参数全开 + 组合增强版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -230,6 +230,38 @@
                 </div>
             </div>
         </div>
+
+        <!-- === 新增：组合策略回测面板 === -->
+        <div class="card" id="card-portfolio" style="border:1px solid #007bff; display:none; margin-top:15px;">
+            <div class="card-header" style="background:#e3f2fd; color:#0056b3;" onclick="toggleCard('card-portfolio')">
+                <div class="header-title"><span>💰 组合策略 (Portfolio)</span></div>
+                <span class="arrow">▼</span>
+            </div>
+            <div class="card-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>组合目标总杠杆 (Global Max Leverage)</label>
+                        <div style="display:flex; gap:10px;">
+                            <input type="number" id="pGlobalLev" step="0.1" value="2.0" style="flex:1;">
+                            <button class="btn btn-orange" onclick="runPortfolioStrategy()">🔄 重新计算组合</button>
+                        </div>
+                        <div style="font-size:11px; color:#666; margin-top:5px;">
+                            逻辑: 若各股所需杠杆之和 > 总杠杆，则按权重比例稀释；否则按个股策略执行。
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 组合统计 -->
+                <div class="stat-grid">
+                    <div class="stat-item"><div class="stat-val" id="port-ret">--</div><div class="stat-lbl">组合总收益</div></div>
+                    <div class="stat-item"><div class="stat-val" id="port-dd">--</div><div class="stat-lbl">最大回撤</div></div>
+                    <div class="stat-item"><div class="stat-val" id="port-lev">--</div><div class="stat-lbl">平均占用杠杆</div></div>
+                </div>
+
+                <!-- 组合图表 -->
+                <div id="portfolio-chart" style="width: 100%; height: 350px;"></div>
+            </div>
+        </div>
         
         <!-- 单只详情展示区 -->
         <div id="detail-view" style="display:none; border-top: 2px dashed #eee; margin-top: 20px; padding-top: 15px;">
@@ -297,6 +329,7 @@
     let stocks = JSON.parse(localStorage.getItem('gridStocks')) || [];
     let myChart = null;
     let batchResults = [];
+    let portfolioChart = null; // 组合图表实例
 
     function initDates() {
         const d = new Date();
@@ -311,6 +344,7 @@
         const el = document.getElementById(id);
         el.classList.toggle('open');
         if(id === 'card-result' && el.classList.contains('open') && myChart) setTimeout(()=>myChart.resize(), 100);
+        if(id === 'card-portfolio' && el.classList.contains('open') && portfolioChart) setTimeout(()=>portfolioChart.resize(), 100);
     }
 
     function toggleSection(id, headerEl) {
@@ -694,6 +728,7 @@
 
         btn.innerText = "⏳"; btn.disabled = true;
         detailView.style.display = 'none';
+        document.getElementById('card-portfolio').style.display = 'none'; // 先隐藏组合卡片
         sumBox.style.display = 'block';
         sumTbody.innerHTML = '';
         progress.style.display = 'block';
@@ -723,7 +758,20 @@
         }
         progress.innerHTML = `✅ 运行完成! 成功 ${successCount} / 选中 ${total}`;
         btn.innerText = "🚀 运行选中"; btn.disabled = false;
-        if(batchResults.length > 0) showDetail(batchResults[0].index);
+        
+        // 如果有成功的结果，则显示第一只详情，并启动组合计算
+        if(batchResults.length > 0) {
+            showDetail(batchResults[0].index);
+            
+            // === 新增：自动显示并计算组合策略 ===
+            document.getElementById('card-portfolio').style.display = 'block';
+            setTimeout(() => {
+                runPortfolioStrategy();
+                if(!document.getElementById('card-portfolio').classList.contains('open')) {
+                    document.getElementById('card-portfolio').classList.add('open');
+                }
+            }, 500);
+        }
     }
 
     function appendSummaryRow(res, index) {
@@ -808,6 +856,201 @@
                 {name:'股价', type:'line', yAxisIndex:0, data:hist.map(h=>h.close), itemStyle:{color:'#999'}, showSymbol:false, lineStyle: {width: 1}},
                 {name:'净值', type:'line', yAxisIndex:1, data:hist.map(h=>h.nav), itemStyle:{color:'#d32f2f'}, showSymbol:false, lineStyle: {width: 2}},
                 {name:'杠杆', type:'line', xAxisIndex:1, yAxisIndex:2, data:hist.map(h=>h.leverage), itemStyle:{color:'#28a745'}, step:'end', showSymbol:false, areaStyle:{opacity:0.1}, lineStyle: {width: 1}}
+            ]
+        });
+    }
+
+    // ==============================================
+    // === 组合回测逻辑 (Portfolio Backtest) ===
+    // ==============================================
+    
+    function runPortfolioStrategy() {
+        if (!batchResults || batchResults.length === 0) return alert("请先运行【批量回测】生成数据");
+
+        const globalMaxLev = parseFloat(document.getElementById('pGlobalLev').value) || 2.0;
+        
+        let dateMap = {}; 
+        
+        // 1. 数据对齐：遍历所有股票数据，建立日期索引
+        batchResults.forEach((res, stockIdx) => {
+            res.history.forEach(day => {
+                if (!dateMap[day.date]) {
+                    dateMap[day.date] = { date: day.date, stocks: {} };
+                }
+                dateMap[day.date].stocks[stockIdx] = {
+                    close: day.close,
+                    idealLev: day.leverage // 这是当日收盘计算出、作用于明日的杠杆
+                };
+            });
+        });
+
+        // 2. 日期排序
+        const sortedDates = Object.keys(dateMap).sort();
+        if (sortedDates.length < 2) return alert("有效日期数据不足");
+
+        // 3. 组合循环
+        let portNav = 1.0;
+        let portHistory = [];
+        let maxDD = 0;
+        let peak = 1.0;
+
+        // 记录上一日分配给各股的“实际杠杆权重”
+        let prevAllocatedLevs = {}; 
+        
+        // --- 初始化第一天 ---
+        const firstDate = sortedDates[0];
+        const firstData = dateMap[firstDate];
+        
+        // 计算第一天原本想要的杠杆总和 (作为初始建仓)
+        let sumIdeal = 0;
+        batchResults.forEach((res, idx) => {
+            if (firstData.stocks[idx]) sumIdeal += firstData.stocks[idx].idealLev;
+        });
+
+        // 初始分配比例
+        let scaleFactor = 1.0;
+        if (sumIdeal > globalMaxLev) scaleFactor = globalMaxLev / sumIdeal;
+
+        batchResults.forEach((res, idx) => {
+            if (firstData.stocks[idx]) prevAllocatedLevs[idx] = firstData.stocks[idx].idealLev * scaleFactor;
+            else prevAllocatedLevs[idx] = 0;
+        });
+
+        portHistory.push({
+            date: firstDate,
+            nav: 1.0,
+            totalLev: sumIdeal * scaleFactor,
+            rawLev: sumIdeal
+        });
+
+        // --- 从第二天开始循环 ---
+        for (let i = 1; i < sortedDates.length; i++) {
+            const currDate = sortedDates[i];
+            const prevDate = sortedDates[i-1];
+            const currData = dateMap[currDate];
+            const prevData = dateMap[prevDate];
+
+            // A. 计算当天组合收益
+            // 组合收益 = Sum( 个股涨跌幅 * 实际分配的杠杆 )
+            let dayPnLComponent = 0;
+            
+            batchResults.forEach((res, idx) => {
+                const sCurr = currData.stocks[idx];
+                const sPrev = prevData.stocks[idx];
+                const allocatedL = prevAllocatedLevs[idx] || 0;
+
+                // 只有当今天和昨天都有数据时，才能计算涨跌幅
+                if (sCurr && sPrev && sPrev.close > 0) {
+                    const r = (sCurr.close - sPrev.close) / sPrev.close;
+                    dayPnLComponent += (r * allocatedL);
+                }
+            });
+
+            // 更新净值
+            portNav = portNav * (1 + dayPnLComponent);
+
+            // 统计回撤
+            if (portNav > peak) peak = portNav;
+            const dd = (peak - portNav) / peak;
+            if (dd > maxDD) maxDD = dd;
+
+            // B. 准备明天的仓位 (计算今晚的杠杆需求)
+            let currentSumIdeal = 0;
+            batchResults.forEach((res, idx) => {
+                if (currData.stocks[idx]) currentSumIdeal += currData.stocks[idx].idealLev;
+            });
+
+            // 检查是否超限
+            let k = 1.0;
+            if (currentSumIdeal > globalMaxLev) k = globalMaxLev / currentSumIdeal;
+
+            let currentActualTotalLev = 0;
+            batchResults.forEach((res, idx) => {
+                if (currData.stocks[idx]) {
+                    const actualL = currData.stocks[idx].idealLev * k;
+                    prevAllocatedLevs[idx] = actualL;
+                    currentActualTotalLev += actualL;
+                } else {
+                    prevAllocatedLevs[idx] = 0;
+                }
+            });
+
+            portHistory.push({
+                date: currDate,
+                nav: portNav,
+                totalLev: currentActualTotalLev,
+                rawLev: currentSumIdeal
+            });
+        }
+
+        renderPortfolioStats(portHistory, maxDD);
+    }
+
+    function renderPortfolioStats(hist, maxDD) {
+        const last = hist[hist.length - 1];
+        const ret = (last.nav - 1) * 100;
+        const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
+
+        const setVal = (id, val, isPct=true, isColor=true) => {
+            const el = document.getElementById(id);
+            el.innerText = val.toFixed(2) + (isPct ? '%' : 'x');
+            if(isColor) el.className = 'stat-val ' + (val>=0 ? 'win' : 'loss');
+        };
+
+        setVal('port-ret', ret);
+        setVal('port-lev', avgLev, false, false);
+        
+        const ddEl = document.getElementById('port-dd');
+        ddEl.innerText = (maxDD * 100).toFixed(2) + '%';
+        ddEl.className = 'stat-val loss'; 
+
+        const dom = document.getElementById('portfolio-chart');
+        if (portfolioChart) portfolioChart.dispose();
+        portfolioChart = echarts.init(dom);
+
+        const dates = hist.map(h => h.date);
+        
+        portfolioChart.setOption({
+            tooltip: {
+                trigger: 'axis', axisPointer: {type: 'cross'},
+                formatter: p => {
+                    let h = `<div style="font-size:12px;margin-bottom:5px;">${p[0].name}</div>`;
+                    p.forEach(x => {
+                        let val = parseFloat(x.value).toFixed(2);
+                        if(x.seriesName.includes('杠杆')) val += 'x';
+                        h += `<div style="font-size:11px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${x.color};margin-right:5px;"></span>${x.seriesName}: <b>${val}</b></div>`
+                    });
+                    return h;
+                },
+                backgroundColor: 'rgba(255,255,255,0.95)'
+            },
+            legend: { top: 0, data: ['组合净值', '实际总杠杆', '原始需求杠杆'] },
+            grid: [{left:10, right:10, top:'15%', height:'55%', containLabel:true}, {left:10, right:10, top:'75%', height:'15%', containLabel:true}],
+            xAxis: [
+                {type:'category', data:dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}},
+                {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}
+            ],
+            yAxis: [
+                {type:'value', gridIndex:0, splitLine:{show:false}},
+                {type:'value', gridIndex:1, splitLine:{show:false}, min:0}
+            ],
+            dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
+            series: [
+                {
+                    name: '组合净值', type: 'line', data: hist.map(h=>h.nav), 
+                    itemStyle: {color: '#d32f2f'}, lineStyle: {width: 2}, showSymbol: false,
+                    xAxisIndex: 0, yAxisIndex: 0
+                },
+                {
+                    name: '实际总杠杆', type: 'line', data: hist.map(h=>h.totalLev), 
+                    itemStyle: {color: '#1976d2'}, lineStyle: {width: 1}, showSymbol: false,
+                    xAxisIndex: 1, yAxisIndex: 1, areaStyle: {opacity: 0.2}
+                },
+                {
+                    name: '原始需求杠杆', type: 'line', data: hist.map(h=>h.rawLev),
+                    itemStyle: {color: '#999'}, lineStyle: {width: 1, type: 'dashed'}, showSymbol: false,
+                    xAxisIndex: 1, yAxisIndex: 1
+                }
             ]
         });
     }
