@@ -880,7 +880,7 @@
         });
     }
 
-    // === 新增：交易明细渲染逻辑 (修正为显示仓位百分比) ===
+    // === 新增：交易明细渲染逻辑 (修正为显示仓位百分比 + 每日合计) ===
     function renderTradeLog(hist) {
         const container = document.getElementById('trade-log-list');
         container.innerHTML = '';
@@ -893,6 +893,7 @@
             const today = hist[i];
             const yesterday = hist[i-1];
             let changes = [];
+            let dailyNetChange = 0; // 当日净仓位变化累计
             
             // 获取所有出现过的股票名称
             const allStocks = new Set([...Object.keys(today.breakdown), ...Object.keys(yesterday.breakdown)]);
@@ -909,6 +910,7 @@
                 // 忽略微小误差，阈值设为 0.1% 仓位变化
                 if (Math.abs(diffPos) > 0.1) {
                     changes.push({name, diffPos, nowPos, prevPos});
+                    dailyNetChange += diffPos; // 累加净变化
                 }
             });
 
@@ -918,16 +920,23 @@
             // 按变化幅度绝对值从大到小排序
             changes.sort((a,b) => Math.abs(b.diffPos) - Math.abs(a.diffPos));
 
-            // 构建HTML
-            const dayId = `log-day-${i}`;
+            // 构建 Header 显示逻辑
+            const netSign = dailyNetChange > 0 ? '+' : '';
+            const netColor = dailyNetChange > 0 ? '#d32f2f' : (dailyNetChange < 0 ? '#2e7d32' : '#999');
             const isLatest = (i === hist.length - 1);
             
-            // 头部：日期 + 变化数量
+            // 头部：日期 + 合计 + 变化数量
             const header = document.createElement('div');
             header.className = 'daily-log-header' + (isLatest ? ' open' : '');
             header.onclick = function() { toggleDailyLog(this); };
             header.innerHTML = `
-                <div style="font-weight:bold; color:#555;">${today.date} <span style="font-weight:normal; font-size:11px; background:#eee; padding:1px 5px; border-radius:4px; margin-left:5px;">${changes.length} 笔调仓</span></div>
+                <div style="font-weight:bold; color:#555; display:flex; align-items:center; gap:10px;">
+                    ${today.date} 
+                    <span style="font-size:11px; color:#fff; background:${netColor}; padding:2px 6px; border-radius:4px;">
+                        合计: ${netSign}${dailyNetChange.toFixed(1)}%
+                    </span>
+                    <span style="font-weight:normal; font-size:11px; color:#999;">(${changes.length} 笔)</span>
+                </div>
                 <span class="arrow-daily">▶</span>
             `;
 
