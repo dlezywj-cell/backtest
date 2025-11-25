@@ -23,17 +23,17 @@
         .arrow { font-size: 12px; color: #999; transition: transform 0.3s; }
         .card.open .arrow { transform: rotate(180deg); }
 
-        /* === 区域折叠头 (Section) - 参考收益排行榜样式 === */
+        /* === 区域折叠头 (Section) === */
         .section-header { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f8f9fa; border-radius: 6px; cursor: pointer; margin-bottom: 5px; user-select: none; border: 1px solid #eee; transition: background 0.2s; }
         .section-header:active { background: #e9ecef; }
         .section-header span { font-weight: 600; font-size: 13px; color: #555; }
         
         /* 箭头旋转逻辑 */
         .section-header .header-arrow { transform: rotate(0deg); transition: transform 0.3s; }
-        .section-header.expanded .header-arrow { transform: rotate(180deg); }
+        .section-header.expanded .header-arrow { transform: rotate(180deg); } /* expanded类控制箭头向下 */
 
         .section-body { display: block; animation: fadeIn 0.3s; padding: 5px; border: 1px solid #f8f9fa; border-top: none; margin-bottom: 15px; }
-        .section-body.collapsed { display: none; }
+        .section-body.collapsed { display: none; } /* collapsed类控制内容隐藏 */
         
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
@@ -192,56 +192,68 @@
             </div>
         </div>
 
-        <div id="batch-progress" style="display:none; margin:12px 0; padding:8px; background:#e3f2fd; color:#0056b3; font-size:12px; border-radius:4px; text-align:center;">准备就绪</div>
-
-        <!-- 1. 收益排行榜 (Section Style) -->
-        <div id="batch-summary-box" style="display:none; margin-top:15px;">
-            <div class="section-header expanded" onclick="toggleSection('summary-content', this)">
-                <span>📈 收益排行榜</span> <span class="arrow header-arrow">▼</span>
-            </div>
-            <div id="summary-content" class="section-body">
-                <div class="summary-wrapper">
-                    <table class="summary-table">
-                        <thead><tr><th>股票</th><th>策略收益</th><th>超额</th><th>最大回撤</th></tr></thead>
-                        <tbody id="summary-tbody"></tbody>
-                    </table>
-                </div>
-            </div>
+        <div id="batch-progress" style="display:none; margin:12px 0; padding:10px; background:#e3f2fd; color:#0056b3; font-size:13px; border-radius:4px; text-align:center; border:1px solid #b3e5fc;">
+            准备就绪
         </div>
 
-        <!-- 2. 组合策略 (Section Style) -->
-        <div id="portfolio-section" style="display:none;">
-            <div class="section-header" onclick="toggleSection('portfolio-content', this)">
-                <span>💰 组合策略 (Portfolio)</span> <span class="arrow header-arrow">▼</span>
-            </div>
-            <div id="portfolio-content" class="section-body collapsed">
-                <div class="form-row">
-                    <div class="form-group"><label>组合总杠杆上限</label><input type="number" id="pGlobalLev" step="0.1" value="2.0"></div>
-                    <div class="form-group"><label>单股准入门槛</label><input type="number" id="pMinPos" step="0.1" value="0.4"></div>
-                </div>
-                <div style="text-align:right; margin-bottom:10px;">
-                    <button class="btn btn-orange" onclick="runPortfolioStrategy()" style="width:100%">🔄 重新计算组合</button>
-                    <div style="font-size:11px; color:#666; margin-top:5px; text-align:left;">逻辑：剔除意愿 < 门槛的股票。若剩余总和仍超上限则稀释。</div>
-                </div>
-                <div class="stat-grid">
-                    <div class="stat-item"><div class="stat-val" id="port-ret">--</div><div class="stat-lbl">组合总收益</div></div>
-                    <div class="stat-item"><div class="stat-val" id="port-dd">--</div><div class="stat-lbl">最大回撤</div></div>
-                    <div class="stat-item"><div class="stat-val" id="port-lev">--</div><div class="stat-lbl">平均占用杠杆</div></div>
-                </div>
-                <div id="portfolio-chart" style="width: 100%; height: 350px;"></div>
-            </div>
-        </div>
+        <!-- 结果统一展示容器 -->
+        <div id="results-container" style="display:none; margin-top:15px;">
 
-        <!-- 3. 每日持仓结构 (Section Style) -->
-        <div id="holdings-section" style="display:none;">
-            <div class="section-header" onclick="toggleSection('holdings-content', this)">
-                <span>📚 每日持仓结构 (Holdings Structure)</span> <span class="arrow header-arrow">▼</span>
+            <!-- 1. 收益排行榜 (默认展开) -->
+            <div id="batch-summary-box" style="margin-bottom:15px;">
+                <div class="section-header expanded" onclick="toggleSection('summary-content', this)">
+                    <span>📈 收益排行榜</span> 
+                    <span class="arrow header-arrow">▼</span>
+                </div>
+                <div id="summary-content" class="section-body">
+                    <div class="summary-wrapper">
+                        <table class="summary-table">
+                            <thead><tr><th>股票</th><th>策略收益</th><th>超额</th><th>最大回撤</th></tr></thead>
+                            <tbody id="summary-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
-            <div id="holdings-content" class="section-body collapsed">
-                <div id="holdings-chart" style="width: 100%; height: 400px;"></div>
-                <div style="text-align:center; font-size:11px; color:#999; margin-top:5px;">图表展示了每一天【真实分配】给各只股票的杠杆率堆叠情况。</div>
+
+            <!-- 2. 组合策略 (默认展开) -->
+            <div id="portfolio-section" style="margin-bottom:15px;">
+                <div class="section-header expanded" onclick="toggleSection('portfolio-content', this)">
+                    <span>💰 组合策略 (Portfolio)</span> 
+                    <span class="arrow header-arrow">▼</span>
+                </div>
+                <div id="portfolio-content" class="section-body">
+                    <div class="form-row">
+                        <div class="form-group"><label>组合总杠杆上限</label><input type="number" id="pGlobalLev" step="0.1" value="2.0"></div>
+                        <div class="form-group"><label>单股准入门槛</label><input type="number" id="pMinPos" step="0.1" value="0.4"></div>
+                    </div>
+                    <div style="text-align:right; margin-bottom:10px;">
+                        <button class="btn btn-orange" onclick="runPortfolioStrategy()" style="width:100%">🔄 重新计算组合</button>
+                        <div style="font-size:11px; color:#666; margin-top:5px; text-align:left;">逻辑：剔除意愿 < 门槛的股票。若剩余总和仍超上限则稀释。</div>
+                    </div>
+                    <div class="stat-grid">
+                        <div class="stat-item"><div class="stat-val" id="port-ret">--</div><div class="stat-lbl">组合总收益</div></div>
+                        <div class="stat-item"><div class="stat-val" id="port-dd">--</div><div class="stat-lbl">最大回撤</div></div>
+                        <div class="stat-item"><div class="stat-val" id="port-lev">--</div><div class="stat-lbl">平均占用杠杆</div></div>
+                    </div>
+                    <div id="portfolio-chart" style="width: 100%; height: 350px;"></div>
+                </div>
             </div>
-        </div>
+
+            <!-- 3. 每日持仓结构 (默认折叠) -->
+            <div id="holdings-section" style="margin-bottom:15px;">
+                <!-- 这里的 section-header 默认没有 expanded，所以箭头不旋转 -->
+                <div class="section-header" onclick="toggleSection('holdings-content', this)">
+                    <span>📚 每日持仓结构 (Holdings Structure)</span> 
+                    <span class="arrow header-arrow">▼</span>
+                </div>
+                <!-- 这里的 section-body 加上了 collapsed，所以内容默认隐藏 -->
+                <div id="holdings-content" class="section-body collapsed">
+                    <div id="holdings-chart" style="width: 100%; height: 400px;"></div>
+                    <div style="text-align:center; font-size:11px; color:#999; margin-top:5px;">图表展示了每一天【真实分配】给各只股票的杠杆率堆叠情况。</div>
+                </div>
+            </div>
+
+        </div> <!-- end results-container -->
         
         <!-- 单只详情展示区 -->
         <div id="detail-view" style="display:none; border-top: 2px dashed #eee; margin-top: 20px; padding-top: 15px;">
@@ -314,35 +326,40 @@
     initDates();
     renderTable();
 
-    // === 卡片/区域 切换逻辑 (修复版) ===
+    // === 卡片切换 ===
     function toggleCard(id) { 
         const el = document.getElementById(id);
         if(!el) return;
         el.classList.toggle('open');
-        if(el.classList.contains('open') && id === 'card-result' && myChart) {
-            setTimeout(() => myChart.resize(), 200);
+        // 卡片展开时如果是结果卡片，触发下图表重绘
+        if(el.classList.contains('open') && id === 'card-result') {
+            setTimeout(() => {
+                if(myChart) myChart.resize();
+                if(portfolioChart) portfolioChart.resize();
+            }, 200);
         }
     }
 
-    function toggleSection(id, headerEl) {
-        const el = document.getElementById(id);
-        const isCollapsed = el.classList.contains('collapsed');
+    // === 区域折叠/展开逻辑 (优化版) ===
+    function toggleSection(contentId, headerEl) {
+        const content = document.getElementById(contentId);
         
-        // 切换 collapsed 类
-        if(isCollapsed) {
-            el.classList.remove('collapsed');
-            headerEl.classList.add('expanded'); // 旋转箭头
+        // 切换 collapsed 类 (控制显示/隐藏)
+        const isCollapsed = content.classList.toggle('collapsed');
+        
+        // 切换 expanded 类 (控制箭头旋转)
+        if (isCollapsed) {
+            headerEl.classList.remove('expanded');
         } else {
-            el.classList.add('collapsed');
-            headerEl.classList.remove('expanded'); // 复原箭头
+            headerEl.classList.add('expanded');
         }
 
-        // 如果是展开动作，且涉及图表，需要 resize
-        if(isCollapsed) { // 意味着现在展开了
+        // 展开时触发图表 Resize
+        if (!isCollapsed) {
             setTimeout(() => {
-                if(id === 'portfolio-content' && portfolioChart) portfolioChart.resize();
-                if(id === 'holdings-content' && holdingsChart) holdingsChart.resize();
-            }, 100); // 短暂延迟让 DOM 渲染完成
+                if (contentId === 'portfolio-content' && portfolioChart) portfolioChart.resize();
+                if (contentId === 'holdings-content' && holdingsChart) holdingsChart.resize();
+            }, 50); 
         }
     }
 
@@ -355,7 +372,7 @@
         }
     }
 
-    // === GitHub & Stock 逻辑 (保持不变) ===
+    // === GitHub & Stock 逻辑 ===
     function safeB64ToUtf8(str) { return decodeURIComponent(escape(window.atob(str.replace(/\s/g, '')))); }
     function utf8ToB64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
     async function uploadToGithub() {
@@ -502,57 +519,63 @@
     async function runBatchBacktest() {
         const checkedBoxes = document.querySelectorAll('.stock-chk:checked');
         if(checkedBoxes.length === 0) return alert("请至少勾选一只股票");
+        
         const selectedIndices = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
         const btn = document.getElementById('btn-run-all');
         const progress = document.getElementById('batch-progress');
-        const sumBox = document.getElementById('batch-summary-box');
+        const resultsContainer = document.getElementById('results-container');
         const sumTbody = document.getElementById('summary-tbody');
         const detailView = document.getElementById('detail-view');
-        const portSection = document.getElementById('portfolio-section');
-        const holdSection = document.getElementById('holdings-section');
 
-        btn.innerText = "⏳"; btn.disabled = true;
-        detailView.style.display = 'none';
-        portSection.style.display = 'none'; // 运行前隐藏
-        holdSection.style.display = 'none';
-        
-        sumBox.style.display = 'block'; sumTbody.innerHTML = ''; progress.style.display = 'block';
-        document.getElementById('summary-content').classList.remove('collapsed'); 
-        document.querySelector('#batch-summary-box .section-header').classList.add('expanded');
+        // 1. 初始化
+        btn.innerText = "⏳ 计算中..."; btn.disabled = true;
+        detailView.style.display = 'none'; 
+        resultsContainer.style.display = 'none'; 
+        sumTbody.innerHTML = ''; progress.style.display = 'block';
         
         batchResults = []; let successCount = 0; const total = selectedIndices.length;
+
+        // 2. 循环计算
         for(let step=0; step < total; step++) {
             const i = selectedIndices[step]; const s = stocks[i];
             progress.innerHTML = `正在计算 <b>${s.name}</b> (${step+1}/${total})...`;
             try {
                 const res = await calculateStock(s); res.index = i; batchResults.push(res); appendSummaryRow(res, i); successCount++;
             } catch(e) { console.error(s.name, e); sumTbody.innerHTML += `<tr><td style="text-align:left">${s.name}<br><span style="font-size:10px;color:#999">${s.code}</span></td><td colspan="3" style="text-align:center; color:orange; font-size:12px">❌ ${e.message}</td></tr>`; }
-            await new Promise(r => setTimeout(r, 300));
+            await new Promise(r => setTimeout(r, 100));
         }
         progress.innerHTML = `✅ 运行完成! 成功 ${successCount} / 选中 ${total}`;
         btn.innerText = "🚀 运行选中"; btn.disabled = false;
         
+        // 3. 完成，显示结果区域并重置默认折叠状态
         if(batchResults.length > 0) {
+            resultsContainer.style.display = 'block';
+
+            // --- 重置状态: 排行榜(开), 组合(开), 持仓(关) ---
+            
+            // A. 收益排行榜：展开
+            const sumHeader = document.querySelector('#batch-summary-box .section-header');
+            const sumContent = document.getElementById('summary-content');
+            sumHeader.classList.add('expanded');
+            sumContent.classList.remove('collapsed');
+
+            // B. 组合策略：展开
+            const portHeader = document.querySelector('#portfolio-section .section-header');
+            const portContent = document.getElementById('portfolio-content');
+            portHeader.classList.add('expanded');   
+            portContent.classList.remove('collapsed'); 
+
+            // C. 持仓结构：折叠
+            const holdHeader = document.querySelector('#holdings-section .section-header');
+            const holdContent = document.getElementById('holdings-content');
+            holdHeader.classList.remove('expanded'); 
+            holdContent.classList.add('collapsed');  
+
+            // 4. 计算组合并显示
+            runPortfolioStrategy(); 
             showDetail(batchResults[0].index);
             
-            // 显示组合区域
-            portSection.style.display = 'block';
-            holdSection.style.display = 'block';
-
-            // 默认状态：组合展开，持仓折叠
-            const portHeader = portSection.querySelector('.section-header');
-            const portContent = document.getElementById('portfolio-content');
-            portContent.classList.remove('collapsed');
-            portHeader.classList.add('expanded');
-
-            const holdHeader = holdSection.querySelector('.section-header');
-            const holdContent = document.getElementById('holdings-content');
-            holdContent.classList.add('collapsed');
-            holdHeader.classList.remove('expanded');
-
-            // 计算并绘制
-            runPortfolioStrategy();
-            setTimeout(() => { if(portfolioChart) portfolioChart.resize(); }, 200);
+            setTimeout(() => { if(portfolioChart) portfolioChart.resize(); }, 100);
         }
     }
 
