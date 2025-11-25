@@ -880,7 +880,7 @@
         });
     }
 
-    // === 新增：交易明细渲染逻辑 (修正为显示仓位百分比 + 每日合计 + 总仓位显示) ===
+    // === 新增：交易明细渲染逻辑 (修正版：强制显示最新交易日，即使无变动) ===
     function renderTradeLog(hist) {
         const container = document.getElementById('trade-log-list');
         container.innerHTML = '';
@@ -916,9 +916,11 @@
 
             // 计算当天的总仓位百分比
             const totalPosPct = (today.totalLev / maxLev) * 100;
+            const isLatest = (i === hist.length - 1);
 
-            // 如果这一天没有显著变化，跳过
-            if (changes.length === 0) continue;
+            // 核心修正：如果这一天没有显著变化，且不是最新的一天，才跳过。
+            // 这样保证了“今天”即使没操作，也会显示在列表中，方便确认状态。
+            if (changes.length === 0 && !isLatest) continue;
 
             // 按变化幅度绝对值从大到小排序
             changes.sort((a,b) => Math.abs(b.diffPos) - Math.abs(a.diffPos));
@@ -926,7 +928,6 @@
             // 构建 Header 显示逻辑
             const netSign = dailyNetChange > 0 ? '+' : '';
             const netColor = dailyNetChange > 0 ? '#d32f2f' : (dailyNetChange < 0 ? '#2e7d32' : '#999');
-            const isLatest = (i === hist.length - 1);
             
             // 头部：日期 + 合计 + 总仓位 + 变化数量
             const header = document.createElement('div');
@@ -942,6 +943,7 @@
                         总仓: ${totalPosPct.toFixed(1)}%
                     </span>
                     <span style="font-weight:normal; font-size:11px; color:#999;">(${changes.length})</span>
+                    ${isLatest ? '<span style="font-size:10px; color:#fff; background:#fd7e14; padding:1px 4px; border-radius:3px; margin-left:auto;">最新</span>' : ''}
                 </div>
                 <span class="arrow-daily">▶</span>
             `;
@@ -951,20 +953,25 @@
             body.className = 'daily-log-body' + (isLatest ? ' open' : '');
             
             let html = '';
-            changes.forEach(c => {
-                const isBuy = c.diffPos > 0;
-                const color = isBuy ? '#d32f2f' : '#2e7d32';
-                const sign = isBuy ? '+' : '';
-                html += `
-                    <div class="daily-item">
-                        <span style="font-weight:500;">${c.name}</span>
-                        <span>
-                            <span style="color:${color}; font-weight:bold; margin-right:8px;">${sign}${c.diffPos.toFixed(1)}%</span>
-                            <span style="color:#999;">(${c.prevPos.toFixed(1)}% → ${c.nowPos.toFixed(1)}%)</span>
-                        </span>
-                    </div>
-                `;
-            });
+            if (changes.length === 0) {
+                // 如果没有变化（通常是最新的一天），显示无建议
+                html = `<div class="daily-item" style="justify-content:center; color:#999; font-style:italic; padding:10px 0;">本日仓位保持稳定，无建议调仓</div>`;
+            } else {
+                changes.forEach(c => {
+                    const isBuy = c.diffPos > 0;
+                    const color = isBuy ? '#d32f2f' : '#2e7d32';
+                    const sign = isBuy ? '+' : '';
+                    html += `
+                        <div class="daily-item">
+                            <span style="font-weight:500;">${c.name}</span>
+                            <span>
+                                <span style="color:${color}; font-weight:bold; margin-right:8px;">${sign}${c.diffPos.toFixed(1)}%</span>
+                                <span style="color:#999;">(${c.prevPos.toFixed(1)}% → ${c.nowPos.toFixed(1)}%)</span>
+                            </span>
+                        </div>
+                    `;
+                });
+            }
             body.innerHTML = html;
 
             container.appendChild(header);
@@ -972,7 +979,7 @@
         }
 
         if (container.innerHTML === '') {
-            container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无显著调仓记录</div>';
+            container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无调仓记录</div>';
         }
     }
 </script>
