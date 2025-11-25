@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (组合筛选修正版)</title>
+    <title>估值杠杆策略 (交互修复完美版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -231,7 +231,7 @@
             </div>
         </div>
 
-        <!-- === 组合策略回测面板 (默认隐藏，运行后显示，已加 open 保持展开) === -->
+        <!-- === 组合策略回测面板 (初始隐藏，运行后显示并展开) === -->
         <div class="card" id="card-portfolio" style="border:1px solid #007bff; display:none; margin-top:15px;">
             <div class="card-header" style="background:#e3f2fd; color:#0056b3;" onclick="toggleCard('card-portfolio')">
                 <div class="header-title"><span>💰 组合策略 (Portfolio)</span></div>
@@ -251,7 +251,7 @@
                 <div style="text-align:right; margin-bottom:10px;">
                     <button class="btn btn-orange" onclick="runPortfolioStrategy()" style="width:100%">🔄 重新计算组合</button>
                     <div style="font-size:11px; color:#666; margin-top:5px; text-align:left;">
-                        逻辑：先剔除【原始需求 < 门槛】的股票。若剩余股票总和仍超上限，则会被稀释，导致最终持仓可能低于门槛。
+                        逻辑：先剔除【原始需求 < 门槛】的股票。若剩余股票总和仍超上限，则会被稀释。
                     </div>
                 </div>
 
@@ -264,7 +264,7 @@
             </div>
         </div>
 
-        <!-- === 每日持仓结构卡片 (默认隐藏，运行后显示，默认折叠) === -->
+        <!-- === 每日持仓结构卡片 (初始隐藏，运行后显示但默认折叠) === -->
         <div class="card" id="card-holdings" style="display:none; margin-top:12px; border:1px solid #eee;">
             <div class="card-header" onclick="toggleCard('card-holdings')">
                 <div class="header-title"><span>📚 每日持仓结构 (Holdings Structure)</span></div>
@@ -356,12 +356,21 @@
     initDates();
     renderTable();
 
+    // === 核心修复 1: 通用卡片切换逻辑 ===
+    // 增加逻辑：当卡片展开时，尝试调整内部图表的大小，解决渲染问题
     function toggleCard(id) { 
         const el = document.getElementById(id);
+        if(!el) return;
         el.classList.toggle('open');
-        if(id === 'card-result' && el.classList.contains('open') && myChart) setTimeout(()=>myChart.resize(), 100);
-        if(id === 'card-portfolio' && el.classList.contains('open') && portfolioChart) setTimeout(()=>portfolioChart.resize(), 100);
-        if(id === 'card-holdings' && el.classList.contains('open') && holdingsChart) setTimeout(()=>holdingsChart.resize(), 100);
+        
+        // 如果是展开状态，延迟调整图表大小
+        if(el.classList.contains('open')) {
+            setTimeout(() => {
+                if(id === 'card-result' && myChart) myChart.resize();
+                if(id === 'card-portfolio' && portfolioChart) portfolioChart.resize();
+                if(id === 'card-holdings' && holdingsChart) holdingsChart.resize();
+            }, 100);
+        }
     }
 
     function toggleSection(id, headerEl) {
@@ -718,6 +727,7 @@
         };
     }
 
+    // === 核心修复 2: 运行结束后的卡片状态管理 ===
     async function runBatchBacktest() {
         const checkedBoxes = document.querySelectorAll('.stock-chk:checked');
         if(checkedBoxes.length === 0) return alert("请至少勾选一只股票");
@@ -727,15 +737,16 @@
         const sumBox = document.getElementById('batch-summary-box');
         const sumTbody = document.getElementById('summary-tbody');
         const detailView = document.getElementById('detail-view');
+        
+        // 获取新卡片元素
+        const portCard = document.getElementById('card-portfolio');
+        const holdCard = document.getElementById('card-holdings');
 
         btn.innerText = "⏳"; btn.disabled = true;
         detailView.style.display = 'none';
         
-        // 1. 先将卡片容器变为可见，但不添加 open 类（确保默认折叠）
-        const portCard = document.getElementById('card-portfolio');
-        const holdCard = document.getElementById('card-holdings');
-        
-        portCard.style.display = 'none'; // 运行前隐藏
+        // 运行前先隐藏组合卡片
+        portCard.style.display = 'none';
         holdCard.style.display = 'none';
         
         sumBox.style.display = 'block';
@@ -771,20 +782,23 @@
         if(batchResults.length > 0) {
             showDetail(batchResults[0].index);
             
-            // 2. 运行结束后，显示卡片
+            // 计算数据
+            runPortfolioStrategy();
+
+            // 1. 设置卡片 DOM 可见
             portCard.style.display = 'block';
             holdCard.style.display = 'block';
 
-            // 3. 计算组合数据
-            runPortfolioStrategy();
+            // 2. 状态控制：
+            // 组合卡片：强制展开 (add open)
+            portCard.classList.add('open');
+            // 持仓卡片：强制折叠 (remove open)
+            holdCard.classList.remove('open');
 
-            // 4. 自动展开“组合策略”卡片，但保持“持仓结构”折叠
+            // 3. 立即触发图表 Resize (因为 display:none -> block 后 canvas 大小需要更新)
             setTimeout(() => {
-                if(!portCard.classList.contains('open')) {
-                    portCard.classList.add('open'); // 自动展开组合卡片
-                }
-                // 持仓卡片保持折叠，不添加 open
-            }, 500);
+                if(portfolioChart) portfolioChart.resize();
+            }, 50);
         }
     }
 
@@ -886,7 +900,6 @@
         
         let dateMap = {}; 
         
-        // 1. 数据对齐
         batchResults.forEach((res, stockIdx) => {
             res.history.forEach(day => {
                 if (!dateMap[day.date]) {
@@ -902,26 +915,24 @@
         const sortedDates = Object.keys(dateMap).sort();
         if (sortedDates.length < 2) return alert("有效日期数据不足");
 
-        // 3. 组合循环
         let portNav = 1.0;
         let portHistory = [];
         let maxDD = 0;
         let peak = 1.0;
         let prevAllocatedLevs = {}; 
         
-        // --- 初始化第一天 ---
         const firstDate = sortedDates[0];
         const firstData = dateMap[firstDate];
         let initialBreakdown = {};
         
         // === 筛选逻辑：第一天 ===
         let sumIdeal = 0;
-        let validStocks = {}; // 存储通过门槛的股票及其原始杠杆
+        let validStocks = {}; 
 
         batchResults.forEach((res, idx) => {
             if (firstData.stocks[idx]) {
                 const rawL = firstData.stocks[idx].idealLev;
-                // 严格筛选：只有原始意愿 >= 门槛，才参与分配
+                // 只有原始意愿 >= 门槛，才参与分配
                 if(rawL >= minPosThreshold) {
                     validStocks[idx] = rawL;
                     sumIdeal += rawL;
@@ -929,11 +940,9 @@
             }
         });
 
-        // 计算稀释比例
         let scaleFactor = 1.0;
         if (sumIdeal > globalMaxLev) scaleFactor = globalMaxLev / sumIdeal;
 
-        // 分配实际杠杆
         batchResults.forEach((res, idx) => {
             if (validStocks[idx] !== undefined) {
                 const val = validStocks[idx] * scaleFactor;
@@ -952,7 +961,6 @@
             breakdown: initialBreakdown 
         });
 
-        // --- 从第二天开始循环 ---
         for (let i = 1; i < sortedDates.length; i++) {
             const currDate = sortedDates[i];
             const prevDate = sortedDates[i-1];
@@ -980,11 +988,10 @@
             let currentSumIdeal = 0;
             let currentValidStocks = {};
 
-            // 第一步：遍历筛选 (严格执行门槛)
+            // 第一步：遍历筛选
             batchResults.forEach((res, idx) => {
                 if (currData.stocks[idx]) {
                     const rawL = currData.stocks[idx].idealLev;
-                    // 这里是关键：只有满足门槛，才计入总需求
                     if(rawL >= minPosThreshold) {
                         currentValidStocks[idx] = rawL;
                         currentSumIdeal += rawL;
@@ -1002,13 +1009,11 @@
 
             batchResults.forEach((res, idx) => {
                 if (currentValidStocks[idx] !== undefined) {
-                    // 如果被筛选中，则按比例分配
                     const actualL = currentValidStocks[idx] * k;
                     prevAllocatedLevs[idx] = actualL;
                     currentActualTotalLev += actualL;
                     dailyBreakdown[res.stockName] = actualL;
                 } else {
-                    // 如果没通过门槛，强制为0
                     prevAllocatedLevs[idx] = 0;
                 }
             });
@@ -1095,7 +1100,6 @@
         });
     }
 
-    // === 渲染持仓结构堆叠图 ===
     function renderHoldingsChart(hist) {
         const dom = document.getElementById('holdings-chart');
         if (holdingsChart) holdingsChart.dispose();
@@ -1106,17 +1110,16 @@
         // 获取所有涉及的股票名称
         const allStockNames = batchResults.map(r => r.stockName);
         
-        // 构建 Series 数据
         const seriesData = allStockNames.map(name => {
             return {
                 name: name,
                 type: 'line',
-                stack: 'Total', // 堆叠的关键
-                areaStyle: {},  // 填充颜色
+                stack: 'Total', 
+                areaStyle: {},  
                 emphasis: { focus: 'series' },
                 showSymbol: false,
                 lineStyle: { width: 0 }, 
-                data: hist.map(h => h.breakdown[name] || 0) // 如果某天没有该股，则为0
+                data: hist.map(h => h.breakdown[name] || 0) 
             };
         });
 
@@ -1129,7 +1132,7 @@
                     let sum = 0;
                     params.forEach(p => {
                         const val = parseFloat(p.value);
-                        if(val > 0.001) { // 只显示持仓大于0的
+                        if(val > 0.001) { 
                             h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:10px;">
                                     <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span>
                                     <b>${val.toFixed(2)}x</b>
