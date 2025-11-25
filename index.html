@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (联动修正+权重修正)</title>
+    <title>估值杠杆策略 (逻辑闭环版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -238,7 +238,7 @@
                     <div style="text-align:right; margin-bottom:10px;">
                         <button class="btn btn-orange" onclick="runPortfolioStrategy()" style="width:100%">🔄 重新计算组合</button>
                         <div style="font-size:11px; color:#666; margin-top:5px; text-align:left;">
-                            逻辑：总仓位=Σ原始/(N×MaxLev)。权重=1/N。图表显示贡献度。
+                            逻辑：总仓位=Σ原始/(N×MaxLev)。单股分配=原始×总仓位。
                         </div>
                     </div>
                     <div class="stat-grid">
@@ -258,7 +258,7 @@
                 </div>
                 <div id="holdings-content" class="section-body collapsed">
                     <div id="holdings-chart" style="width: 100%; height: 400px;"></div>
-                    <div style="text-align:center; font-size:11px; color:#999; margin-top:5px;">图表展示了各股在总仓位下的【真实杠杆贡献】(已缩放)。</div>
+                    <div style="text-align:center; font-size:11px; color:#999; margin-top:5px;">图表展示了各股在总仓位下的【真实杠杆贡献】。</div>
                 </div>
             </div>
 
@@ -612,7 +612,7 @@
         tbody.innerHTML = logs.slice().reverse().map(l => `<tr><td class="log-col-date" style="color:#666;">${l.date}</td><td class="log-col-action">${l.action}</td><td class="log-col-val" style="font-family:monospace;">${l.val}</td><td class="log-col-reason" style="color:#555;" title="${l.reason}">${l.reason}</td></tr>`).join('');
     }
 
-    // === 图表渲染：单股详情 (数据联动修正) ===
+    // === 图表渲染：单股详情 (完美联动版) ===
     function renderChart(hist) {
         const dom = document.getElementById('chart-box'); if(myChart) myChart.clear(); else myChart = echarts.init(dom);
         const dates = hist.map(h=>h.date);
@@ -622,9 +622,8 @@
                 axisPointer: { type: 'cross', link: { xAxisIndex: 'all' } }, 
                 formatter: function(params) {
                     if(!params.length) return '';
-                    // 核心修正：直接通过 dataIndex 获取原始数据，不再依赖 params 的 series 值
                     const index = params[0].dataIndex;
-                    const item = hist[index];
+                    const item = hist[index]; 
                     if(!item) return '';
 
                     let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${item.date}</div>`;
@@ -644,14 +643,14 @@
         });
     }
 
-    // === 核心逻辑：组合策略 (权重修正版) ===
+    // === 核心逻辑：组合策略 (闭环修正版) ===
     function runPortfolioStrategy() {
         if (!batchResults || batchResults.length === 0) return alert("请先运行【批量回测】生成数据");
         
         const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0; 
         const minPosThreshold = parseFloat(document.getElementById('pMinPos').value) || 0.4;
         const stockCount = batchResults.length; 
-        const weight = 1.0 / stockCount; // 核心修正：单股资金权重
+        const weight = 1.0 / stockCount; 
 
         let dateMap = {}; 
         batchResults.forEach((res, stockIdx) => { 
@@ -668,7 +667,7 @@
         let maxDD = 0; 
         let peak = 1.0; 
         
-        // 记录上一日分配的【真实持仓杠杆】(已加权)
+        // 记录上一日分配的真实杠杆
         let prevAllocatedLevs = {}; 
         batchResults.forEach((_, idx) => prevAllocatedLevs[idx] = 0);
 
@@ -691,22 +690,23 @@
         // 公式：总仓位系数 = Σ原始 / (N * MaxLev)
         let firstTotalPos = firstSumRaw / (stockCount * maxLev);
         
-        // 实际显示的总杠杆 = MaxLev * 总仓位
-        let firstActualTotal = maxLev * firstTotalPos; 
-
         let firstBreakdown = {};
+        let firstCalculatedSumAlloc = 0; // 新增：累加真实的 Allocation
+
         batchResults.forEach((res, idx) => {
             if (firstValidStocks[idx] !== undefined) {
                 // 核心修正：真实持仓 = (原始 * 总仓位) * 权重
                 const alloc = (firstValidStocks[idx] * firstTotalPos) * weight; 
                 prevAllocatedLevs[idx] = alloc;
                 firstBreakdown[res.stockName] = alloc;
+                firstCalculatedSumAlloc += alloc;
             } else {
                 prevAllocatedLevs[idx] = 0;
             }
         });
 
-        portHistory.push({ date: firstDate, nav: 1.0, totalLev: firstActualTotal, breakdown: firstBreakdown });
+        // 使用累加值作为 TotalLev
+        portHistory.push({ date: firstDate, nav: 1.0, totalLev: firstCalculatedSumAlloc, breakdown: firstBreakdown });
 
         // --- 循环 ---
         for (let i = 1; i < sortedDates.length; i++) {
@@ -720,11 +720,10 @@
             batchResults.forEach((res, idx) => {
                 const sCurr = currData.stocks[idx];
                 const sPrev = prevData.stocks[idx];
-                const allocatedL = prevAllocatedLevs[idx] || 0; // 已经是加权后的真实杠杆
+                const allocatedL = prevAllocatedLevs[idx] || 0; 
                 
                 if (sCurr && sPrev && sPrev.close > 0) {
                     const r = (sCurr.close - sPrev.close) / sPrev.close;
-                    // 修正：不再乘 weight，因为 allocatedL 已经包含了 weight
                     dayPnLComponent += (r * allocatedL); 
                 }
             });
@@ -749,28 +748,29 @@
             });
 
             const totalPos = currentSumRaw / (stockCount * maxLev);
-            const actualTotal = maxLev * totalPos; 
             
             let dailyBreakdown = {};
+            let currentCalculatedSumAlloc = 0; // 新增
+
             batchResults.forEach((res, idx) => {
                 if (currentValidStocks[idx] !== undefined) {
-                    // 核心修正：图表数据也使用加权后的真实持仓
                     const alloc = (currentValidStocks[idx] * totalPos) * weight; 
                     prevAllocatedLevs[idx] = alloc;
                     dailyBreakdown[res.stockName] = alloc;
+                    currentCalculatedSumAlloc += alloc;
                 } else {
                     prevAllocatedLevs[idx] = 0;
                 }
             });
 
-            portHistory.push({ date: currDate, nav: portNav, totalLev: actualTotal, breakdown: dailyBreakdown });
+            portHistory.push({ date: currDate, nav: portNav, totalLev: currentCalculatedSumAlloc, breakdown: dailyBreakdown });
         }
         
         renderPortfolioStats(portHistory, maxDD); 
         renderHoldingsChart(portHistory);
     }
 
-    // === 图表渲染：组合策略 (数据联动修正) ===
+    // === 图表渲染：组合策略 (完美联动版) ===
     function renderPortfolioStats(hist, maxDD) {
         const last = hist[hist.length - 1]; const ret = (last.nav - 1) * 100; const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
         document.getElementById('port-ret').innerText = ret.toFixed(2) + '%'; document.getElementById('port-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
@@ -807,11 +807,10 @@
         });
     }
 
-    // === 图表渲染：持仓结构 (堆叠图正常化) ===
+    // === 图表渲染：持仓结构 (显示仓位占比) ===
     function renderHoldingsChart(hist) {
         const dom = document.getElementById('holdings-chart'); if (holdingsChart) holdingsChart.dispose(); holdingsChart = echarts.init(dom);
         const dates = hist.map(h => h.date); const allStockNames = batchResults.map(r => r.stockName);
-        // 数据源已经是加权后的数据 (alloc * weight)，所以堆叠后总高度 ≈ 实际总杠杆
         const seriesData = allStockNames.map(name => { return { name: name, type: 'line', stack: 'Total', areaStyle: {}, emphasis: { focus: 'series' }, showSymbol: false, lineStyle: { width: 0 }, data: hist.map(h => h.breakdown[name] || 0) }; });
         
         holdingsChart.setOption({
@@ -820,9 +819,6 @@
                 axisPointer: { type: 'cross', label: { backgroundColor: '#6a7985' } }, 
                 formatter: function (params) { 
                     const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
-                    // 这里我们需要反推“总仓位占比”，因为 params.value 已经是加权后的值
-                    // 加权值 = (Raw * Pos) / N
-                    // 持仓占比 = (Raw * Pos) / MaxLev = (params.value * N) / MaxLev
                     const stockCount = batchResults.length;
 
                     let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${params[0].name}</div>`; 
@@ -830,7 +826,8 @@
                     params.forEach(p => { 
                         const val = parseFloat(p.value); 
                         if(val > 0.001) { 
-                            // 反推持仓占比
+                            // 因为 val 已经是加权后的 (Alloc * 1/N)，我们需要还原成“名义杠杆”来计算占满仓的比例
+                            // 持仓占比 = (val * N) / MaxLev
                             const posPct = ((val * stockCount) / maxLev * 100).toFixed(1) + '%';
                             h += `<div style="font-size:11px; display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:2px;">
                                     <span style="min-width:70px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span>
@@ -842,7 +839,7 @@
                             sum += val; 
                         } 
                     }); 
-                    // 总持仓占比 = 总高度 / MaxLev (这里不需要乘N，因为Sum已经是总杠杆)
+                    // 总仓位 = 当前总杠杆 / 最大杠杆
                     const totalPos = (sum / maxLev * 100).toFixed(1) + '%';
                     h += `<div style="border-top:1px solid #eee; margin-top:5px; padding-top:4px; font-weight:bold; text-align:right;">
                             总杠杆: ${sum.toFixed(2)}x <span style="color:#d32f2f; margin-left:6px;">(总仓位:${totalPos})</span>
