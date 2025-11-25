@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (组合门槛优化版)</title>
+    <title>估值杠杆策略 (组合筛选修正版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -231,7 +231,7 @@
             </div>
         </div>
 
-        <!-- === 组合策略回测面板 === -->
+        <!-- === 组合策略回测面板 (默认隐藏，运行后显示，已加 open 保持展开) === -->
         <div class="card" id="card-portfolio" style="border:1px solid #007bff; display:none; margin-top:15px;">
             <div class="card-header" style="background:#e3f2fd; color:#0056b3;" onclick="toggleCard('card-portfolio')">
                 <div class="header-title"><span>💰 组合策略 (Portfolio)</span></div>
@@ -251,7 +251,7 @@
                 <div style="text-align:right; margin-bottom:10px;">
                     <button class="btn btn-orange" onclick="runPortfolioStrategy()" style="width:100%">🔄 重新计算组合</button>
                     <div style="font-size:11px; color:#666; margin-top:5px; text-align:left;">
-                        逻辑：先剔除杠杆 < 门槛的股票，再将剩余股票加总，若超过上限则稀释。
+                        逻辑：先剔除【原始需求 < 门槛】的股票。若剩余股票总和仍超上限，则会被稀释，导致最终持仓可能低于门槛。
                     </div>
                 </div>
 
@@ -264,7 +264,7 @@
             </div>
         </div>
 
-        <!-- === 每日持仓结构卡片 === -->
+        <!-- === 每日持仓结构卡片 (默认隐藏，运行后显示，默认折叠) === -->
         <div class="card" id="card-holdings" style="display:none; margin-top:12px; border:1px solid #eee;">
             <div class="card-header" onclick="toggleCard('card-holdings')">
                 <div class="header-title"><span>📚 每日持仓结构 (Holdings Structure)</span></div>
@@ -273,7 +273,7 @@
             <div class="card-body">
                 <div id="holdings-chart" style="width: 100%; height: 400px;"></div>
                 <div style="text-align:center; font-size:11px; color:#999; margin-top:5px;">
-                    图表展示了每一天【真实分配】给各只股票的杠杆率堆叠情况。高度代表总仓位。
+                    图表展示了每一天【真实分配】给各只股票的杠杆率堆叠情况。
                 </div>
             </div>
         </div>
@@ -374,7 +374,6 @@
         }
     }
 
-    // === 新增：切换高级参数显示 ===
     function toggleAdvSettings() {
         const el = document.getElementById('adv-settings');
         if (el.style.display === 'none' || el.style.display === '') {
@@ -384,7 +383,6 @@
         }
     }
 
-    // === GitHub 逻辑 ===
     function safeB64ToUtf8(str) { return decodeURIComponent(escape(window.atob(str.replace(/\s/g, '')))); }
     function utf8ToB64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
     
@@ -523,7 +521,7 @@
     }
 
     // ==============================================
-    // === 核心回测逻辑 (读取高级参数) ===
+    // === 核心回测逻辑 ===
     // ==============================================
 
     const getEmSecId = c => {
@@ -732,8 +730,14 @@
 
         btn.innerText = "⏳"; btn.disabled = true;
         detailView.style.display = 'none';
-        document.getElementById('card-portfolio').style.display = 'none'; 
-        document.getElementById('card-holdings').style.display = 'none';
+        
+        // 1. 先将卡片容器变为可见，但不添加 open 类（确保默认折叠）
+        const portCard = document.getElementById('card-portfolio');
+        const holdCard = document.getElementById('card-holdings');
+        
+        portCard.style.display = 'none'; // 运行前隐藏
+        holdCard.style.display = 'none';
+        
         sumBox.style.display = 'block';
         sumTbody.innerHTML = '';
         progress.style.display = 'block';
@@ -767,14 +771,19 @@
         if(batchResults.length > 0) {
             showDetail(batchResults[0].index);
             
-            document.getElementById('card-portfolio').style.display = 'block';
-            document.getElementById('card-holdings').style.display = 'block';
+            // 2. 运行结束后，显示卡片
+            portCard.style.display = 'block';
+            holdCard.style.display = 'block';
+
+            // 3. 计算组合数据
+            runPortfolioStrategy();
+
+            // 4. 自动展开“组合策略”卡片，但保持“持仓结构”折叠
             setTimeout(() => {
-                runPortfolioStrategy();
-                if(!document.getElementById('card-portfolio').classList.contains('open')) {
-                    document.getElementById('card-portfolio').classList.add('open');
+                if(!portCard.classList.contains('open')) {
+                    portCard.classList.add('open'); // 自动展开组合卡片
                 }
-                // card-holdings remains closed by default
+                // 持仓卡片保持折叠，不添加 open
             }, 500);
         }
     }
@@ -898,23 +907,21 @@
         let portHistory = [];
         let maxDD = 0;
         let peak = 1.0;
-
         let prevAllocatedLevs = {}; 
         
         // --- 初始化第一天 ---
         const firstDate = sortedDates[0];
         const firstData = dateMap[firstDate];
-        
         let initialBreakdown = {};
         
-        // 第一天分配：先筛选，后加总
+        // === 筛选逻辑：第一天 ===
         let sumIdeal = 0;
-        let validStocks = {}; // 记录哪些股票通过了门槛
+        let validStocks = {}; // 存储通过门槛的股票及其原始杠杆
 
         batchResults.forEach((res, idx) => {
             if (firstData.stocks[idx]) {
                 const rawL = firstData.stocks[idx].idealLev;
-                // === 筛选逻辑 ===
+                // 严格筛选：只有原始意愿 >= 门槛，才参与分配
                 if(rawL >= minPosThreshold) {
                     validStocks[idx] = rawL;
                     sumIdeal += rawL;
@@ -922,9 +929,11 @@
             }
         });
 
+        // 计算稀释比例
         let scaleFactor = 1.0;
         if (sumIdeal > globalMaxLev) scaleFactor = globalMaxLev / sumIdeal;
 
+        // 分配实际杠杆
         batchResults.forEach((res, idx) => {
             if (validStocks[idx] !== undefined) {
                 const val = validStocks[idx] * scaleFactor;
@@ -938,8 +947,8 @@
         portHistory.push({
             date: firstDate,
             nav: 1.0,
-            totalLev: sumIdeal * scaleFactor, // 实际总杠杆
-            rawLev: sumIdeal,                 // 这里的sumIdeal已经是经过门槛筛选后的总和了
+            totalLev: sumIdeal * scaleFactor,
+            rawLev: sumIdeal,
             breakdown: initialBreakdown 
         });
 
@@ -967,14 +976,15 @@
             const dd = (peak - portNav) / peak;
             if (dd > maxDD) maxDD = dd;
 
-            // B. 准备明天的仓位 (并记录下来作为“今天的持仓结构”)
+            // B. 准备明天的仓位
             let currentSumIdeal = 0;
             let currentValidStocks = {};
 
-            // 第一步：遍历筛选
+            // 第一步：遍历筛选 (严格执行门槛)
             batchResults.forEach((res, idx) => {
                 if (currData.stocks[idx]) {
                     const rawL = currData.stocks[idx].idealLev;
+                    // 这里是关键：只有满足门槛，才计入总需求
                     if(rawL >= minPosThreshold) {
                         currentValidStocks[idx] = rawL;
                         currentSumIdeal += rawL;
@@ -992,11 +1002,13 @@
 
             batchResults.forEach((res, idx) => {
                 if (currentValidStocks[idx] !== undefined) {
+                    // 如果被筛选中，则按比例分配
                     const actualL = currentValidStocks[idx] * k;
                     prevAllocatedLevs[idx] = actualL;
                     currentActualTotalLev += actualL;
                     dailyBreakdown[res.stockName] = actualL;
                 } else {
+                    // 如果没通过门槛，强制为0
                     prevAllocatedLevs[idx] = 0;
                 }
             });
@@ -1083,7 +1095,7 @@
         });
     }
 
-    // === 新增：渲染持仓结构堆叠图 ===
+    // === 渲染持仓结构堆叠图 ===
     function renderHoldingsChart(hist) {
         const dom = document.getElementById('holdings-chart');
         if (holdingsChart) holdingsChart.dispose();
