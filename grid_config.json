@@ -68,8 +68,8 @@
   {
     "code": "605499.SH",
     "name": "东鹏饮料",
-    "minCap": 1350,
-    "maxCap": 1620
+    "minCap": 1200,
+    "maxCap": 1700
   },
   {
     "code": "688169.SH",
@@ -84,21 +84,9 @@
     "maxCap": 520
   },
   {
-    "code": "002384.SZ",
-    "name": "东山精密",
-    "minCap": 1200,
-    "maxCap": 2000
-  },
-  {
-    "code": "300433.SZ",
-    "name": "蓝思科技",
-    "minCap": 1360,
-    "maxCap": 1785
-  },
-  {
-    "code": "300274.SZ",
-    "name": "阳光电源",
-    "minCap": 2015,
-    "maxCap": 3410
+    "code": "TSLA.US",
+    "name": "特斯拉",
+    "minCap": 8000,
+    "maxCap": 16000
   }
 ]
