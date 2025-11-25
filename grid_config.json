@@ -94,5 +94,11 @@
     "name": "道通科技",
     "minCap": 240,
     "maxCap": 300
+  },
+  {
+    "code": "688676.SH",
+    "name": "金盘科技",
+    "minCap": 195,
+    "maxCap": 400
   }
 ]
