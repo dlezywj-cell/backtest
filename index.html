@@ -677,7 +677,7 @@
         });
     }
 
-    // === 核心逻辑：组合策略 (闭环修正版) ===
+    // === 核心逻辑：组合策略 (修正版：解决节假日数据为0的问题) ===
     function runPortfolioStrategy() {
         if (!batchResults || batchResults.length === 0) return alert("请先运行【批量回测】生成数据");
         
@@ -686,6 +686,7 @@
         const stockCount = batchResults.length; 
         const weight = 1.0 / stockCount; 
 
+        // 1. 构建日期映射
         let dateMap = {}; 
         batchResults.forEach((res, stockIdx) => { 
             res.history.forEach(day => { 
@@ -696,84 +697,68 @@
         const sortedDates = Object.keys(dateMap).sort(); 
         if (sortedDates.length < 2) return alert("有效日期数据不足");
 
+        // 2. 初始化回测状态
         let portNav = 1.0; 
         let portHistory = []; 
         let maxDD = 0; 
         let peak = 1.0; 
         
-        // 记录上一日分配的真实杠杆
-        let prevAllocatedLevs = {}; 
-        batchResults.forEach((_, idx) => prevAllocatedLevs[idx] = 0);
-
-        // --- 初始化第一天 ---
-        const firstDate = sortedDates[0];
-        const firstData = dateMap[firstDate];
-        let firstSumRaw = 0;
-        let firstValidStocks = {}; 
+        // 关键：用于存储每只股票“最近一次有效交易日”的数据 (Forward Fill)
+        // 结构: { stockIdx: { close: 100, idealLev: 0.5 } }
+        let lastValidData = {}; 
         
-        batchResults.forEach((res, idx) => {
-            if (firstData.stocks[idx]) {
-                const rawL = firstData.stocks[idx].idealLev;
-                if(rawL >= minPosThreshold) {
-                    firstValidStocks[idx] = rawL;
-                    firstSumRaw += rawL;
-                }
-            }
-        });
+        // 记录上一日计算出的【真实分配杠杆】 (用于计算次日PnL)
+        let prevAllocatedLevs = {}; // { stockIdx: 0.3 }
 
-        // 公式：总仓位系数 = Σ原始 / (N * MaxLev)
-        let firstTotalPos = firstSumRaw / (stockCount * maxLev);
-        
-        let firstBreakdown = {};
-        let firstCalculatedSumAlloc = 0; // 新增：累加真实的 Allocation
-
-        batchResults.forEach((res, idx) => {
-            if (firstValidStocks[idx] !== undefined) {
-                // 核心修正：真实持仓 = (原始 * 总仓位) * 权重
-                const alloc = (firstValidStocks[idx] * firstTotalPos) * weight; 
-                prevAllocatedLevs[idx] = alloc;
-                firstBreakdown[res.stockName] = alloc;
-                firstCalculatedSumAlloc += alloc;
-            } else {
-                prevAllocatedLevs[idx] = 0;
-            }
-        });
-
-        // 使用累加值作为 TotalLev
-        portHistory.push({ date: firstDate, nav: 1.0, totalLev: firstCalculatedSumAlloc, breakdown: firstBreakdown });
-
-        // --- 循环 ---
-        for (let i = 1; i < sortedDates.length; i++) {
+        // 3. 循环每一天
+        for (let i = 0; i < sortedDates.length; i++) {
             const currDate = sortedDates[i];
-            const prevDate = sortedDates[i-1];
-            const currData = dateMap[currDate];
-            const prevData = dateMap[prevDate];
-
-            let dayPnLComponent = 0;
+            const rawDayData = dateMap[currDate];
             
+            // --- A. 更新当前市场状态 (Forward Fill) ---
+            // 每次循环前，先把 lastValidData 保存一份作为“昨日状态”，用于计算 PnL
+            // 注意：深拷贝或浅拷贝视对象深度而定，这里浅拷贝即可（因为内部是替换对象）
+            const prevValidData = { ...lastValidData };
+
             batchResults.forEach((res, idx) => {
-                const sCurr = currData.stocks[idx];
-                const sPrev = prevData.stocks[idx];
-                const allocatedL = prevAllocatedLevs[idx] || 0; 
-                
-                if (sCurr && sPrev && sPrev.close > 0) {
-                    const r = (sCurr.close - sPrev.close) / sPrev.close;
-                    dayPnLComponent += (r * allocatedL); 
+                if (rawDayData.stocks[idx]) {
+                    // 如果今天该股有数据（开市），更新状态
+                    lastValidData[idx] = rawDayData.stocks[idx];
                 }
+                // 如果今天无数据（节假日），lastValidData[idx] 保持不变，沿用之前的值
             });
 
-            portNav = portNav * (1 + dayPnLComponent); 
-            if (portNav > peak) peak = portNav;
-            const dd = (peak - portNav) / peak;
-            if (dd > maxDD) maxDD = dd;
+            // --- B. 计算当日 PnL (从第二天开始) ---
+            if (i > 0) {
+                let dayPnLComponent = 0;
+                batchResults.forEach((res, idx) => {
+                    const sCurr = lastValidData[idx]; // 今天的状态 (可能是今天更新的，也可能是沿用的)
+                    const sPrev = prevValidData[idx]; // 昨天的状态
+                    const allocatedL = prevAllocatedLevs[idx] || 0; 
+                    
+                    // 只有当今天和昨天都有有效数据，且价格有效时才计算 PnL
+                    // 如果今天是节假日，sCurr === sPrev，价格没变，PnL 为 0，符合逻辑
+                    if (sCurr && sPrev && sPrev.close > 0) {
+                        const r = (sCurr.close - sPrev.close) / sPrev.close;
+                        dayPnLComponent += (r * allocatedL); 
+                    }
+                });
 
-            // --- 计算下一日持仓 ---
+                portNav = portNav * (1 + dayPnLComponent); 
+                if (portNav > peak) peak = portNav;
+                const dd = (peak - portNav) / peak;
+                if (dd > maxDD) maxDD = dd;
+            }
+
+            // --- C. 计算新的持仓分配 (End of Day Rebalance or Record) ---
             let currentSumRaw = 0;
-            let currentValidStocks = {};
+            let currentValidStocks = {}; // 记录哪些股票符合持仓门槛
             
             batchResults.forEach((res, idx) => {
-                if (currData.stocks[idx]) {
-                    const rawL = currData.stocks[idx].idealLev;
+                const sData = lastValidData[idx]; // 使用 Forward Fill 后的数据
+                if (sData) {
+                    const rawL = sData.idealLev;
+                    // 如果该股当前处于节假日，它会沿用节前的 leverage
                     if(rawL >= minPosThreshold) {
                         currentValidStocks[idx] = rawL;
                         currentSumRaw += rawL;
@@ -781,13 +766,15 @@
                 }
             });
 
+            // 计算总仓位系数
             const totalPos = currentSumRaw / (stockCount * maxLev);
             
             let dailyBreakdown = {};
-            let currentCalculatedSumAlloc = 0; // 新增
+            let currentCalculatedSumAlloc = 0; 
 
             batchResults.forEach((res, idx) => {
                 if (currentValidStocks[idx] !== undefined) {
+                    // 真实持仓分配
                     const alloc = (currentValidStocks[idx] * totalPos) * weight; 
                     prevAllocatedLevs[idx] = alloc;
                     dailyBreakdown[res.stockName] = alloc;
@@ -797,9 +784,11 @@
                 }
             });
 
+            // 记录历史
             portHistory.push({ date: currDate, nav: portNav, totalLev: currentCalculatedSumAlloc, breakdown: dailyBreakdown });
         }
         
+        // 4. 渲染图表
         renderPortfolioStats(portHistory, maxDD); 
         renderHoldingsChart(portHistory);
         renderTradeLog(portHistory);
