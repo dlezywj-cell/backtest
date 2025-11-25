@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (组合持仓透视版)</title>
+    <title>估值杠杆策略 (组合门槛优化版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -240,16 +240,21 @@
             <div class="card-body">
                 <div class="form-row">
                     <div class="form-group">
-                        <label>组合目标总杠杆</label>
-                        <div style="display:flex; gap:10px;">
-                            <input type="number" id="pGlobalLev" step="0.1" value="2.0" style="flex:1;">
-                            <button class="btn btn-orange" onclick="runPortfolioStrategy()">🔄 重新计算组合</button>
-                        </div>
-                        <div style="font-size:11px; color:#666; margin-top:5px;">
-                            逻辑: 原始总需求若超限，则按权重稀释至目标杠杆。
-                        </div>
+                        <label>组合总杠杆上限</label>
+                        <input type="number" id="pGlobalLev" step="0.1" value="2.0">
+                    </div>
+                    <div class="form-group">
+                        <label>单股准入门槛 (Min Threshold)</label>
+                        <input type="number" id="pMinPos" step="0.1" value="0.4">
                     </div>
                 </div>
+                <div style="text-align:right; margin-bottom:10px;">
+                    <button class="btn btn-orange" onclick="runPortfolioStrategy()" style="width:100%">🔄 重新计算组合</button>
+                    <div style="font-size:11px; color:#666; margin-top:5px; text-align:left;">
+                        逻辑：先剔除杠杆 < 门槛的股票，再将剩余股票加总，若超过上限则稀释。
+                    </div>
+                </div>
+
                 <div class="stat-grid">
                     <div class="stat-item"><div class="stat-val" id="port-ret">--</div><div class="stat-lbl">组合总收益</div></div>
                     <div class="stat-item"><div class="stat-val" id="port-dd">--</div><div class="stat-lbl">最大回撤</div></div>
@@ -259,7 +264,7 @@
             </div>
         </div>
 
-        <!-- === 新增：每日持仓结构卡片 === -->
+        <!-- === 每日持仓结构卡片 === -->
         <div class="card" id="card-holdings" style="display:none; margin-top:12px; border:1px solid #eee;">
             <div class="card-header" onclick="toggleCard('card-holdings')">
                 <div class="header-title"><span>📚 每日持仓结构 (Holdings Structure)</span></div>
@@ -340,7 +345,7 @@
     let myChart = null;
     let batchResults = [];
     let portfolioChart = null; 
-    let holdingsChart = null; // 新增：持仓结构图表实例
+    let holdingsChart = null; 
 
     function initDates() {
         const d = new Date();
@@ -868,6 +873,7 @@
         if (!batchResults || batchResults.length === 0) return alert("请先运行【批量回测】生成数据");
 
         const globalMaxLev = parseFloat(document.getElementById('pGlobalLev').value) || 2.0;
+        const minPosThreshold = parseFloat(document.getElementById('pMinPos').value) || 0.4;
         
         let dateMap = {}; 
         
@@ -899,18 +905,29 @@
         const firstDate = sortedDates[0];
         const firstData = dateMap[firstDate];
         
+        let initialBreakdown = {};
+        
+        // 第一天分配：先筛选，后加总
         let sumIdeal = 0;
+        let validStocks = {}; // 记录哪些股票通过了门槛
+
         batchResults.forEach((res, idx) => {
-            if (firstData.stocks[idx]) sumIdeal += firstData.stocks[idx].idealLev;
+            if (firstData.stocks[idx]) {
+                const rawL = firstData.stocks[idx].idealLev;
+                // === 筛选逻辑 ===
+                if(rawL >= minPosThreshold) {
+                    validStocks[idx] = rawL;
+                    sumIdeal += rawL;
+                }
+            }
         });
 
         let scaleFactor = 1.0;
         if (sumIdeal > globalMaxLev) scaleFactor = globalMaxLev / sumIdeal;
 
-        let initialBreakdown = {};
         batchResults.forEach((res, idx) => {
-            if (firstData.stocks[idx]) {
-                const val = firstData.stocks[idx].idealLev * scaleFactor;
+            if (validStocks[idx] !== undefined) {
+                const val = validStocks[idx] * scaleFactor;
                 prevAllocatedLevs[idx] = val;
                 initialBreakdown[res.stockName] = val;
             } else {
@@ -921,9 +938,9 @@
         portHistory.push({
             date: firstDate,
             nav: 1.0,
-            totalLev: sumIdeal * scaleFactor,
-            rawLev: sumIdeal,
-            breakdown: initialBreakdown // 记录第一天的持仓
+            totalLev: sumIdeal * scaleFactor, // 实际总杠杆
+            rawLev: sumIdeal,                 // 这里的sumIdeal已经是经过门槛筛选后的总和了
+            breakdown: initialBreakdown 
         });
 
         // --- 从第二天开始循环 ---
@@ -951,21 +968,31 @@
             if (dd > maxDD) maxDD = dd;
 
             // B. 准备明天的仓位 (并记录下来作为“今天的持仓结构”)
-            // 注意：图表上我们通常想看“这一天持有多少”，所以我们记录刚刚算出来的 allocation
             let currentSumIdeal = 0;
+            let currentValidStocks = {};
+
+            // 第一步：遍历筛选
             batchResults.forEach((res, idx) => {
-                if (currData.stocks[idx]) currentSumIdeal += currData.stocks[idx].idealLev;
+                if (currData.stocks[idx]) {
+                    const rawL = currData.stocks[idx].idealLev;
+                    if(rawL >= minPosThreshold) {
+                        currentValidStocks[idx] = rawL;
+                        currentSumIdeal += rawL;
+                    }
+                }
             });
 
+            // 第二步：计算缩放系数
             let k = 1.0;
             if (currentSumIdeal > globalMaxLev) k = globalMaxLev / currentSumIdeal;
 
+            // 第三步：分配真实仓位
             let currentActualTotalLev = 0;
-            let dailyBreakdown = {}; // 用于存储当天的持仓细节
+            let dailyBreakdown = {}; 
 
             batchResults.forEach((res, idx) => {
-                if (currData.stocks[idx]) {
-                    const actualL = currData.stocks[idx].idealLev * k;
+                if (currentValidStocks[idx] !== undefined) {
+                    const actualL = currentValidStocks[idx] * k;
                     prevAllocatedLevs[idx] = actualL;
                     currentActualTotalLev += actualL;
                     dailyBreakdown[res.stockName] = actualL;
@@ -1076,7 +1103,7 @@
                 areaStyle: {},  // 填充颜色
                 emphasis: { focus: 'series' },
                 showSymbol: false,
-                lineStyle: { width: 0 }, // 隐藏线，只显示色块更干净，或者设为0.5
+                lineStyle: { width: 0 }, 
                 data: hist.map(h => h.breakdown[name] || 0) // 如果某天没有该股，则为0
             };
         });
@@ -1104,7 +1131,7 @@
             },
             legend: {
                 data: allStockNames,
-                type: 'scroll', // 股票多了可以滚动
+                type: 'scroll',
                 top: 0,
                 textStyle: { fontSize: 10 }
             },
