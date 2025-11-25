@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (搜索增强版)</title>
+    <title>估值杠杆策略 (严格对齐版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -83,7 +83,6 @@
         .summary-table tr.selected td { font-weight: 500; }
         .val-pos { color: #d32f2f; } .val-neg { color: #2e7d32; }
 
-        /* === 列表优化样式 === */
         .list-search-bar { padding: 10px 15px; border-bottom: 1px solid #f0f0f0; background: #fff; display: flex; align-items: center; gap: 8px; }
         .list-search-bar input { flex: 1; border: 1px solid #eee; border-radius: 6px; padding: 8px; font-size: 13px; background: #f9f9f9; outline: none; transition: all 0.2s; }
         .list-search-bar input:focus { background: #fff; border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.1); }
@@ -92,7 +91,6 @@
         .base-table th { background: #f8f9fa; padding: 10px; text-align: left; font-size: 12px; color:#666; border-bottom: 1px solid #ddd; }
         .base-table td { padding: 12px 5px; border-bottom: 1px solid #eee; text-align: left; font-size: 13px; vertical-align: middle; transition: all 0.2s; }
         
-        /* 鼠标悬停高亮效果 */
         .base-table tbody tr:hover { background-color: #f0f7ff; }
         .base-table tbody tr:hover td { border-bottom-color: #d0e3fc; }
         
@@ -149,7 +147,6 @@
         <span class="arrow">▼</span>
     </div>
     <div class="card-body" style="padding:0">
-        <!-- 新增：搜索栏 -->
         <div class="list-search-bar">
             <span style="font-size:14px">🔍</span>
             <input type="text" id="list-search-input" placeholder="输入名称或代码筛选..." oninput="filterStockList()">
@@ -338,24 +335,18 @@
     initDates();
     renderTable();
 
-    // === 新增：列表过滤功能 ===
     function filterStockList() {
         const term = document.getElementById('list-search-input').value.toLowerCase().trim();
         const rows = document.querySelectorAll('#stock-tbody tr');
         let visibleCount = 0;
-        
         rows.forEach(row => {
             const text = row.innerText.toLowerCase();
-            // 简单匹配：只要行内包含关键词就显示
             if (term === '' || text.includes(term)) {
-                row.style.display = '';
-                visibleCount++;
+                row.style.display = ''; visibleCount++;
             } else {
                 row.style.display = 'none';
             }
         });
-
-        // 更新计数显示，格式为 (显示/总数)
         document.getElementById('list-count').innerText = `(${visibleCount}/${stocks.length})`;
     }
 
@@ -455,16 +446,10 @@
         if(idx >= 0) stocks[idx] = item; else stocks.push(item); localStorage.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); alert("已保存");
     }
     
-    // === 更新后的渲染逻辑 ===
     function renderTable() {
         const tb = document.getElementById('stock-tbody'); 
-        
-        // 渲染表格
         tb.innerHTML = stocks.map((s, i) => `<tr><td><b>${s.name}</b> <span style="color:#999;font-size:12px">${s.code}</span></td><td>${s.minCap}-${s.maxCap}亿</td><td style="text-align:center;"><div class="op-btn-group"><button class="btn btn-edit-yellow btn-icon-square" onclick="editStock(${i})">✎</button><button class="btn btn-del-red btn-icon-square" onclick="delStock(${i})">✕</button></div></td><td style="text-align:center;"><input type="checkbox" class="stock-chk" value="${i}" checked></td></tr>`).join('');
-        
-        // 重新应用当前的搜索（如果输入框有值，渲染后要再次筛选，否则新增的会直接显示）
-        filterStockList();
-        checkAllState();
+        filterStockList(); checkAllState();
     }
     
     function toggleAllStocks(el) { document.querySelectorAll('.stock-chk').forEach(chk => chk.checked = el.checked); }
@@ -551,9 +536,6 @@
     }
 
     async function runBatchBacktest() {
-        // 修改：获取所有“显示”且“被勾选”的复选框
-        // 逻辑：如果行被隐藏了(display:none)，通常用户不希望它参与运算，或者用户只是在筛选并运行。
-        // 这里为了稳健，我们仍然通过 checked 属性来判断，但用户可以通过筛选后全选/全不选来控制。
         const checkedBoxes = document.querySelectorAll('.stock-chk:checked');
         if(checkedBoxes.length === 0) return alert("请至少勾选一只股票");
         
@@ -584,29 +566,19 @@
         progress.innerHTML = `✅ 运行完成! 成功 ${successCount} / 选中 ${total}`;
         btn.innerText = "🚀 运行选中"; btn.disabled = false;
         
-        // 3. 完成，显示结果区域并重置默认折叠状态
+        // 3. 完成，显示结果区域
         if(batchResults.length > 0) {
             resultsContainer.style.display = 'block';
             
-            // A. 收益排行榜：展开
-            const sumHeader = document.querySelector('#batch-summary-box .section-header');
-            const sumContent = document.getElementById('summary-content');
-            sumHeader.classList.add('expanded');
-            sumContent.classList.remove('collapsed');
+            document.querySelector('#batch-summary-box .section-header').classList.add('expanded');
+            document.getElementById('summary-content').classList.remove('collapsed');
+            
+            document.querySelector('#portfolio-section .section-header').classList.add('expanded');
+            document.getElementById('portfolio-content').classList.remove('collapsed'); 
 
-            // B. 组合策略：展开
-            const portHeader = document.querySelector('#portfolio-section .section-header');
-            const portContent = document.getElementById('portfolio-content');
-            portHeader.classList.add('expanded');   
-            portContent.classList.remove('collapsed'); 
+            document.querySelector('#holdings-section .section-header').classList.remove('expanded'); 
+            document.getElementById('holdings-content').classList.add('collapsed');  
 
-            // C. 持仓结构：折叠
-            const holdHeader = document.querySelector('#holdings-section .section-header');
-            const holdContent = document.getElementById('holdings-content');
-            holdHeader.classList.remove('expanded'); 
-            holdContent.classList.add('collapsed');  
-
-            // 4. 计算组合并显示
             runPortfolioStrategy(); 
             showDetail(batchResults[0].index);
             
@@ -640,15 +612,44 @@
         tbody.innerHTML = logs.slice().reverse().map(l => `<tr><td class="log-col-date" style="color:#666;">${l.date}</td><td class="log-col-action">${l.action}</td><td class="log-col-val" style="font-family:monospace;">${l.val}</td><td class="log-col-reason" style="color:#555;" title="${l.reason}">${l.reason}</td></tr>`).join('');
     }
 
+    // === 核心修改：渲染单股图表 (严格对齐版) ===
     function renderChart(hist) {
         const dom = document.getElementById('chart-box'); if(myChart) myChart.clear(); else myChart = echarts.init(dom);
         const dates = hist.map(h=>h.date);
         myChart.setOption({
-            tooltip: { trigger: 'axis', axisPointer: {type: 'cross'}, formatter: p => { let h = `<div style="font-size:12px;margin-bottom:5px;">${p[0].name}</div>`; p.forEach(x => { let val = x.value; if(x.seriesName==='杠杆') val = val.toFixed(2)+'x'; else val = val.toFixed(2); h += `<div style="font-size:11px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${x.color};margin-right:5px;"></span>${x.seriesName}: <b>${val}</b></div>` }); return h; }, backgroundColor: 'rgba(255,255,255,0.95)', borderColor: '#eee', borderWidth: 1, textStyle: {color:'#333'} },
+            // 1. 添加 link 属性，让轴指示器上下联动
+            tooltip: { 
+                trigger: 'axis', 
+                axisPointer: { type: 'cross', link: { xAxisIndex: 'all' } }, 
+                formatter: p => { 
+                    let h = `<div style="font-size:12px;margin-bottom:5px;">${p[0].name}</div>`; 
+                    p.forEach(x => { 
+                        let val = x.value; 
+                        if(x.seriesName==='杠杆') val = val.toFixed(2)+'x'; else val = val.toFixed(2); 
+                        h += `<div style="font-size:11px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${x.color};margin-right:5px;"></span>${x.seriesName}: <b>${val}</b></div>` 
+                    }); 
+                    return h; 
+                }, 
+                backgroundColor: 'rgba(255,255,255,0.95)', 
+                borderColor: '#eee', 
+                borderWidth: 1, 
+                textStyle: {color:'#333'} 
+            },
             legend: { top: 0, data: ['股价','净值','杠杆'], itemWidth:12, itemHeight:8, textStyle:{fontSize:11} },
-            grid: [{left: 10, right: 10, top:'12%', height:'58%', containLabel: true}, {left: 10, right: 10, top:'78%', height:'15%', containLabel: true}],
-            xAxis: [{type:'category', data: dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}, axisLine:{lineStyle:{color:'#eee'}}}, {type:'category', data: dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}],
-            yAxis: [{type:'value', position:'left', splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#999'}}, {type:'value', position:'right', splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#d32f2f'}}, {type:'value', gridIndex:1, splitLine:{show:true, lineStyle:{type:'dashed', color:'#eee'}}, min:0, max:2.1, axisLabel:{fontSize:10, color:'#28a745'}}],
+            // 2. 移除 containLabel: true，使用固定边距强制对齐
+            grid: [
+                { left: '12%', right: '8%', top: '12%', height: '58%' }, 
+                { left: '12%', right: '8%', top: '78%', height: '15%' }
+            ],
+            xAxis: [
+                {type:'category', data: dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}, axisLine:{lineStyle:{color:'#eee'}}}, 
+                {type:'category', data: dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}
+            ],
+            yAxis: [
+                {type:'value', position:'left', splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#999'}}, 
+                {type:'value', position:'right', splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#d32f2f'}}, 
+                {type:'value', gridIndex:1, splitLine:{show:true, lineStyle:{type:'dashed', color:'#eee'}}, min:0, max:2.1, axisLabel:{fontSize:10, color:'#28a745'}}
+            ],
             dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
             series: [{name:'股价', type:'line', yAxisIndex:0, data:hist.map(h=>h.close), itemStyle:{color:'#999'}, showSymbol:false, lineStyle: {width: 1}}, {name:'净值', type:'line', yAxisIndex:1, data:hist.map(h=>h.nav), itemStyle:{color:'#d32f2f'}, showSymbol:false, lineStyle: {width: 2}}, {name:'杠杆', type:'line', xAxisIndex:1, yAxisIndex:2, data:hist.map(h=>h.leverage), itemStyle:{color:'#28a745'}, step:'end', showSymbol:false, areaStyle:{opacity:0.1}, lineStyle: {width: 1}}]
         });
@@ -689,6 +690,7 @@
         renderPortfolioStats(portHistory, maxDD); renderHoldingsChart(portHistory);
     }
 
+    // === 核心修改：渲染组合图表 (严格对齐版) ===
     function renderPortfolioStats(hist, maxDD) {
         const last = hist[hist.length - 1]; const ret = (last.nav - 1) * 100; const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
         document.getElementById('port-ret').innerText = ret.toFixed(2) + '%'; document.getElementById('port-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
@@ -697,9 +699,14 @@
         const dom = document.getElementById('portfolio-chart'); if (portfolioChart) portfolioChart.dispose(); portfolioChart = echarts.init(dom);
         const dates = hist.map(h => h.date);
         portfolioChart.setOption({
-            tooltip: { trigger: 'axis', axisPointer: {type: 'cross'}, formatter: p => { let h = `<div style="font-size:12px;margin-bottom:5px;">${p[0].name}</div>`; p.forEach(x => { let val = parseFloat(x.value).toFixed(2); if(x.seriesName.includes('杠杆')) val += 'x'; h += `<div style="font-size:11px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${x.color};margin-right:5px;"></span>${x.seriesName}: <b>${val}</b></div>` }); return h; }, backgroundColor: 'rgba(255,255,255,0.95)' },
+            // 1. 轴联动
+            tooltip: { trigger: 'axis', axisPointer: {type: 'cross', link: {xAxisIndex: 'all'}}, formatter: p => { let h = `<div style="font-size:12px;margin-bottom:5px;">${p[0].name}</div>`; p.forEach(x => { let val = parseFloat(x.value).toFixed(2); if(x.seriesName.includes('杠杆')) val += 'x'; h += `<div style="font-size:11px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${x.color};margin-right:5px;"></span>${x.seriesName}: <b>${val}</b></div>` }); return h; }, backgroundColor: 'rgba(255,255,255,0.95)' },
             legend: { top: 0, data: ['组合净值', '实际总杠杆', '原始需求杠杆'] },
-            grid: [{left:10, right:10, top:'15%', height:'55%', containLabel:true}, {left:10, right:10, top:'75%', height:'15%', containLabel:true}],
+            // 2. 强制边距对齐
+            grid: [
+                { left: '12%', right: '8%', top: '15%', height: '55%' }, 
+                { left: '12%', right: '8%', top: '75%', height: '15%' }
+            ],
             xAxis: [{type:'category', data:dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}}, {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}],
             yAxis: [{type:'value', gridIndex:0, splitLine:{show:false}}, {type:'value', gridIndex:1, splitLine:{show:false}, min:0}],
             dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
