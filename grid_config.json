@@ -88,5 +88,11 @@
     "name": "特斯拉",
     "minCap": 8000,
     "maxCap": 16000
+  },
+  {
+    "code": "688208.SH",
+    "name": "道通科技",
+    "minCap": 240,
+    "maxCap": 300
   }
 ]
