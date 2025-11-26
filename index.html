@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (终极完美版)</title>
+    <title>估值杠杆策略 (盘中实时版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -183,7 +183,7 @@
 <!-- 结果卡片 -->
 <div class="card open" id="card-result">
     <div class="card-header" onclick="toggleCard('card-result')">
-        <div class="header-title"><span>📊 回测结果</span></div>
+        <div class="header-title"><span>📊 实时回测结果</span></div>
         <span class="arrow">▼</span>
     </div>
     <div class="card-body">
@@ -478,10 +478,7 @@
         const max = parseFloat(document.getElementById('inMax').value);
         if(!code || isNaN(min)) return alert("请填写完整");
         
-        // === 新增：获取当前日期 ===
         const today = new Date().toISOString().split('T')[0];
-        
-        // === 修改：保存包含日期的对象 ===
         const item = { code, name, minCap: min, maxCap: max, lastMod: today }; 
         
         const idx = stocks.findIndex(s => s.code === code);
@@ -498,7 +495,6 @@
                 <td><b>${s.name}</b> <span style="color:#999;font-size:12px">${s.code}</span></td>
                 <td>
                     ${s.minCap}-${s.maxCap}亿
-                    <!-- === 新增：显示最后修改日期 === -->
                     <div style="font-size:10px; color:#aaa; margin-top:2px;">${s.lastMod || ''}</div>
                 </td>
                 <td style="text-align:center;"><div class="op-btn-group"><button class="btn btn-edit-yellow btn-icon-square" onclick="editStock(${i})">✎</button><button class="btn btn-del-red btn-icon-square" onclick="delStock(${i})">✕</button></div></td>
@@ -514,23 +510,48 @@
     function editStock(i) { const s = stocks[i]; document.getElementById('inName').value = s.name; document.getElementById('inCode').value = s.code; document.getElementById('inMin').value = s.minCap; document.getElementById('inMax').value = s.maxCap; document.getElementById('card-config').scrollIntoView({behavior: 'smooth'}); }
     function delStock(i) { if(!confirm("确认删除？")) return; stocks.splice(i, 1); localStorage.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); }
 
-    // === 回测逻辑 ===
+    // === 核心数据逻辑 (含实时数据缝合) ===
     const getEmSecId = c => { let raw = c.replace(/\.[A-Z]+$/, ''); if (c.includes('.HK') || /^\d{5}$/.test(raw)) return '116.' + raw.padStart(5, '0'); if (c.includes('.US')) return '105.' + raw; if (raw.startsWith('6')) return '1.' + raw; return '0.' + raw; };
     const toYahoo = c => { let raw = c.replace(/\.[A-Z]+$/, ''); if (c.includes('.HK') || /^\d{5}$/.test(raw)) return parseInt(raw, 10).toString().padStart(4, '0') + '.HK'; if (c.includes('.US')) return raw; if (c.includes('.SH') || (raw.startsWith('6') && !c.includes('.SZ'))) return raw + '.SS'; return raw + '.SZ'; };
-    async function fetchEmShares(secId) { const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${secId}&fields=f2,f20&invt=2&fltt=2`; const res = await fetch(PROXY + encodeURIComponent(url)); return await res.json(); }
+    
+    // 1. 获取东财实时数据 (f2=最新价, f20=总市值)
+    async function fetchEmShares(secId) { 
+        const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${secId}&fields=f2,f20&invt=2&fltt=2`; 
+        const res = await fetch(PROXY + encodeURIComponent(url)); 
+        return await res.json(); 
+    }
 
+    // 2. 核心计算函数
     async function calculateStock(stock) {
         const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
-        const lowSens = parseFloat(document.getElementById('pLowSens').value) || 12; const lowRed = parseFloat(document.getElementById('pLowRed').value) || 0.3;
-        const normSens = parseFloat(document.getElementById('pNormSens').value) || 25; const normRed = parseFloat(document.getElementById('pNormRed').value) || 0.8;
+        const lowSens = parseFloat(document.getElementById('pLowSens').value) || 12; 
+        const lowRed = parseFloat(document.getElementById('pLowRed').value) || 0.3;
+        const normSens = parseFloat(document.getElementById('pNormSens').value) || 25; 
+        const normRed = parseFloat(document.getElementById('pNormRed').value) || 0.8;
         
+        // --- A. 获取东财实时数据 ---
         let emSecId = getEmSecId(stock.code); let emCode = emSecId.split('.')[1];
         let capJson = await fetchEmShares(emSecId);
-        if(stock.code.includes('.US') && (!capJson.data || !capJson.data.diff)) { emSecId = '106.' + emCode; capJson = await fetchEmShares(emSecId); }
-        let totalShares = 0; 
-        if(capJson.data?.diff) { let d = Array.isArray(capJson.data.diff) ? capJson.data.diff[0] : capJson.data.diff[emCode]; if(d && d.f2 > 0) totalShares = (d.f20 / d.f2) / 100000000; }
-        if(!totalShares) throw new Error(`无法获取股本数据`);
+        if(stock.code.includes('.US') && (!capJson.data || !capJson.data.diff)) { 
+            emSecId = '106.' + emCode; capJson = await fetchEmShares(emSecId); 
+        }
+        
+        let totalShares = 0;
+        let rtPrice = 0; // 实时价格
+        
+        if(capJson.data?.diff) { 
+            let d = Array.isArray(capJson.data.diff) ? capJson.data.diff[0] : capJson.data.diff[emCode]; 
+            if(d) {
+                if(d.f2 > 0) {
+                    // f20(总市值元) / f2(单价) / 1亿 = 亿股
+                    totalShares = (d.f20 / d.f2) / 100000000; 
+                    rtPrice = d.f2; 
+                }
+            }
+        }
+        if(!totalShares) throw new Error(`无法获取股本/实时数据`);
 
+        // --- B. 获取 Yahoo 历史 K 线 ---
         const sd = document.getElementById('inStartDate').value; const ed = document.getElementById('inEndDate').value;
         const p1 = Math.floor(new Date(sd).getTime()/1000); const p2 = Math.floor(new Date(ed).getTime()/1000) + 86400;
         const yhTicker = toYahoo(stock.code);
@@ -545,11 +566,44 @@
 
         result.timestamp.forEach((t, i) => {
             if(quotes.close[i]) {
-                let c = parseFloat(quotes.close[i].toFixed(2)); let mv = c * totalShares; 
-                rawData.push({ date: new Date(t*1000).toISOString().split('T')[0], close: c, mv: mv, valScore: (mv<=minCap)?1:(mv>=maxCap)?-1:((mv<=midCap)?(midCap-mv)/(midCap-minCap):-(mv-midCap)/(maxCap-midCap)) });
+                // 使用本地日期格式 YYYY-MM-DD
+                let dateStr = new Date(t*1000).toLocaleDateString('en-CA'); 
+                let c = parseFloat(quotes.close[i].toFixed(2)); 
+                let mv = c * totalShares; 
+                rawData.push({ 
+                    date: dateStr, 
+                    close: c, 
+                    mv: mv, 
+                    valScore: (mv<=minCap)?1:(mv>=maxCap)?-1:((mv<=midCap)?(midCap-mv)/(midCap-minCap):-(mv-midCap)/(maxCap-midCap)) 
+                });
             }
         });
 
+        // --- C. 强制缝合实时数据 (Real-time Injection) ---
+        // 获取当前日期的字符串 (YYYY-MM-DD)
+        const todayStr = new Date().toLocaleDateString('en-CA'); 
+        
+        if (rawData.length > 0) {
+            const lastData = rawData[rawData.length - 1];
+            
+            // 如果实时价格有效
+            if (rtPrice > 0) {
+                const rtMv = rtPrice * totalShares;
+                const rtScore = (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap));
+                const rtItem = { date: todayStr, close: rtPrice, mv: rtMv, valScore: rtScore };
+
+                // 逻辑：
+                // 如果历史数据最后一条就是今天 -> 覆盖它 (Yahoo数据可能有延迟，东财是实时的)
+                // 如果历史数据最后一条是昨天或更早 -> 追加今天
+                if (lastData.date === todayStr) {
+                    rawData[rawData.length - 1] = rtItem;
+                } else {
+                    rawData.push(rtItem);
+                }
+            }
+        }
+
+        // --- D. 策略回测逻辑 ---
         const ma = (idx, n) => { if(idx<n) return null; let sum=0; for(let k=idx-n; k<idx; k++) sum+=rawData[k].close; return sum/n; };
         const isUptrend = (i) => { if(i<20) return false; let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20); if(!m5||!m10||!m20) return false; return (m5>m10 && m10>m20); };
 
@@ -584,7 +638,13 @@
                 }
             }
             if(!inProtect && (isUptrend(i))) { if(r < -0.02) { newL = Math.min(maxLev, prevL * 1.05); reason = "上涨中急跌加仓"; } else { newL = Math.max(prevL, targetL); } }
-            if(Math.abs(newL - prevL) > 0.005) { changeLogs.push({ date: d.date, action: `<span class="badge ${newL>prevL?'bg-red':'bg-green'}">${newL>prevL?'加仓':'减仓'}</span>`, val: `${prevL.toFixed(2)} → ${newL.toFixed(2)}`, reason: reason }); }
+            
+            if(Math.abs(newL - prevL) > 0.005) { 
+                let dateDisplay = d.date;
+                // 如果是最后一天，标记为盘中
+                if (i === rawData.length - 1) dateDisplay += ' (盘中)';
+                changeLogs.push({ date: dateDisplay, action: `<span class="badge ${newL>prevL?'bg-red':'bg-green'}">${newL>prevL?'加仓':'减仓'}</span>`, val: `${prevL.toFixed(2)} → ${newL.toFixed(2)}`, reason: reason }); 
+            }
             nav = nav * (1 + prevL * r); if(nav > peakNav) peakNav = nav; history.push({date: d.date, nav, close: d.close, leverage: newL}); prevL = newL;
         }
         const last = history[history.length-1]; const ret = (last.nav - 1)*100; const sRet = (last.close / history[0].close - 1)*100; let maxDD = 0, p = -999; history.forEach(h => { if(h.nav > p) p = h.nav; let dd = (p - h.nav) / p; if(dd > maxDD) maxDD = dd; });
@@ -602,7 +662,6 @@
         const sumTbody = document.getElementById('summary-tbody');
         const detailView = document.getElementById('detail-view');
 
-        // 1. 初始化
         btn.innerText = "⏳ 计算中..."; btn.disabled = true;
         detailView.style.display = 'none'; 
         resultsContainer.style.display = 'none'; 
@@ -610,7 +669,6 @@
         
         batchResults = []; let successCount = 0; const total = selectedIndices.length;
 
-        // 2. 循环计算
         for(let step=0; step < total; step++) {
             const i = selectedIndices[step]; const s = stocks[i];
             progress.innerHTML = `正在计算 <b>${s.name}</b> (${step+1}/${total})...`;
@@ -622,7 +680,6 @@
         progress.innerHTML = `✅ 运行完成! 成功 ${successCount} / 选中 ${total}`;
         btn.innerText = "🚀 运行选中"; btn.disabled = false;
         
-        // 3. 完成，显示结果区域
         if(batchResults.length > 0) {
             resultsContainer.style.display = 'block';
             
@@ -671,7 +728,7 @@
         tbody.innerHTML = logs.slice().reverse().map(l => `<tr><td class="log-col-date" style="color:#666;">${l.date}</td><td class="log-col-action">${l.action}</td><td class="log-col-val" style="font-family:monospace;">${l.val}</td><td class="log-col-reason" style="color:#555;" title="${l.reason}">${l.reason}</td></tr>`).join('');
     }
 
-    // === 图表渲染：单股详情 (完美联动版) ===
+    // === 图表渲染：单股详情 ===
     function renderChart(hist) {
         const dom = document.getElementById('chart-box'); if(myChart) myChart.clear(); else myChart = echarts.init(dom);
         const dates = hist.map(h=>h.date);
@@ -702,7 +759,7 @@
         });
     }
 
-    // === 核心逻辑：组合策略 (修正版：解决节假日数据为0的问题) ===
+    // === 组合策略 ===
     function runPortfolioStrategy() {
         if (!batchResults || batchResults.length === 0) return alert("请先运行【批量回测】生成数据");
         
@@ -722,47 +779,30 @@
         const sortedDates = Object.keys(dateMap).sort(); 
         if (sortedDates.length < 2) return alert("有效日期数据不足");
 
-        // 2. 初始化回测状态
         let portNav = 1.0; 
         let portHistory = []; 
         let maxDD = 0; 
         let peak = 1.0; 
-        
-        // 关键：用于存储每只股票“最近一次有效交易日”的数据 (Forward Fill)
-        // 结构: { stockIdx: { close: 100, idealLev: 0.5 } }
         let lastValidData = {}; 
-        
-        // 记录上一日计算出的【真实分配杠杆】 (用于计算次日PnL)
-        let prevAllocatedLevs = {}; // { stockIdx: 0.3 }
+        let prevAllocatedLevs = {}; 
 
-        // 3. 循环每一天
         for (let i = 0; i < sortedDates.length; i++) {
             const currDate = sortedDates[i];
             const rawDayData = dateMap[currDate];
-            
-            // --- A. 更新当前市场状态 (Forward Fill) ---
-            // 每次循环前，先把 lastValidData 保存一份作为“昨日状态”，用于计算 PnL
-            // 注意：深拷贝或浅拷贝视对象深度而定，这里浅拷贝即可（因为内部是替换对象）
             const prevValidData = { ...lastValidData };
 
             batchResults.forEach((res, idx) => {
                 if (rawDayData.stocks[idx]) {
-                    // 如果今天该股有数据（开市），更新状态
                     lastValidData[idx] = rawDayData.stocks[idx];
                 }
-                // 如果今天无数据（节假日），lastValidData[idx] 保持不变，沿用之前的值
             });
 
-            // --- B. 计算当日 PnL (从第二天开始) ---
             if (i > 0) {
                 let dayPnLComponent = 0;
                 batchResults.forEach((res, idx) => {
-                    const sCurr = lastValidData[idx]; // 今天的状态 (可能是今天更新的，也可能是沿用的)
-                    const sPrev = prevValidData[idx]; // 昨天的状态
+                    const sCurr = lastValidData[idx]; 
+                    const sPrev = prevValidData[idx]; 
                     const allocatedL = prevAllocatedLevs[idx] || 0; 
-                    
-                    // 只有当今天和昨天都有有效数据，且价格有效时才计算 PnL
-                    // 如果今天是节假日，sCurr === sPrev，价格没变，PnL 为 0，符合逻辑
                     if (sCurr && sPrev && sPrev.close > 0) {
                         const r = (sCurr.close - sPrev.close) / sPrev.close;
                         dayPnLComponent += (r * allocatedL); 
@@ -775,15 +815,13 @@
                 if (dd > maxDD) maxDD = dd;
             }
 
-            // --- C. 计算新的持仓分配 (End of Day Rebalance or Record) ---
             let currentSumRaw = 0;
-            let currentValidStocks = {}; // 记录哪些股票符合持仓门槛
+            let currentValidStocks = {}; 
             
             batchResults.forEach((res, idx) => {
-                const sData = lastValidData[idx]; // 使用 Forward Fill 后的数据
+                const sData = lastValidData[idx]; 
                 if (sData) {
                     const rawL = sData.idealLev;
-                    // 如果该股当前处于节假日，它会沿用节前的 leverage
                     if(rawL >= minPosThreshold) {
                         currentValidStocks[idx] = rawL;
                         currentSumRaw += rawL;
@@ -791,15 +829,12 @@
                 }
             });
 
-            // 计算总仓位系数
             const totalPos = currentSumRaw / (stockCount * maxLev);
-            
             let dailyBreakdown = {};
             let currentCalculatedSumAlloc = 0; 
 
             batchResults.forEach((res, idx) => {
                 if (currentValidStocks[idx] !== undefined) {
-                    // 真实持仓分配
                     const alloc = (currentValidStocks[idx] * totalPos) * weight; 
                     prevAllocatedLevs[idx] = alloc;
                     dailyBreakdown[res.stockName] = alloc;
@@ -809,17 +844,14 @@
                 }
             });
 
-            // 记录历史
             portHistory.push({ date: currDate, nav: portNav, totalLev: currentCalculatedSumAlloc, breakdown: dailyBreakdown });
         }
         
-        // 4. 渲染图表
         renderPortfolioStats(portHistory, maxDD); 
         renderHoldingsChart(portHistory);
         renderTradeLog(portHistory);
     }
 
-    // === 图表渲染：组合策略 (完美联动版) ===
     function renderPortfolioStats(hist, maxDD) {
         const last = hist[hist.length - 1]; const ret = (last.nav - 1) * 100; const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
         document.getElementById('port-ret').innerText = ret.toFixed(2) + '%'; document.getElementById('port-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
@@ -845,7 +877,6 @@
                 backgroundColor: 'rgba(255,255,255,0.95)' 
             },
             legend: { top: 0, data: ['组合净值', '实际总杠杆'] },
-            // 固定左右边距，确保对齐
             grid: [{ left: '12%', right: '8%', top: '15%', height: '55%' }, { left: '12%', right: '8%', top: '75%', height: '15%' }],
             xAxis: [{type:'category', data:dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}}, {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}],
             yAxis: [{type:'value', gridIndex:0, scale:true, splitLine:{show:false}}, {type:'value', gridIndex:1, splitLine:{show:false}, min:0}],
@@ -857,7 +888,6 @@
         });
     }
 
-    // === 图表渲染：持仓结构 (显示仓位占比) ===
     function renderHoldingsChart(hist) {
         const dom = document.getElementById('holdings-chart'); if (holdingsChart) holdingsChart.dispose(); holdingsChart = echarts.init(dom);
         const dates = hist.map(h => h.date); const allStockNames = batchResults.map(r => r.stockName);
@@ -896,7 +926,6 @@
                 } 
             },
             legend: { data: allStockNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, 
-            // 关键修改：左右边距与上方图表完全一致 (12% 和 8%)
             grid: { left: '12%', right: '8%', bottom: '25px', containLabel: false }, 
             xAxis: { type: 'category', boundaryGap: false, data: dates }, 
             yAxis: { type: 'value', min: 0 },
@@ -905,56 +934,42 @@
         });
     }
 
-    // === 新增：交易明细渲染逻辑 (修正版：强制显示最新交易日，即使无变动) ===
     function renderTradeLog(hist) {
         const container = document.getElementById('trade-log-list');
         container.innerHTML = '';
-        
-        // 获取配置的最大杠杆率，用于计算仓位百分比
         const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
 
-        // 倒序遍历（从最近日期开始）
         for (let i = hist.length - 1; i > 0; i--) {
             const today = hist[i];
             const yesterday = hist[i-1];
             let changes = [];
-            let dailyNetChange = 0; // 当日净仓位变化累计
+            let dailyNetChange = 0; 
             
-            // 获取所有出现过的股票名称
             const allStocks = new Set([...Object.keys(today.breakdown), ...Object.keys(yesterday.breakdown)]);
             
             allStocks.forEach(name => {
                 const nowLev = today.breakdown[name] || 0;
                 const prevLev = yesterday.breakdown[name] || 0;
-                
-                // 将杠杆数转换为占总容量的仓位百分比
                 const nowPos = (nowLev / maxLev) * 100;
                 const prevPos = (prevLev / maxLev) * 100;
                 const diffPos = nowPos - prevPos;
 
-                // 忽略微小误差，阈值设为 0.1% 仓位变化
                 if (Math.abs(diffPos) > 0.1) {
                     changes.push({name, diffPos, nowPos, prevPos});
-                    dailyNetChange += diffPos; // 累加净变化
+                    dailyNetChange += diffPos; 
                 }
             });
 
-            // 计算当天的总仓位百分比
             const totalPosPct = (today.totalLev / maxLev) * 100;
             const isLatest = (i === hist.length - 1);
 
-            // 核心修正：如果这一天没有显著变化，且不是最新的一天，才跳过。
-            // 这样保证了“今天”即使没操作，也会显示在列表中，方便确认状态。
             if (changes.length === 0 && !isLatest) continue;
 
-            // 按变化幅度绝对值从大到小排序
             changes.sort((a,b) => Math.abs(b.diffPos) - Math.abs(a.diffPos));
 
-            // 构建 Header 显示逻辑
             const netSign = dailyNetChange > 0 ? '+' : '';
             const netColor = dailyNetChange > 0 ? '#d32f2f' : (dailyNetChange < 0 ? '#2e7d32' : '#999');
             
-            // 头部：日期 + 合计 + 总仓位 + 变化数量
             const header = document.createElement('div');
             header.className = 'daily-log-header' + (isLatest ? ' open' : '');
             header.onclick = function() { toggleDailyLog(this); };
@@ -968,18 +983,16 @@
                         总仓: ${totalPosPct.toFixed(1)}%
                     </span>
                     <span style="font-weight:normal; font-size:11px; color:#999;">(${changes.length})</span>
-                    ${isLatest ? '<span style="font-size:10px; color:#fff; background:#fd7e14; padding:1px 4px; border-radius:3px; margin-left:auto;">最新</span>' : ''}
+                    ${isLatest ? '<span style="font-size:10px; color:#fff; background:#fd7e14; padding:1px 4px; border-radius:3px; margin-left:auto;">最新(含盘中)</span>' : ''}
                 </div>
                 <span class="arrow-daily">▶</span>
             `;
 
-            // 详情体
             const body = document.createElement('div');
             body.className = 'daily-log-body' + (isLatest ? ' open' : '');
             
             let html = '';
             if (changes.length === 0) {
-                // 如果没有变化（通常是最新的一天），显示无建议
                 html = `<div class="daily-item" style="justify-content:center; color:#999; font-style:italic; padding:10px 0;">本日仓位保持稳定，无建议调仓</div>`;
             } else {
                 changes.forEach(c => {
