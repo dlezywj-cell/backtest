@@ -581,26 +581,29 @@
         });
 
         // --- C. 强制缝合实时数据 (Real-time Injection) ---
-        // 获取当前日期的字符串 (YYYY-MM-DD)
-        const todayStr = new Date().toLocaleDateString('en-CA'); 
+        // 手动构建标准的 YYYY-MM-DD 日期字符串，避免浏览器本地化差异
+        const now = new Date();
+        const todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
         
-        if (rawData.length > 0) {
+        const userEndDate = document.getElementById('inEndDate').value; // 获取用户选择的结束日期
+
+        // 核心修正：
+        // 1. 只有当用户选择的结束日期 >= 今天 (YYYY-MM-DD 字符串比较) 时，才考虑缝合
+        // 2. 确保有历史数据且有实时价格
+        if (userEndDate >= todayStr && rawData.length > 0 && rtPrice > 0) {
             const lastData = rawData[rawData.length - 1];
             
-            // 如果实时价格有效
-            if (rtPrice > 0) {
-                const rtMv = rtPrice * totalShares;
-                const rtScore = (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap));
-                const rtItem = { date: todayStr, close: rtPrice, mv: rtMv, valScore: rtScore };
+            const rtMv = rtPrice * totalShares;
+            const rtScore = (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap));
+            const rtItem = { date: todayStr, close: rtPrice, mv: rtMv, valScore: rtScore };
 
-                // 逻辑：
-                // 如果历史数据最后一条就是今天 -> 覆盖它 (Yahoo数据可能有延迟，东财是实时的)
-                // 如果历史数据最后一条是昨天或更早 -> 追加今天
-                if (lastData.date === todayStr) {
-                    rawData[rawData.length - 1] = rtItem;
-                } else {
-                    rawData.push(rtItem);
-                }
+            // 逻辑：
+            // 如果历史数据最后一条就是今天 -> 覆盖它 (Yahoo数据可能有延迟，东财是实时的)
+            // 如果历史数据最后一条是昨天或更早 -> 追加今天
+            if (lastData.date === todayStr) {
+                rawData[rawData.length - 1] = rtItem;
+            } else {
+                rawData.push(rtItem);
             }
         }
 
