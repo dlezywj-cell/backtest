@@ -470,16 +470,41 @@
         }
         document.body.appendChild(s);
     }
+    
     function saveStock() {
-        const code = document.getElementById('inCode').value; const name = document.getElementById('inName').value; const min = parseFloat(document.getElementById('inMin').value); const max = parseFloat(document.getElementById('inMax').value);
+        const code = document.getElementById('inCode').value; 
+        const name = document.getElementById('inName').value; 
+        const min = parseFloat(document.getElementById('inMin').value); 
+        const max = parseFloat(document.getElementById('inMax').value);
         if(!code || isNaN(min)) return alert("请填写完整");
-        const item = { code, name, minCap: min, maxCap: max }; const idx = stocks.findIndex(s => s.code === code);
-        if(idx >= 0) stocks[idx] = item; else stocks.push(item); localStorage.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); alert("已保存");
+        
+        // === 新增：获取当前日期 ===
+        const today = new Date().toISOString().split('T')[0];
+        
+        // === 修改：保存包含日期的对象 ===
+        const item = { code, name, minCap: min, maxCap: max, lastMod: today }; 
+        
+        const idx = stocks.findIndex(s => s.code === code);
+        if(idx >= 0) stocks[idx] = item; else stocks.push(item); 
+        localStorage.setItem('gridStocks', JSON.stringify(stocks)); 
+        renderTable(); 
+        alert("已保存");
     }
     
     function renderTable() {
         const tb = document.getElementById('stock-tbody'); 
-        tb.innerHTML = stocks.map((s, i) => `<tr><td><b>${s.name}</b> <span style="color:#999;font-size:12px">${s.code}</span></td><td>${s.minCap}-${s.maxCap}亿</td><td style="text-align:center;"><div class="op-btn-group"><button class="btn btn-edit-yellow btn-icon-square" onclick="editStock(${i})">✎</button><button class="btn btn-del-red btn-icon-square" onclick="delStock(${i})">✕</button></div></td><td style="text-align:center;"><input type="checkbox" class="stock-chk" value="${i}" checked></td></tr>`).join('');
+        tb.innerHTML = stocks.map((s, i) => `
+            <tr>
+                <td><b>${s.name}</b> <span style="color:#999;font-size:12px">${s.code}</span></td>
+                <td>
+                    ${s.minCap}-${s.maxCap}亿
+                    <!-- === 新增：显示最后修改日期 === -->
+                    <div style="font-size:10px; color:#aaa; margin-top:2px;">${s.lastMod || ''}</div>
+                </td>
+                <td style="text-align:center;"><div class="op-btn-group"><button class="btn btn-edit-yellow btn-icon-square" onclick="editStock(${i})">✎</button><button class="btn btn-del-red btn-icon-square" onclick="delStock(${i})">✕</button></div></td>
+                <td style="text-align:center;"><input type="checkbox" class="stock-chk" value="${i}" checked></td>
+            </tr>
+        `).join('');
         filterStockList(); checkAllState();
     }
     
