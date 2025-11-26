@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (盘中实时版)</title>
+    <title>估值杠杆策略 (动态精选版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -251,8 +251,9 @@
                     </div>
                     <div style="text-align:right; margin-bottom:10px;">
                         <button class="btn btn-orange" onclick="runPortfolioStrategy()" style="width:100%">🔄 重新计算组合</button>
-                        <div style="font-size:11px; color:#666; margin-top:5px; text-align:left;">
-                            逻辑：总仓位=Σ原始/(N×MaxLev)。单股分配=原始×总仓位。
+                        <div style="font-size:11px; color:#666; margin-top:5px; text-align:left; line-height:1.4;">
+                            逻辑：<b>动态等权</b>。自动剔除“建议杠杆 < 门槛”的无效股票。<br>
+                            资金仅在满足条件的股票中平分。若无股票满足，则空仓。
                         </div>
                     </div>
                     <div class="stat-grid">
@@ -759,50 +760,56 @@
         });
     }
 
-    // === 组合策略 ===
+    // === 组合策略 (优化版：动态剔除无效分母) ===
     function runPortfolioStrategy() {
         if (!batchResults || batchResults.length === 0) return alert("请先运行【批量回测】生成数据");
         
-        const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0; 
+        // 获取参数
         const minPosThreshold = parseFloat(document.getElementById('pMinPos').value) || 0.4;
-        const stockCount = batchResults.length; 
-        const weight = 1.0 / stockCount; 
+        // 注意：原先的 stockCount 不再作为分母，这里仅作参考或移除
 
-        // 1. 构建日期映射
+        // 1. 构建日期映射 (对齐所有股票的数据)
         let dateMap = {}; 
         batchResults.forEach((res, stockIdx) => { 
             res.history.forEach(day => { 
                 if (!dateMap[day.date]) { dateMap[day.date] = { date: day.date, stocks: {} }; } 
+                // 记录每只股票当天的收盘价和模型建议杠杆
                 dateMap[day.date].stocks[stockIdx] = { close: day.close, idealLev: day.leverage }; 
             }); 
         });
+        
         const sortedDates = Object.keys(dateMap).sort(); 
         if (sortedDates.length < 2) return alert("有效日期数据不足");
 
+        // 初始化变量
         let portNav = 1.0; 
         let portHistory = []; 
         let maxDD = 0; 
         let peak = 1.0; 
         let lastValidData = {}; 
-        let prevAllocatedLevs = {}; 
+        let prevAllocatedLevs = {}; // 上一交易日分配给各股的实际杠杆
 
+        // 2. 按日循环
         for (let i = 0; i < sortedDates.length; i++) {
             const currDate = sortedDates[i];
             const rawDayData = dateMap[currDate];
             const prevValidData = { ...lastValidData };
 
+            // 更新当天的最新数据缓存（处理停牌或数据缺失情况，沿用最近一次有效数据）
             batchResults.forEach((res, idx) => {
                 if (rawDayData.stocks[idx]) {
                     lastValidData[idx] = rawDayData.stocks[idx];
                 }
             });
 
+            // --- A. 计算当天的净值变化 (基于昨天的仓位) ---
             if (i > 0) {
                 let dayPnLComponent = 0;
                 batchResults.forEach((res, idx) => {
                     const sCurr = lastValidData[idx]; 
                     const sPrev = prevValidData[idx]; 
                     const allocatedL = prevAllocatedLevs[idx] || 0; 
+                    
                     if (sCurr && sPrev && sPrev.close > 0) {
                         const r = (sCurr.close - sPrev.close) / sPrev.close;
                         dayPnLComponent += (r * allocatedL); 
@@ -815,27 +822,36 @@
                 if (dd > maxDD) maxDD = dd;
             }
 
-            let currentSumRaw = 0;
-            let currentValidStocks = {}; 
+            // --- B. 决定“明天”的仓位 (基于今天的信号) ---
             
+            // 1. 筛选有效股票 (Active Stocks)
+            let currentValidStocks = {}; 
+            let activeCount = 0;
+
             batchResults.forEach((res, idx) => {
                 const sData = lastValidData[idx]; 
                 if (sData) {
                     const rawL = sData.idealLev;
+                    // 【核心修改】：只有大于阈值的才计入分母
                     if(rawL >= minPosThreshold) {
                         currentValidStocks[idx] = rawL;
-                        currentSumRaw += rawL;
+                        activeCount++; 
                     }
                 }
             });
 
-            const totalPos = currentSumRaw / (stockCount * maxLev);
+            // 2. 分配仓位 (动态等权)
+            // 逻辑：资金均分给 activeCount 只股票。
+            // 单只股票分配杠杆 = 该股模型杠杆 / activeCount
+            
             let dailyBreakdown = {};
             let currentCalculatedSumAlloc = 0; 
 
             batchResults.forEach((res, idx) => {
-                if (currentValidStocks[idx] !== undefined) {
-                    const alloc = (currentValidStocks[idx] * totalPos) * weight; 
+                if (currentValidStocks[idx] !== undefined && activeCount > 0) {
+                    const rawL = currentValidStocks[idx];
+                    const alloc = rawL / activeCount; // 【核心修改】：分母改为 activeCount
+                    
                     prevAllocatedLevs[idx] = alloc;
                     dailyBreakdown[res.stockName] = alloc;
                     currentCalculatedSumAlloc += alloc;
@@ -844,9 +860,17 @@
                 }
             });
 
-            portHistory.push({ date: currDate, nav: portNav, totalLev: currentCalculatedSumAlloc, breakdown: dailyBreakdown });
+            // 记录历史
+            portHistory.push({ 
+                date: currDate, 
+                nav: portNav, 
+                totalLev: currentCalculatedSumAlloc, 
+                breakdown: dailyBreakdown,
+                activeCount: activeCount // 额外记录一下有多少只股在干活
+            });
         }
         
+        // 渲染图表
         renderPortfolioStats(portHistory, maxDD); 
         renderHoldingsChart(portHistory);
         renderTradeLog(portHistory);
@@ -872,6 +896,9 @@
                     let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${item.date}</div>`;
                     h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d32f2f;margin-right:5px;"></span>组合净值</span><b>${item.nav.toFixed(3)}</b></div>`;
                     h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1976d2;margin-right:5px;"></span>实际总杠杆</span><b>${item.totalLev.toFixed(2)}x</b></div>`;
+                    if(item.activeCount !== undefined) {
+                         h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px; color:#888;"><span>有效持仓数</span><b>${item.activeCount}只</b></div>`;
+                    }
                     return h;
                 }, 
                 backgroundColor: 'rgba(255,255,255,0.95)' 
