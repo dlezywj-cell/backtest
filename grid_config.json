@@ -92,8 +92,9 @@
   {
     "code": "688208.SH",
     "name": "道通科技",
-    "minCap": 240,
-    "maxCap": 300
+    "minCap": 245,
+    "maxCap": 300,
+    "lastMod": "2025-11-26"
   },
   {
     "code": "688676.SH",
