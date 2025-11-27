@@ -123,6 +123,23 @@
         .daily-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
         .arrow-daily { font-size: 10px; color: #999; transform: rotate(0deg); transition: transform 0.2s; }
         .daily-log-header.open .arrow-daily { transform: rotate(90deg); }
+
+        /* === 新增：可搜索组合框 (Combo Box) 样式 === */
+        .combo-box { position: relative; max-width: 70%; flex: 1; }
+        .combo-input { width: 100%; padding: 8px 30px 8px 10px; border: 1px solid #ddd; border-radius: 6px; outline: none; font-weight: bold; color: #333; box-sizing: border-box; font-size: 16px; background: #fff; transition: border 0.2s; }
+        .combo-input:focus { border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.1); }
+        
+        .combo-arrow { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #999; cursor: pointer; pointer-events: none; font-size: 10px; }
+        
+        .combo-options { display: none; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #eee; border-radius: 6px; margin-top: 4px; max-height: 280px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.15); animation: fadeIn 0.1s; }
+        .combo-options.show { display: block; }
+        
+        .combo-option { padding: 10px 12px; border-bottom: 1px solid #f9f9f9; cursor: pointer; font-size: 14px; color: #333; transition: background 0.1s; display: flex; justify-content: space-between; }
+        .combo-option:last-child { border-bottom: none; }
+        .combo-option:hover { background: #f0f7ff; color: #007bff; }
+        .combo-option.active { background: #e3f2fd; color: #007bff; font-weight: bold; }
+        .combo-code { color: #999; font-size: 12px; margin-left: 8px; font-weight: normal; }
+        .combo-option:hover .combo-code { color: #6699cc; }
     </style>
 </head>
 <body>
@@ -293,8 +310,12 @@
         <!-- 单只详情展示区 -->
         <div id="detail-view" style="display:none; border-top: 2px dashed #eee; margin-top: 20px; padding-top: 15px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <!-- 下拉选择框：替代原先的 span 标题 -->
-                <select id="detail-selector" onchange="showDetail(parseInt(this.value))" style="font-size:16px; font-weight:bold; padding:5px 5px; border:1px solid #ddd; border-radius:6px; background:#fff; outline:none; color:#333; max-width: 70%; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.05);"></select>
+                <!-- 自定义可搜索组合框 (Combo Box) -->
+                <div class="combo-box" id="detail-combo">
+                    <input type="text" class="combo-input" id="detail-combo-input" placeholder="点击选择或输入搜索..." oninput="filterDetailCombo()" onfocus="openDetailCombo()" onclick="this.select()">
+                    <span class="combo-arrow">▼</span>
+                    <div class="combo-options" id="detail-combo-list"></div>
+                </div>
                 
                 <span style="font-size:11px; background:#e3f2fd; padding:3px 8px; border-radius:4px; color:#007bff; font-weight:500;">当前选中</span>
             </div>
@@ -657,18 +678,74 @@
         return { stockName: stock.name, stockCode: stock.code, history: history, logs: changeLogs, stats: { ret: ret, stockRet: sRet, alpha: ret - sRet, maxDD: maxDD * 100, avgLev: history.reduce((a,b)=>a+b.leverage,0)/history.length } };
     }
 
-    // === 新增：渲染详情页的下拉选择框 ===
-    function renderDetailSelector() {
-        const sel = document.getElementById('detail-selector');
-        if(!sel) return;
-        sel.innerHTML = '';
+    // === 新增：渲染自定义下拉列表 ===
+    function renderDetailCombo() {
+        const list = document.getElementById('detail-combo-list');
+        if(!list) return;
+        list.innerHTML = '';
+        
         batchResults.forEach(res => {
-            const opt = document.createElement('option');
-            opt.value = res.index;
-            opt.text = `${res.stockName} (${res.stockCode})`;
-            sel.appendChild(opt);
+            const div = document.createElement('div');
+            div.className = 'combo-option';
+            // 存储必要的搜索信息
+            div.innerHTML = `<span>${res.stockName}</span><span class="combo-code">${res.stockCode}</span>`;
+            div.onclick = (e) => {
+                e.stopPropagation();
+                selectDetailComboIndex(res.index);
+            };
+            // 绑定索引以便搜索
+            div.dataset.index = res.index;
+            div.dataset.searchText = (res.stockName + res.stockCode).toLowerCase();
+            list.appendChild(div);
         });
     }
+
+    // === 新增：下拉框交互逻辑 ===
+    function openDetailCombo() {
+        document.getElementById('detail-combo-list').classList.add('show');
+        filterDetailCombo(); // 重新打开时根据当前输入过滤
+    }
+    
+    function closeDetailCombo() {
+        document.getElementById('detail-combo-list').classList.remove('show');
+    }
+    
+    function filterDetailCombo() {
+        const input = document.getElementById('detail-combo-input');
+        const term = input.value.toLowerCase().trim();
+        const list = document.getElementById('detail-combo-list');
+        const opts = list.querySelectorAll('.combo-option');
+        
+        let hasVisible = false;
+        opts.forEach(opt => {
+            const text = opt.dataset.searchText;
+            if(term === '' || text.includes(term)) {
+                opt.style.display = 'flex';
+                hasVisible = true;
+            } else {
+                opt.style.display = 'none';
+            }
+        });
+        
+        if(!hasVisible) {
+           // 可选：显示无结果提示
+        }
+        
+        if(!list.classList.contains('show')) list.classList.add('show');
+    }
+    
+    function selectDetailComboIndex(index) {
+        showDetail(index);
+        closeDetailCombo();
+    }
+    
+    // 全局点击事件：点击外部关闭下拉框
+    document.addEventListener('click', function(e) {
+        const combo = document.getElementById('detail-combo');
+        if (combo && !combo.contains(e.target)) {
+            closeDetailCombo();
+        }
+    });
 
     async function runBatchBacktest() {
         const checkedBoxes = document.querySelectorAll('.stock-chk:checked');
@@ -716,8 +793,8 @@
 
             runPortfolioStrategy(); 
             
-            // === 填充下拉框 ===
-            renderDetailSelector(); 
+            // === 填充组合框 ===
+            renderDetailCombo(); 
             // ==================
 
             showDetail(batchResults[0].index);
@@ -744,10 +821,17 @@
         // 2. 显示详情区域
         document.getElementById('detail-view').style.display = 'block';
         
-        // === 同步下拉框 ===
-        const sel = document.getElementById('detail-selector');
-        if(sel) sel.value = index;
-        // ==================
+        // === 同步组合框输入文字 ===
+        const input = document.getElementById('detail-combo-input');
+        if(input) {
+            input.value = `${res.stockName} (${res.stockCode})`;
+            // 移除旧的高亮
+            document.querySelectorAll('.combo-option').forEach(opt => opt.classList.remove('active'));
+            // 添加新的高亮
+            const activeOpt = document.querySelector(`.combo-option[data-index="${index}"]`);
+            if(activeOpt) activeOpt.classList.add('active');
+        }
+        // ========================
 
         const s = res.stats;
         document.getElementById('val-ret').innerText = s.ret.toFixed(2) + '%'; document.getElementById('val-ret').className = 'stat-val ' + (s.ret>=0?'win':'loss');
