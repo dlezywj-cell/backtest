@@ -293,8 +293,10 @@
         <!-- 单只详情展示区 -->
         <div id="detail-view" style="display:none; border-top: 2px dashed #eee; margin-top: 20px; padding-top: 15px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <span id="detail-name" style="font-weight:bold; font-size:16px; color:#333;"></span>
-                <span style="font-size:11px; background:#eee; padding:2px 6px; border-radius:4px; color:#666;">当前选中</span>
+                <!-- 下拉选择框：替代原先的 span 标题 -->
+                <select id="detail-selector" onchange="showDetail(parseInt(this.value))" style="font-size:16px; font-weight:bold; padding:5px 5px; border:1px solid #ddd; border-radius:6px; background:#fff; outline:none; color:#333; max-width: 70%; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.05);"></select>
+                
+                <span style="font-size:11px; background:#e3f2fd; padding:3px 8px; border-radius:4px; color:#007bff; font-weight:500;">当前选中</span>
             </div>
             <div class="stat-grid">
                 <div class="stat-item"><div class="stat-val" id="val-ret">--</div><div class="stat-lbl">策略收益</div></div>
@@ -655,6 +657,19 @@
         return { stockName: stock.name, stockCode: stock.code, history: history, logs: changeLogs, stats: { ret: ret, stockRet: sRet, alpha: ret - sRet, maxDD: maxDD * 100, avgLev: history.reduce((a,b)=>a+b.leverage,0)/history.length } };
     }
 
+    // === 新增：渲染详情页的下拉选择框 ===
+    function renderDetailSelector() {
+        const sel = document.getElementById('detail-selector');
+        if(!sel) return;
+        sel.innerHTML = '';
+        batchResults.forEach(res => {
+            const opt = document.createElement('option');
+            opt.value = res.index;
+            opt.text = `${res.stockName} (${res.stockCode})`;
+            sel.appendChild(opt);
+        });
+    }
+
     async function runBatchBacktest() {
         const checkedBoxes = document.querySelectorAll('.stock-chk:checked');
         if(checkedBoxes.length === 0) return alert("请至少勾选一只股票");
@@ -700,6 +715,11 @@
             document.getElementById('trade-log-content').classList.add('collapsed');
 
             runPortfolioStrategy(); 
+            
+            // === 填充下拉框 ===
+            renderDetailSelector(); 
+            // ==================
+
             showDetail(batchResults[0].index);
             
             setTimeout(() => { if(portfolioChart) portfolioChart.resize(); }, 100);
@@ -715,10 +735,20 @@
 
     function showDetail(index) {
         const res = batchResults.find(r => r.index === index); if(!res) return;
+        
+        // 1. 表格高亮逻辑
         document.querySelectorAll('.summary-table tr').forEach(r => r.classList.remove('selected'));
-        document.getElementById(`row-${index}`).classList.add('selected');
+        const row = document.getElementById(`row-${index}`);
+        if(row) row.classList.add('selected');
+
+        // 2. 显示详情区域
         document.getElementById('detail-view').style.display = 'block';
-        document.getElementById('detail-name').innerText = res.stockName;
+        
+        // === 同步下拉框 ===
+        const sel = document.getElementById('detail-selector');
+        if(sel) sel.value = index;
+        // ==================
+
         const s = res.stats;
         document.getElementById('val-ret').innerText = s.ret.toFixed(2) + '%'; document.getElementById('val-ret').className = 'stat-val ' + (s.ret>=0?'win':'loss');
         document.getElementById('val-stock').innerText = s.stockRet.toFixed(2) + '%'; document.getElementById('val-stock').className = 'stat-val ' + (s.stockRet>=0?'win':'loss');
