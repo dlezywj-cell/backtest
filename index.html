@@ -129,7 +129,6 @@
         .combo-input { width: 100%; padding: 8px 30px 8px 10px; border: 1px solid #ddd; border-radius: 6px; outline: none; font-weight: bold; color: #333; box-sizing: border-box; font-size: 16px; background: #fff; transition: border 0.2s; }
         .combo-input:focus { border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.1); }
         
-        /* 修复：移除 pointer-events: none，让箭头可点击 */
         .combo-arrow { position: absolute; right: 0px; top: 0px; height: 100%; width: 30px; display: flex; align-items: center; justify-content: center; color: #999; cursor: pointer; font-size: 10px; transition: color 0.2s; }
         .combo-arrow:hover { color: #333; }
         
@@ -315,7 +314,6 @@
                 <!-- 自定义可搜索组合框 (Combo Box) -->
                 <div class="combo-box" id="detail-combo">
                     <input type="text" class="combo-input" id="detail-combo-input" placeholder="点击选择或输入搜索..." oninput="filterDetailCombo()" onfocus="openDetailCombo()" onclick="this.select()">
-                    <!-- 修复：添加 onclick 事件 -->
                     <span class="combo-arrow" onclick="toggleDetailCombo(event)">▼</span>
                     <div class="combo-options" id="detail-combo-list"></div>
                 </div>
@@ -705,8 +703,12 @@
 
     // === 新增：下拉框交互逻辑 ===
     function openDetailCombo() {
-        document.getElementById('detail-combo-list').classList.add('show');
-        filterDetailCombo(); // 重新打开时根据当前输入过滤
+        const list = document.getElementById('detail-combo-list');
+        list.classList.add('show');
+        // 关键修改：打开时强制显示所有选项（忽略输入框已有的文本）
+        // 这样用户在已有选择的情况下也能看到完整列表
+        const opts = list.querySelectorAll('.combo-option');
+        opts.forEach(opt => opt.style.display = 'flex');
     }
     
     function closeDetailCombo() {
@@ -715,13 +717,15 @@
 
     // 修复：处理箭头点击
     function toggleDetailCombo(e) {
-        e.stopPropagation(); // 防止冒泡触发 document 的 click
+        e.stopPropagation(); 
         const list = document.getElementById('detail-combo-list');
+        const input = document.getElementById('detail-combo-input');
+        
         if (list.classList.contains('show')) {
             closeDetailCombo();
         } else {
-            openDetailCombo();
-            document.getElementById('detail-combo-input').focus(); // 保持输入框聚焦
+            input.focus(); // 聚焦输入框
+            openDetailCombo(); // 确保打开列表并重置显示状态
         }
     }
     
