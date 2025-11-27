@@ -129,7 +129,9 @@
         .combo-input { width: 100%; padding: 8px 30px 8px 10px; border: 1px solid #ddd; border-radius: 6px; outline: none; font-weight: bold; color: #333; box-sizing: border-box; font-size: 16px; background: #fff; transition: border 0.2s; }
         .combo-input:focus { border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.1); }
         
-        .combo-arrow { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #999; cursor: pointer; pointer-events: none; font-size: 10px; }
+        /* 修复：移除 pointer-events: none，让箭头可点击 */
+        .combo-arrow { position: absolute; right: 0px; top: 0px; height: 100%; width: 30px; display: flex; align-items: center; justify-content: center; color: #999; cursor: pointer; font-size: 10px; transition: color 0.2s; }
+        .combo-arrow:hover { color: #333; }
         
         .combo-options { display: none; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #eee; border-radius: 6px; margin-top: 4px; max-height: 280px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.15); animation: fadeIn 0.1s; }
         .combo-options.show { display: block; }
@@ -313,7 +315,8 @@
                 <!-- 自定义可搜索组合框 (Combo Box) -->
                 <div class="combo-box" id="detail-combo">
                     <input type="text" class="combo-input" id="detail-combo-input" placeholder="点击选择或输入搜索..." oninput="filterDetailCombo()" onfocus="openDetailCombo()" onclick="this.select()">
-                    <span class="combo-arrow">▼</span>
+                    <!-- 修复：添加 onclick 事件 -->
+                    <span class="combo-arrow" onclick="toggleDetailCombo(event)">▼</span>
                     <div class="combo-options" id="detail-combo-list"></div>
                 </div>
                 
@@ -708,6 +711,18 @@
     
     function closeDetailCombo() {
         document.getElementById('detail-combo-list').classList.remove('show');
+    }
+
+    // 修复：处理箭头点击
+    function toggleDetailCombo(e) {
+        e.stopPropagation(); // 防止冒泡触发 document 的 click
+        const list = document.getElementById('detail-combo-list');
+        if (list.classList.contains('show')) {
+            closeDetailCombo();
+        } else {
+            openDetailCombo();
+            document.getElementById('detail-combo-input').focus(); // 保持输入框聚焦
+        }
     }
     
     function filterDetailCombo() {
