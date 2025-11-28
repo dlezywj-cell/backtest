@@ -71,9 +71,31 @@
         .win { color: #d32f2f; } .loss { color: #2e7d32; }
         #chart-box { width: 100%; height: 400px; }
 
-        .summary-wrapper { overflow-x: auto; margin-bottom: 15px; border: 1px solid #eee; border-radius: 6px; }
+        /* === [修改] 收益排行榜容器优化 === */
+        .summary-wrapper { 
+            overflow-x: auto; 
+            overflow-y: auto; /* 允许垂直滚动 */
+            margin-bottom: 15px; 
+            border: 1px solid #eee; 
+            border-radius: 6px; 
+            max-height: 400px; /* 限制高度，约显示10行 */
+        }
         .summary-table { width: 100%; font-size: 13px; border-collapse: collapse; background: #fff; min-width: 300px; }
-        .summary-table th { background: #f1f3f5; padding: 10px 8px; color: #555; font-weight: 600; font-size: 12px; text-align: right; white-space: nowrap; }
+        
+        /* === [修改] 排行榜表头固定 === */
+        .summary-table th { 
+            background: #f1f3f5; 
+            padding: 10px 8px; 
+            color: #555; 
+            font-weight: 600; 
+            font-size: 12px; 
+            text-align: right; 
+            white-space: nowrap; 
+            position: sticky; /* 固定表头 */
+            top: 0;
+            z-index: 10;
+            box-shadow: 0 1px 0 #ddd; /* 滚动时的分割线 */
+        }
         .summary-table th:first-child { text-align: left; }
         .summary-table td { padding: 12px 8px; border-bottom: 1px solid #eee; text-align: right; }
         .summary-table td:first-child { text-align: left; }
@@ -88,8 +110,28 @@
         .list-search-bar input { flex: 1; border: 1px solid #eee; border-radius: 6px; padding: 8px; font-size: 13px; background: #f9f9f9; outline: none; transition: all 0.2s; }
         .list-search-bar input:focus { background: #fff; border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.1); }
         
+        /* === [新增] 监控列表滚动容器 === */
+        .table-scroll-box {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 420px; /* 限制高度，约显示10只股票 */
+        }
+
         .base-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        .base-table th { background: #f8f9fa; padding: 10px; text-align: left; font-size: 12px; color:#666; border-bottom: 1px solid #ddd; }
+        
+        /* === [修改] 监控列表表头固定 === */
+        .base-table th { 
+            background: #f8f9fa; 
+            padding: 10px; 
+            text-align: left; 
+            font-size: 12px; 
+            color:#666; 
+            border-bottom: 1px solid #ddd;
+            position: sticky; /* 固定表头 */
+            top: 0;
+            z-index: 10;
+            box-shadow: 0 1px 0 #ddd;
+        }
         .base-table td { padding: 12px 5px; border-bottom: 1px solid #eee; text-align: left; font-size: 13px; vertical-align: middle; transition: all 0.2s; }
         
         .base-table tbody tr:hover { background-color: #f0f7ff; }
@@ -179,7 +221,8 @@
             <input type="text" id="list-search-input" placeholder="输入名称或代码筛选..." oninput="filterStockList()">
         </div>
 
-        <div style="overflow-x:auto">
+        <!-- 使用新的 class: table-scroll-box 控制高度 -->
+        <div class="table-scroll-box">
             <table class="base-table">
                 <thead>
                     <tr>
