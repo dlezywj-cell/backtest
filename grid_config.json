@@ -159,5 +159,117 @@
     "minCap": 400,
     "maxCap": 700,
     "lastMod": "2025-11-28"
+  },
+  {
+    "code": "603228.SH",
+    "name": "景旺电子",
+    "minCap": 600,
+    "maxCap": 900,
+    "lastMod": "2025-11-28"
+  },
+  {
+    "code": "002138.SZ",
+    "name": "顺络电子",
+    "minCap": 255,
+    "maxCap": 365,
+    "lastMod": "2025-11-28"
+  },
+  {
+    "code": "002472.SZ",
+    "name": "双环传动",
+    "minCap": 250,
+    "maxCap": 440,
+    "lastMod": "2025-11-28"
+  },
+  {
+    "code": "300124.SZ",
+    "name": "汇川技术",
+    "minCap": 1512,
+    "maxCap": 2240,
+    "lastMod": "2025-11-28"
+  },
+  {
+    "code": "301029.SZ",
+    "name": "怡合达",
+    "minCap": 150,
+    "maxCap": 210,
+    "lastMod": "2025-11-28"
+  },
+  {
+    "code": "603766.SH",
+    "name": "隆鑫通用",
+    "minCap": 240,
+    "maxCap": 325,
+    "lastMod": "2025-11-28"
+  },
+  {
+    "code": "600563.SH",
+    "name": "法拉电子",
+    "minCap": 240,
+    "maxCap": 360,
+    "lastMod": "2025-11-28"
+  },
+  {
+    "code": "600584.SH",
+    "name": "长电科技",
+    "minCap": 500,
+    "maxCap": 720,
+    "lastMod": "2025-11-28"
+  },
+  {
+    "code": "002938.SZ",
+    "name": "鹏鼎控股",
+    "minCap": 660,
+    "maxCap": 1320,
+    "lastMod": "2025-11-28"
+  },
+  {
+    "code": "09896.HK",
+    "name": "名创优品",
+    "minCap": 460,
+    "maxCap": 690,
+    "lastMod": "2025-11-28"
+  },
+  {
+    "code": "603298.SH",
+    "name": "杭叉集团",
+    "minCap": 340,
+    "maxCap": 450,
+    "lastMod": "2025-11-28"
+  },
+  {
+    "code": "000425.SZ",
+    "name": "徐工机械",
+    "minCap": 960,
+    "maxCap": 1600,
+    "lastMod": "2025-11-28"
+  },
+  {
+    "code": "603129.SH",
+    "name": "春风动力",
+    "minCap": 355,
+    "maxCap": 465,
+    "lastMod": "2025-11-28"
+  },
+  {
+    "code": "02020.HK",
+    "name": "安踏体育",
+    "minCap": 2580,
+    "maxCap": 3440,
+    "lastMod": "2025-11-28"
+  },
+  {
+    "code": "300866.SZ",
+    "name": "安克创新",
+    "minCap": 550,
+    "maxCap": 780,
+    "lastMod": "2025-11-28"
+  },
+  {
+    "code": "09985.HK",
+    "name": "卫龙美味",
+    "minCap": 265,
+    "maxCap": 390,
+    "lastMod": "2025-11-28"
   }
 ]
