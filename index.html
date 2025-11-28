@@ -58,7 +58,23 @@
         .btn { border: none; border-radius: 6px; padding: 10px; color: #fff; cursor: pointer; font-weight: 500; display:flex; align-items:center; justify-content:center; transition: opacity 0.2s; }
         .btn:active { opacity: 0.8; }
         .btn:disabled { background: #ccc !important; cursor: not-allowed; }
-        .btn-blue { background: #007bff; } .btn-green { background: #28a745; } .btn-purple { background: #6f42c1; } .btn-orange { background: #fd7e14; } .btn-gray { background: #6c757d; }
+        .btn-blue { background: #007bff; } .btn-green { background: #28a745; } .btn-purple { background: #6f42c1; } .btn-gray { background: #6c757d; }
+        
+        /* 修改：基础橙色按钮样式，增加过渡 */
+        .btn-orange { background: #fd7e14; transition: all 0.3s ease; }
+
+        /* ★★★ 新增：未保存时的提醒样式 (覆盖橙色) ★★★ */
+        .btn-orange.unsaved { 
+            background-color: #dc3545 !important; 
+            font-weight: 800;
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+            animation: pulse-red 2s infinite;
+        }
+        @keyframes pulse-red {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(220, 53, 69, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+        }
         
         .btn-icon-square { width: 28px; height: 28px; padding: 0; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1; }
         .btn-edit-yellow { background: #ffca28; color: #333; }
@@ -429,7 +445,26 @@
     let batchResults = [];
     let portfolioChart = null; 
     let holdingsChart = null; 
-    let statusChart = null; // 新增：状态分布图表实例
+    let statusChart = null; 
+
+    // ★★★ 新增：管理未保存状态 ★★★
+    function checkUnsavedStatus() {
+        // 使用独立的key防止冲突
+        const dirty = localStorage.getItem('gridHasUnsavedChanges') === 'true';
+        const btn = document.getElementById('btn-push');
+        if (dirty) {
+            btn.classList.add('unsaved');
+            btn.innerHTML = "🔴 待同步配置";
+        } else {
+            btn.classList.remove('unsaved');
+            btn.innerHTML = "🚀 保存配置";
+        }
+    }
+
+    function setLocalChanges(isDirty) {
+        localStorage.setItem('gridHasUnsavedChanges', isDirty);
+        checkUnsavedStatus();
+    }
 
     function initDates() {
         const d = new Date();
@@ -438,6 +473,7 @@
         document.getElementById('inStartDate').value = d.toISOString().split('T')[0];
     }
     initDates();
+    checkUnsavedStatus(); // 初始化检查
     renderTable();
 
     function filterStockList() {
@@ -482,7 +518,7 @@
             setTimeout(() => {
                 if (contentId === 'portfolio-content' && portfolioChart) portfolioChart.resize();
                 if (contentId === 'holdings-content' && holdingsChart) holdingsChart.resize();
-                if (contentId === 'status-dist-content' && statusChart) statusChart.resize(); // 新增：Resize支持
+                if (contentId === 'status-dist-content' && statusChart) statusChart.resize(); 
             }, 50); 
         }
     }
@@ -505,6 +541,7 @@
     // === GitHub & Stock 逻辑 ===
     function safeB64ToUtf8(str) { return decodeURIComponent(escape(window.atob(str.replace(/\s/g, '')))); }
     function utf8ToB64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
+    
     async function uploadToGithub() {
         let token = localStorage.getItem("github_token");
         if (!token) { document.getElementById('token-modal').style.display='flex'; return; }
@@ -515,9 +552,11 @@
             let sha = null; if (get.ok) sha = (await get.json()).sha;
             await fetch(url, { method: "PUT", headers: { "Authorization": `token ${token.trim()}` }, body: JSON.stringify({ message: "Update", content: utf8ToB64(JSON.stringify(stocks, null, 2)), sha }) });
             alert("✅ 同步成功!");
+            setLocalChanges(false); // ★★★ 修改：上传成功，清除脏标记
         } catch (e) { alert("❌ " + e.message); if(e.message.includes("401")) localStorage.removeItem("github_token"); } 
-        finally { btn.innerText = origin; btn.disabled = false; }
+        finally { btn.innerText = origin; btn.disabled = false; checkUnsavedStatus(); }
     }
+    
     async function syncFromGithub() {
         let token = localStorage.getItem("github_token");
         const btn = document.getElementById('btn-pull'); const origin = btn.innerText; btn.innerText = "⏳"; btn.disabled = true;
@@ -532,9 +571,15 @@
                 const raw = await fetch(`https://raw.githubusercontent.com/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${GITHUB_CONFIG.path}?t=${Date.now()}`); 
                 if(!raw.ok) throw new Error("云端无数据"); data = await raw.json(); 
             }
-            if(Array.isArray(data) && confirm(`覆盖本地 ${stocks.length} 条数据?`)) { stocks = data; localStorage.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); }
+            if(Array.isArray(data) && confirm(`覆盖本地 ${stocks.length} 条数据?`)) { 
+                stocks = data; 
+                localStorage.setItem('gridStocks', JSON.stringify(stocks)); 
+                renderTable(); 
+                setLocalChanges(false); // ★★★ 修改：覆盖后清除脏标记
+            }
         } catch (e) { alert("❌ " + e.message); } finally { btn.innerText = origin; btn.disabled = false; }
     }
+
     function saveToken() {
         const t = document.getElementById('gh-token-input').value.trim();
         if(t) { localStorage.setItem('github_token', t); document.getElementById('token-modal').style.display='none'; uploadToGithub(); }
@@ -567,6 +612,8 @@
         if(idx >= 0) stocks[idx] = item; else stocks.push(item); 
         localStorage.setItem('gridStocks', JSON.stringify(stocks)); 
         renderTable(); 
+        
+        setLocalChanges(true); // ★★★ 修改：本地保存后，标记为dirty
         alert("已保存");
     }
     
@@ -590,7 +637,14 @@
     function checkAllState() { const all = document.querySelectorAll('.stock-chk'); const checked = document.querySelectorAll('.stock-chk:checked'); document.getElementById('check-all').checked = (all.length > 0 && all.length === checked.length); }
     document.addEventListener('change', function(e){ if(e.target.classList.contains('stock-chk')) checkAllState(); });
     function editStock(i) { const s = stocks[i]; document.getElementById('inName').value = s.name; document.getElementById('inCode').value = s.code; document.getElementById('inMin').value = s.minCap; document.getElementById('inMax').value = s.maxCap; document.getElementById('card-config').scrollIntoView({behavior: 'smooth'}); }
-    function delStock(i) { if(!confirm("确认删除？")) return; stocks.splice(i, 1); localStorage.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); }
+    
+    function delStock(i) { 
+        if(!confirm("确认删除？")) return; 
+        stocks.splice(i, 1); 
+        localStorage.setItem('gridStocks', JSON.stringify(stocks)); 
+        renderTable(); 
+        setLocalChanges(true); // ★★★ 修改：删除后，标记为dirty
+    }
 
     // === 核心数据逻辑 (含实时数据缝合) ===
     const getEmSecId = c => { let raw = c.replace(/\.[A-Z]+$/, ''); if (c.includes('.HK') || /^\d{5}$/.test(raw)) return '116.' + raw.padStart(5, '0'); if (c.includes('.US')) return '105.' + raw; if (raw.startsWith('6')) return '1.' + raw; return '0.' + raw; };
@@ -603,7 +657,7 @@
         return await res.json(); 
     }
 
-    // 2. 核心计算函数 (已修改以包含状态标记)
+    // 2. 核心计算函数
     async function calculateStock(stock) {
         const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
         const lowSens = parseFloat(document.getElementById('pLowSens').value) || 12; 
@@ -1104,6 +1158,14 @@
             series: seriesData
         });
     }
+
+    // ★★★ 新增：防止意外关闭
+    window.addEventListener('beforeunload', (e) => {
+        if (localStorage.getItem('gridHasUnsavedChanges') === 'true') {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
 </script>
 </body>
 </html>
