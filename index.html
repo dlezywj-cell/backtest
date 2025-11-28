@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (动态精选 + 市场状态版)</title>
+    <title>估值杠杆策略 (自动同步版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -1144,7 +1144,7 @@
                     params.forEach(p => {
                         if (p.value > 0) {
                             let pct = total > 0 ? (p.value / total * 100).toFixed(1) : 0;
-                            h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span><b>${p.value}只 (${pct}%)</b></div>`;
+                            h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d32f2f;margin-right:5px;"></span>${p.seriesName}</span><b>${p.value}只 (${pct}%)</b></div>`;
                         }
                     });
                     return h;
@@ -1166,6 +1166,47 @@
             e.returnValue = '';
         }
     });
+
+    // ★★★ 自动同步逻辑 ★★★
+    (async function autoSyncFromGithub() {
+        const token = localStorage.getItem("github_token");
+        if (!token) return; // 无 Token 不自动同步
+        
+        // 尝试临时改变拉取按钮文字以示正在同步
+        const btnPull = document.getElementById('btn-pull');
+        const originText = btnPull.innerText;
+        btnPull.innerText = "☁️...";
+
+        try {
+            const url = `https://api.github.com/repos/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path}`;
+            const headers = { "Accept": "application/vnd.github.v3+json", "Authorization": `token ${token}` };
+            let res = await fetch(url, { headers, cache: "no-store" });
+            
+            let data;
+            if (res.ok) data = JSON.parse(safeB64ToUtf8((await res.json()).content));
+            else {
+                const raw = await fetch(`https://raw.githubusercontent.com/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${GITHUB_CONFIG.path}?t=${Date.now()}`); 
+                if(!raw.ok) throw new Error("Fetch failed"); 
+                data = await raw.json();
+            }
+
+            if (Array.isArray(data)) {
+                stocks = data;
+                localStorage.setItem('gridStocks', JSON.stringify(stocks)); 
+                renderTable(); 
+                setLocalChanges(false); // 同步成功，视为已保存
+                // 成功提示
+                btnPull.innerText = "✅";
+                setTimeout(() => btnPull.innerText = originText, 2000);
+            } else {
+                btnPull.innerText = originText;
+            }
+        } catch (e) {
+            console.log("Auto sync failed:", e);
+            btnPull.innerText = "⚠️";
+            setTimeout(() => btnPull.innerText = originText, 3000);
+        }
+    })();
 </script>
 </body>
 </html>
