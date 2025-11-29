@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (自动同步版)</title>
+    <title>估值杠杆策略 (智能低估保护版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -774,10 +774,30 @@
                 else statusTag = "震荡整理";
 
                 if(isDown) {
-                    let slope = (m10 - m20)/m20; let reduceSpeed, reduceMsg;
-                    if (curMv <= minCap) { let reduce = Math.min(1.0, Math.abs(slope) * lowSens); reduceSpeed = reduce * lowRed; reduceMsg = "低估区趋势转弱(慢减仓)"; } 
-                    else { let reduce = Math.min(1.0, Math.abs(slope) * normSens); reduceSpeed = reduce * normRed; reduceMsg = "趋势转弱极速减仓"; }
-                    let trendL = Math.max(0.01, prevL * (1 - reduceSpeed)); if(trendL < newL) { newL = trendL; reason = reduceMsg; }
+                    // ★★★ 修改开始：低估值特赦逻辑 ★★★
+                    if (d.valScore > 0.6 && d.close > m5) {
+                        // 如果原本打算减仓 (即 newL < prevL)，强制维持 prevL (不减仓)
+                        if (newL < prevL) {
+                            newL = prevL;
+                            reason = "低估且站上MA5(暂停减仓)";
+                        }
+                    } else {
+                        // === 原有减仓逻辑 ===
+                        let slope = (m10 - m20)/m20; 
+                        let reduceSpeed, reduceMsg;
+                        if (curMv <= minCap) { 
+                            let reduce = Math.min(1.0, Math.abs(slope) * lowSens); 
+                            reduceSpeed = reduce * lowRed; 
+                            reduceMsg = "低估区趋势转弱(慢减仓)"; 
+                        } else { 
+                            let reduce = Math.min(1.0, Math.abs(slope) * normSens); 
+                            reduceSpeed = reduce * normRed; 
+                            reduceMsg = "趋势转弱极速减仓"; 
+                        }
+                        let trendL = Math.max(0.01, prevL * (1 - reduceSpeed)); 
+                        if(trendL < newL) { newL = trendL; reason = reduceMsg; }
+                    }
+                    // ★★★ 修改结束 ★★★
                 }
             }
             
@@ -1144,7 +1164,7 @@
                     params.forEach(p => {
                         if (p.value > 0) {
                             let pct = total > 0 ? (p.value / total * 100).toFixed(1) : 0;
-                            h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d32f2f;margin-right:5px;"></span>${p.seriesName}</span><b>${p.value}只 (${pct}%)</b></div>`;
+                            h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span><b>${p.value}只 (${pct}%)</b></div>`;
                         }
                     });
                     return h;
