@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (智能低估保护版)</title>
+    <title>估值杠杆策略 (自动同步+图表联动版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -774,9 +774,8 @@
                 else statusTag = "震荡整理";
 
                 if(isDown) {
-                    // ★★★ 修改开始：低估值特赦逻辑 ★★★
+                    // ★★★ 低估值特赦逻辑 ★★★
                     if (d.valScore > 0.6 && d.close > m5) {
-                        // 如果原本打算减仓 (即 newL < prevL)，强制维持 prevL (不减仓)
                         if (newL < prevL) {
                             newL = prevL;
                             reason = "低估且站上MA5(暂停减仓)";
@@ -797,7 +796,6 @@
                         let trendL = Math.max(0.01, prevL * (1 - reduceSpeed)); 
                         if(trendL < newL) { newL = trendL; reason = reduceMsg; }
                     }
-                    // ★★★ 修改结束 ★★★
                 }
             }
             
@@ -941,6 +939,7 @@
     // === 图表渲染：单股详情 ===
     function renderChart(hist) {
         const dom = document.getElementById('chart-box'); if(myChart) myChart.clear(); else myChart = echarts.init(dom);
+        myChart.group = 'stockGroup'; // ★ 设置联动组名
         const dates = hist.map(h=>h.date);
         myChart.setOption({
             tooltip: { 
@@ -962,6 +961,7 @@
                 backgroundColor: 'rgba(255,255,255,0.95)', borderColor: '#eee', borderWidth: 1, textStyle: {color:'#333'} 
             },
             legend: { top: 0, data: ['股价','净值','杠杆'], itemWidth:12, itemHeight:8, textStyle:{fontSize:11} },
+            // ★ 修改 Grid 统一边距
             grid: [{ left: '12%', right: '8%', top: '12%', height: '58%' }, { left: '12%', right: '8%', top: '78%', height: '15%' }],
             xAxis: [{type:'category', data: dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}, axisLine:{lineStyle:{color:'#eee'}}}, {type:'category', data: dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}],
             yAxis: [{type:'value', position:'left', splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#999'}}, {type:'value', position:'right', splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#d32f2f'}}, {type:'value', gridIndex:1, splitLine:{show:true, lineStyle:{type:'dashed', color:'#eee'}}, min:0, max:2.1, axisLabel:{fontSize:10, color:'#28a745'}}],
@@ -1033,6 +1033,7 @@
         document.getElementById('port-lev').innerText = avgLev.toFixed(2) + 'x'; 
         const ddEl = document.getElementById('port-dd'); ddEl.innerText = (maxDD * 100).toFixed(2) + '%'; ddEl.className = 'stat-val loss'; 
         const dom = document.getElementById('portfolio-chart'); if (portfolioChart) portfolioChart.dispose(); portfolioChart = echarts.init(dom);
+        portfolioChart.group = 'stockGroup'; // ★ 设置联动组名
         const dates = hist.map(h => h.date);
         portfolioChart.setOption({
             tooltip: { 
@@ -1048,6 +1049,7 @@
                 }, backgroundColor: 'rgba(255,255,255,0.95)' 
             },
             legend: { top: 0, data: ['组合净值', '实际总杠杆'] },
+            // ★ 修改 Grid 统一边距
             grid: [{ left: '12%', right: '8%', top: '15%', height: '55%' }, { left: '12%', right: '8%', top: '75%', height: '15%' }],
             xAxis: [{type:'category', data:dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}}, {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}],
             yAxis: [{type:'value', gridIndex:0, scale:true, splitLine:{show:false}}, {type:'value', gridIndex:1, splitLine:{show:false}, min:0}],
@@ -1061,6 +1063,7 @@
 
     function renderHoldingsChart(hist) {
         const dom = document.getElementById('holdings-chart'); if (holdingsChart) holdingsChart.dispose(); holdingsChart = echarts.init(dom);
+        holdingsChart.group = 'stockGroup'; // ★ 设置联动组名
         const dates = hist.map(h => h.date); const allStockNames = batchResults.map(r => r.stockName);
         const seriesData = allStockNames.map(name => { return { name: name, type: 'line', stack: 'Total', areaStyle: {}, emphasis: { focus: 'series' }, showSymbol: false, lineStyle: { width: 0 }, data: hist.map(h => h.breakdown[name] || 0) }; });
         
@@ -1085,6 +1088,7 @@
                 } 
             },
             legend: { data: allStockNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, 
+            // ★ 修改 Grid 统一边距
             grid: { left: '12%', right: '8%', bottom: '25px', containLabel: false }, 
             xAxis: { type: 'category', boundaryGap: false, data: dates }, 
             yAxis: { type: 'value', min: 0 },
@@ -1155,6 +1159,7 @@
         });
 
         const dom = document.getElementById('status-chart'); if (statusChart) statusChart.dispose(); statusChart = echarts.init(dom);
+        statusChart.group = 'stockGroup'; // ★ 设置联动组名
         statusChart.setOption({
             tooltip: {
                 trigger: 'axis', axisPointer: { type: 'shadow' },
@@ -1171,7 +1176,8 @@
                 }, backgroundColor: 'rgba(255,255,255,0.95)'
             },
             legend: { data: seriesNames, top: 0, selectedMode: true, textStyle: { fontSize: 11 } },
-            grid: { left: '40px', right: '20px', bottom: '30px', top: '30px', containLabel: true },
+            // ★ 修改 Grid 统一边距
+            grid: { left: '12%', right: '8%', bottom: '30px', top: '30px', containLabel: true },
             xAxis: { type: 'category', data: dates, axisTick: { show: false }, axisLine: { lineStyle: { color: '#ccc' } } },
             yAxis: { type: 'value', minInterval: 1, splitLine: { show: true, lineStyle: { type: 'dashed' } } },
             dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 0, height: 20 }],
@@ -1227,6 +1233,9 @@
             setTimeout(() => btnPull.innerText = originText, 3000);
         }
     })();
+
+    // ★★★ 启动图表联动 ★★★
+    echarts.connect('stockGroup');
 </script>
 </body>
 </html>
