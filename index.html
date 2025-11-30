@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (智能交易日+图表联动)</title>
+    <title>估值杠杆策略 (完美日期修复版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -449,7 +449,6 @@
 
     // ★★★ 新增：管理未保存状态 ★★★
     function checkUnsavedStatus() {
-        // 使用独立的key防止冲突
         const dirty = localStorage.getItem('gridHasUnsavedChanges') === 'true';
         const btn = document.getElementById('btn-push');
         if (dirty) {
@@ -473,7 +472,7 @@
         document.getElementById('inStartDate').value = d.toISOString().split('T')[0];
     }
     initDates();
-    checkUnsavedStatus(); // 初始化检查
+    checkUnsavedStatus(); 
     renderTable();
 
     function filterStockList() {
@@ -552,7 +551,7 @@
             let sha = null; if (get.ok) sha = (await get.json()).sha;
             await fetch(url, { method: "PUT", headers: { "Authorization": `token ${token.trim()}` }, body: JSON.stringify({ message: "Update", content: utf8ToB64(JSON.stringify(stocks, null, 2)), sha }) });
             alert("✅ 同步成功!");
-            setLocalChanges(false); // ★★★ 修改：上传成功，清除脏标记
+            setLocalChanges(false);
         } catch (e) { alert("❌ " + e.message); if(e.message.includes("401")) localStorage.removeItem("github_token"); } 
         finally { btn.innerText = origin; btn.disabled = false; checkUnsavedStatus(); }
     }
@@ -575,7 +574,7 @@
                 stocks = data; 
                 localStorage.setItem('gridStocks', JSON.stringify(stocks)); 
                 renderTable(); 
-                setLocalChanges(false); // ★★★ 修改：覆盖后清除脏标记
+                setLocalChanges(false); 
             }
         } catch (e) { alert("❌ " + e.message); } finally { btn.innerText = origin; btn.disabled = false; }
     }
@@ -613,7 +612,7 @@
         localStorage.setItem('gridStocks', JSON.stringify(stocks)); 
         renderTable(); 
         
-        setLocalChanges(true); // ★★★ 修改：本地保存后，标记为dirty
+        setLocalChanges(true); 
         alert("已保存");
     }
     
@@ -643,16 +642,28 @@
         stocks.splice(i, 1); 
         localStorage.setItem('gridStocks', JSON.stringify(stocks)); 
         renderTable(); 
-        setLocalChanges(true); // ★★★ 修改：删除后，标记为dirty
+        setLocalChanges(true); 
     }
 
-    // === 核心数据逻辑 (含实时数据缝合) ===
+    // === 核心数据逻辑 ===
     const getEmSecId = c => { let raw = c.replace(/\.[A-Z]+$/, ''); if (c.includes('.HK') || /^\d{5}$/.test(raw)) return '116.' + raw.padStart(5, '0'); if (c.includes('.US')) return '105.' + raw; if (raw.startsWith('6')) return '1.' + raw; return '0.' + raw; };
     const toYahoo = c => { let raw = c.replace(/\.[A-Z]+$/, ''); if (c.includes('.HK') || /^\d{5}$/.test(raw)) return parseInt(raw, 10).toString().padStart(4, '0') + '.HK'; if (c.includes('.US')) return raw; if (c.includes('.SH') || (raw.startsWith('6') && !c.includes('.SZ'))) return raw + '.SS'; return raw + '.SZ'; };
     
-    // 1. 获取东财实时数据 (f2=最新价, f20=总市值, f124=更新时间戳)
+    // ★★★ 辅助函数：根据市场类型转换时间戳为日期字符串，解决时区对齐问题 ★★★
+    function getMarketDate(timestamp, stockCode) {
+        const date = new Date(timestamp * 1000);
+        let timeZone = 'Asia/Shanghai'; // 默认中国时间
+        if (stockCode.includes('.US')) timeZone = 'America/New_York'; // 美股用纽约时间
+        
+        // 使用 Intl.DateTimeFormat 获取当地 YYYY-MM-DD
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timeZone, year: 'numeric', month: '2-digit', day: '2-digit'
+        });
+        return formatter.format(date);
+    }
+
+    // 1. 获取东财实时数据 (增加 f124 时间戳)
     async function fetchEmShares(secId) { 
-        // ★★★ 增加 f124 字段 (更新时间戳)
         const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${secId}&fields=f2,f20,f124&invt=2&fltt=2`; 
         const res = await fetch(PROXY + encodeURIComponent(url)); 
         return await res.json(); 
@@ -674,17 +685,16 @@
         }
         
         let totalShares = 0;
-        let rtPrice = 0; // 实时价格
-        let rtTimestamp = 0; // 实时更新时间戳
+        let rtPrice = 0; 
+        let rtTimestamp = 0;
         
         if(capJson.data?.diff) { 
             let d = Array.isArray(capJson.data.diff) ? capJson.data.diff[0] : capJson.data.diff[emCode]; 
             if(d) {
                 if(d.f2 > 0) {
-                    // f20(总市值元) / f2(单价) / 1亿 = 亿股
                     totalShares = (d.f20 / d.f2) / 100000000; 
                     rtPrice = d.f2; 
-                    rtTimestamp = d.f124; // 获取更新时间
+                    rtTimestamp = d.f124; // 获取最新成交时间戳
                 }
             }
         }
@@ -705,8 +715,8 @@
 
         result.timestamp.forEach((t, i) => {
             if(quotes.close[i]) {
-                // 使用本地日期格式 YYYY-MM-DD
-                let dateStr = new Date(t*1000).toLocaleDateString('en-CA'); 
+                // Yahoo 时间戳已经是当地市场日期的 0点或开盘时间，直接用 getMarketDate 确保对齐
+                let dateStr = getMarketDate(t, stock.code);
                 let c = parseFloat(quotes.close[i].toFixed(2)); 
                 let mv = c * totalShares; 
                 rawData.push({ 
@@ -718,32 +728,44 @@
             }
         });
 
-        // --- C. 强制缝合实时数据 (智能判断交易日) ---
-        // ★★★ 核心修改：利用时间戳差异判断是否为新交易日 ★★★
+        // --- C. 强制缝合实时数据 (智能休市判定) ---
+        // ★★★ 核心修改：利用时间戳差异判断交易状态 ★★★
         const now = new Date();
-        const todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        const todayStr = getMarketDate(now.getTime() / 1000, stock.code); // 获取"今天"在当地市场的日期字符串
         const userEndDate = document.getElementById('inEndDate').value; 
 
         if (userEndDate >= todayStr && rawData.length > 0 && rtPrice > 0 && rtTimestamp > 0) {
             const lastData = rawData[rawData.length - 1];
-            // 获取 Yahoo 最后一根 K 线的时间戳 (秒)
             const yahooLastEpoch = result.timestamp[result.timestamp.length - 1];
             
-            const rtMv = rtPrice * totalShares;
-            const rtScore = (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap));
-            const rtItem = { date: todayStr, close: rtPrice, mv: rtMv, valScore: rtScore };
+            // 1. 判断数据新鲜度：如果东财时间戳滞后当前系统时间超过 20小时 (72000秒)，说明今天是休市日(周末/假日)
+            // 此时直接跳过所有缝合逻辑，不产生"今天"的K线。
+            const secondsSinceTrade = (Date.now() / 1000) - rtTimestamp;
+            const isMarketClosedToday = secondsSinceTrade > 72000;
 
-            // 逻辑：如果 东财实时时间 比 Yahoo 最后时间 晚了超过 12 小时 (43200秒)
-            // 说明 Yahoo 还没更新到今天，而今天已经有交易了 -> 新增/Append
-            // 否则 (时间差很小，或者是周末导致东财时间没变) -> 覆盖/Update
-            if (rtTimestamp > yahooLastEpoch + 43200) {
-                rawData.push(rtItem);
-            } else {
-                // 时间没跨越太多，说明是同一天，或者非交易日(RT时间戳停留在周五)
-                // 仅更新价格，不新增Bar
-                // 注意：日期可能需要保持为 Yahoo 的日期，避免周末变成"今天"
-                rtItem.date = lastData.date; 
-                rawData[rawData.length - 1] = rtItem;
+            if (!isMarketClosedToday) {
+                const rtMv = rtPrice * totalShares;
+                const rtScore = (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap));
+                
+                // 2. 生成实时数据的日期字符串 (注意：必须用 getMarketDate 保证时区对齐)
+                const rtDateStr = getMarketDate(rtTimestamp, stock.code);
+                const rtItem = { date: rtDateStr, close: rtPrice, mv: rtMv, valScore: rtScore };
+
+                // 3. 判断是“新增一天”还是“覆盖最后一天”
+                // 如果东财时间比 Yahoo 最后时间晚了超过 12小时 -> 新的一天 (Yahoo还没更，东财更了)
+                if (rtTimestamp > yahooLastEpoch + 43200) {
+                    // 双重检查：确保日期字符串真的不同，防止重复
+                    if (rtDateStr !== lastData.date) {
+                        rawData.push(rtItem);
+                    } else {
+                        rawData[rawData.length - 1] = rtItem;
+                    }
+                } else {
+                    // 时间差很小，说明是同一交易日，更新最后收盘价为实时价
+                    // 保持日期为 Yahoo 的日期 (Yahoo日期通常更标准)
+                    rtItem.date = lastData.date; 
+                    rawData[rawData.length - 1] = rtItem;
+                }
             }
         }
 
@@ -817,7 +839,8 @@
             
             if(Math.abs(newL - prevL) > 0.005) { 
                 let dateDisplay = d.date;
-                if (i === rawData.length - 1) dateDisplay += ' (盘中)';
+                // ★★★ 判断是否显示"(盘中)"：必须是今天日期 且 不是休市日 ★★★
+                if (i === rawData.length - 1 && d.date === todayStr) dateDisplay += ' (盘中)';
                 changeLogs.push({ date: dateDisplay, action: `<span class="badge ${newL>prevL?'bg-red':'bg-green'}">${newL>prevL?'加仓':'减仓'}</span>`, val: `${prevL.toFixed(2)} → ${newL.toFixed(2)}`, reason: reason }); 
             }
             nav = nav * (1 + prevL * r); if(nav > peakNav) peakNav = nav; 
