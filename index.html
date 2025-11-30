@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (完美日期修复版)</title>
+    <title>估值杠杆策略 (东财纯净数据版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -504,7 +504,6 @@
         }
     }
 
-    // === 区域折叠/展开逻辑 ===
     function toggleSection(contentId, headerEl) {
         const content = document.getElementById(contentId);
         const isCollapsed = content.classList.toggle('collapsed');
@@ -647,29 +646,20 @@
 
     // === 核心数据逻辑 ===
     const getEmSecId = c => { let raw = c.replace(/\.[A-Z]+$/, ''); if (c.includes('.HK') || /^\d{5}$/.test(raw)) return '116.' + raw.padStart(5, '0'); if (c.includes('.US')) return '105.' + raw; if (raw.startsWith('6')) return '1.' + raw; return '0.' + raw; };
-    const toYahoo = c => { let raw = c.replace(/\.[A-Z]+$/, ''); if (c.includes('.HK') || /^\d{5}$/.test(raw)) return parseInt(raw, 10).toString().padStart(4, '0') + '.HK'; if (c.includes('.US')) return raw; if (c.includes('.SH') || (raw.startsWith('6') && !c.includes('.SZ'))) return raw + '.SS'; return raw + '.SZ'; };
-    
-    // ★★★ 辅助函数：根据市场类型转换时间戳为日期字符串，解决时区对齐问题 ★★★
-    function getMarketDate(timestamp, stockCode) {
-        const date = new Date(timestamp * 1000);
-        let timeZone = 'Asia/Shanghai'; // 默认中国时间
-        if (stockCode.includes('.US')) timeZone = 'America/New_York'; // 美股用纽约时间
-        
-        // 使用 Intl.DateTimeFormat 获取当地 YYYY-MM-DD
-        const formatter = new Intl.DateTimeFormat('en-CA', {
-            timeZone: timeZone, year: 'numeric', month: '2-digit', day: '2-digit'
-        });
-        return formatter.format(date);
+    // ★★★ 核心修改：完全抛弃 Yahoo，使用东财 K 线数据 ★★★
+    // 不需要 toYahoo 函数了
+
+    // 1. 获取东财K线历史数据 (直接作为主数据源)
+    async function fetchEmKline(secId) {
+        // klt=101 (日K), fqt=1 (前复权), lmt=500 (最近500天)
+        // f51:日期, f53:收盘价
+        const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&fields1=f1&fields2=f51,f53&klt=101&fqt=1&end=20500101&lmt=500`;
+        const res = await fetch(PROXY + encodeURIComponent(url));
+        const json = await res.json();
+        return json?.data?.klines || [];
     }
 
-    // 1. 获取东财实时数据 (增加 f124 时间戳)
-    async function fetchEmShares(secId) { 
-        const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${secId}&fields=f2,f20,f124&invt=2&fltt=2`; 
-        const res = await fetch(PROXY + encodeURIComponent(url)); 
-        return await res.json(); 
-    }
-
-    // 2. 核心计算函数
+    // 2. 核心计算函数 (完全重写数据获取部分)
     async function calculateStock(stock) {
         const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
         const lowSens = parseFloat(document.getElementById('pLowSens').value) || 12; 
@@ -677,97 +667,63 @@
         const normSens = parseFloat(document.getElementById('pNormSens').value) || 25; 
         const normRed = parseFloat(document.getElementById('pNormRed').value) || 0.8;
         
-        // --- A. 获取东财实时数据 ---
-        let emSecId = getEmSecId(stock.code); let emCode = emSecId.split('.')[1];
-        let capJson = await fetchEmShares(emSecId);
-        if(stock.code.includes('.US') && (!capJson.data || !capJson.data.diff)) { 
-            emSecId = '106.' + emCode; capJson = await fetchEmShares(emSecId); 
-        }
+        let emSecId = getEmSecId(stock.code); 
+        let emCode = emSecId.split('.')[1];
+
+        // --- A. 获取总股本 (用于计算市值) ---
+        // 依然使用 snapshot 接口获取最新总市值 f20 和最新价 f2，反推总股本
+        const snapUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emSecId}&fields=f2,f20&invt=2&fltt=2`;
+        const snapRes = await fetch(PROXY + encodeURIComponent(snapUrl));
+        const snapJson = await snapRes.json();
         
         let totalShares = 0;
-        let rtPrice = 0; 
-        let rtTimestamp = 0;
-        
-        if(capJson.data?.diff) { 
-            let d = Array.isArray(capJson.data.diff) ? capJson.data.diff[0] : capJson.data.diff[emCode]; 
-            if(d) {
-                if(d.f2 > 0) {
-                    totalShares = (d.f20 / d.f2) / 100000000; 
-                    rtPrice = d.f2; 
-                    rtTimestamp = d.f124; // 获取最新成交时间戳
-                }
-            }
+        // 尝试修正美股 secid (106 or 105)
+        if(stock.code.includes('.US') && (!snapJson.data || !snapJson.data.diff)) {
+             emSecId = '106.' + emCode;
+             const retryRes = await fetch(PROXY + encodeURIComponent(`https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emSecId}&fields=f2,f20&invt=2&fltt=2`));
+             const retryJson = await retryRes.json();
+             if(retryJson.data?.diff) {
+                 let d = Array.isArray(retryJson.data.diff) ? retryJson.data.diff[0] : retryJson.data.diff[emCode];
+                 if(d && d.f2 > 0) totalShares = (d.f20 / d.f2) / 100000000;
+             }
+        } else if (snapJson.data?.diff) {
+             let d = Array.isArray(snapJson.data.diff) ? snapJson.data.diff[0] : snapJson.data.diff[emCode];
+             if(d && d.f2 > 0) totalShares = (d.f20 / d.f2) / 100000000;
         }
-        if(!totalShares) throw new Error(`无法获取股本/实时数据`);
-
-        // --- B. 获取 Yahoo 历史 K 线 ---
-        const sd = document.getElementById('inStartDate').value; const ed = document.getElementById('inEndDate').value;
-        const p1 = Math.floor(new Date(sd).getTime()/1000); const p2 = Math.floor(new Date(ed).getTime()/1000) + 86400;
-        const yhTicker = toYahoo(stock.code);
-        const hRes = await fetch(PROXY + encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yhTicker}?period1=${p1}&period2=${p2}&interval=1d`));
-        if(!hRes.ok) throw new Error(`Yahoo请求失败`);
-        const hJson = await hRes.json(); const result = hJson.chart.result ? hJson.chart.result[0] : null;
-        if(!result || !result.timestamp || result.timestamp.length === 0) throw new Error("该时段无K线数据");
         
-        let rawData = []; const quotes = result.indicators.quote[0];
+        if(!totalShares) throw new Error(`无法获取股本数据`);
+
+        // --- B. 获取东财 K 线数据 (替代 Yahoo) ---
+        const klines = await fetchEmKline(emSecId);
+        if(!klines || klines.length === 0) throw new Error("无K线数据");
+
+        let rawData = [];
         const minCap = stock.minCap; const maxCap = stock.maxCap; const midCap = (minCap + maxCap) / 2.0;
         const getTargetLeverage = (mv) => { if(mv <= minCap) return maxLev; if(mv >= maxCap) return 0.01; let r = (mv - minCap) / (maxCap - minCap); return 0.01 + (maxLev - 0.01) * Math.exp(-2.5 * r); };
 
-        result.timestamp.forEach((t, i) => {
-            if(quotes.close[i]) {
-                // Yahoo 时间戳已经是当地市场日期的 0点或开盘时间，直接用 getMarketDate 确保对齐
-                let dateStr = getMarketDate(t, stock.code);
-                let c = parseFloat(quotes.close[i].toFixed(2)); 
-                let mv = c * totalShares; 
-                rawData.push({ 
-                    date: dateStr, 
-                    close: c, 
-                    mv: mv, 
-                    valScore: (mv<=minCap)?1:(mv>=maxCap)?-1:((mv<=midCap)?(midCap-mv)/(midCap-minCap):-(mv-midCap)/(maxCap-midCap)) 
+        const userStartDate = document.getElementById('inStartDate').value;
+        const userEndDate = document.getElementById('inEndDate').value;
+        const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+
+        klines.forEach(k => {
+            // k 的格式: "2023-10-27,145.3" (日期,收盘价)
+            const parts = k.split(',');
+            const dateStr = parts[0];
+            const close = parseFloat(parts[1]);
+            
+            // 过滤日期范围
+            if (dateStr >= userStartDate && dateStr <= userEndDate) {
+                let mv = close * totalShares;
+                rawData.push({
+                    date: dateStr,
+                    close: close,
+                    mv: mv,
+                    valScore: (mv<=minCap)?1:(mv>=maxCap)?-1:((mv<=midCap)?(midCap-mv)/(midCap-minCap):-(mv-midCap)/(maxCap-midCap))
                 });
             }
         });
 
-        // --- C. 强制缝合实时数据 (智能休市判定) ---
-        // ★★★ 核心修改：利用时间戳差异判断交易状态 ★★★
-        const now = new Date();
-        const todayStr = getMarketDate(now.getTime() / 1000, stock.code); // 获取"今天"在当地市场的日期字符串
-        const userEndDate = document.getElementById('inEndDate').value; 
-
-        if (userEndDate >= todayStr && rawData.length > 0 && rtPrice > 0 && rtTimestamp > 0) {
-            const lastData = rawData[rawData.length - 1];
-            const yahooLastEpoch = result.timestamp[result.timestamp.length - 1];
-            
-            // 1. 判断数据新鲜度：如果东财时间戳滞后当前系统时间超过 20小时 (72000秒)，说明今天是休市日(周末/假日)
-            // 此时直接跳过所有缝合逻辑，不产生"今天"的K线。
-            const secondsSinceTrade = (Date.now() / 1000) - rtTimestamp;
-            const isMarketClosedToday = secondsSinceTrade > 72000;
-
-            if (!isMarketClosedToday) {
-                const rtMv = rtPrice * totalShares;
-                const rtScore = (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap));
-                
-                // 2. 生成实时数据的日期字符串 (注意：必须用 getMarketDate 保证时区对齐)
-                const rtDateStr = getMarketDate(rtTimestamp, stock.code);
-                const rtItem = { date: rtDateStr, close: rtPrice, mv: rtMv, valScore: rtScore };
-
-                // 3. 判断是“新增一天”还是“覆盖最后一天”
-                // 如果东财时间比 Yahoo 最后时间晚了超过 12小时 -> 新的一天 (Yahoo还没更，东财更了)
-                if (rtTimestamp > yahooLastEpoch + 43200) {
-                    // 双重检查：确保日期字符串真的不同，防止重复
-                    if (rtDateStr !== lastData.date) {
-                        rawData.push(rtItem);
-                    } else {
-                        rawData[rawData.length - 1] = rtItem;
-                    }
-                } else {
-                    // 时间差很小，说明是同一交易日，更新最后收盘价为实时价
-                    // 保持日期为 Yahoo 的日期 (Yahoo日期通常更标准)
-                    rtItem.date = lastData.date; 
-                    rawData[rawData.length - 1] = rtItem;
-                }
-            }
-        }
+        if (rawData.length === 0) throw new Error("所选日期范围内无数据");
 
         // --- D. 策略回测逻辑 ---
         const ma = (idx, n) => { if(idx<n) return null; let sum=0; for(let k=idx-n; k<idx; k++) sum+=rawData[k].close; return sum/n; };
@@ -839,7 +795,7 @@
             
             if(Math.abs(newL - prevL) > 0.005) { 
                 let dateDisplay = d.date;
-                // ★★★ 判断是否显示"(盘中)"：必须是今天日期 且 不是休市日 ★★★
+                // 判断是否是今天，且今天不是周末 (东财接口会自动过滤周末，所以只要日期对上就是盘中)
                 if (i === rawData.length - 1 && d.date === todayStr) dateDisplay += ' (盘中)';
                 changeLogs.push({ date: dateDisplay, action: `<span class="badge ${newL>prevL?'bg-red':'bg-green'}">${newL>prevL?'加仓':'减仓'}</span>`, val: `${prevL.toFixed(2)} → ${newL.toFixed(2)}`, reason: reason }); 
             }
