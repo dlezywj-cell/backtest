@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (智能交易日版)</title>
+    <title>估值杠杆策略 (智能交易日+图表联动)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -650,9 +650,10 @@
     const getEmSecId = c => { let raw = c.replace(/\.[A-Z]+$/, ''); if (c.includes('.HK') || /^\d{5}$/.test(raw)) return '116.' + raw.padStart(5, '0'); if (c.includes('.US')) return '105.' + raw; if (raw.startsWith('6')) return '1.' + raw; return '0.' + raw; };
     const toYahoo = c => { let raw = c.replace(/\.[A-Z]+$/, ''); if (c.includes('.HK') || /^\d{5}$/.test(raw)) return parseInt(raw, 10).toString().padStart(4, '0') + '.HK'; if (c.includes('.US')) return raw; if (c.includes('.SH') || (raw.startsWith('6') && !c.includes('.SZ'))) return raw + '.SS'; return raw + '.SZ'; };
     
-    // 1. 获取东财实时数据 (f2=最新价, f20=总市值)
+    // 1. 获取东财实时数据 (f2=最新价, f20=总市值, f124=更新时间戳)
     async function fetchEmShares(secId) { 
-        const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${secId}&fields=f2,f20&invt=2&fltt=2`; 
+        // ★★★ 增加 f124 字段 (更新时间戳)
+        const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${secId}&fields=f2,f20,f124&invt=2&fltt=2`; 
         const res = await fetch(PROXY + encodeURIComponent(url)); 
         return await res.json(); 
     }
@@ -674,6 +675,7 @@
         
         let totalShares = 0;
         let rtPrice = 0; // 实时价格
+        let rtTimestamp = 0; // 实时更新时间戳
         
         if(capJson.data?.diff) { 
             let d = Array.isArray(capJson.data.diff) ? capJson.data.diff[0] : capJson.data.diff[emCode]; 
@@ -682,6 +684,7 @@
                     // f20(总市值元) / f2(单价) / 1亿 = 亿股
                     totalShares = (d.f20 / d.f2) / 100000000; 
                     rtPrice = d.f2; 
+                    rtTimestamp = d.f124; // 获取更新时间
                 }
             }
         }
@@ -715,28 +718,32 @@
             }
         });
 
-        // --- C. 强制缝合实时数据 (Real-time Injection) ---
+        // --- C. 强制缝合实时数据 (智能判断交易日) ---
+        // ★★★ 核心修改：利用时间戳差异判断是否为新交易日 ★★★
         const now = new Date();
         const todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
         const userEndDate = document.getElementById('inEndDate').value; 
-        
-        // ★★★ 修复：增加周末检查 ★★★
-        const dayOfWeek = now.getDay(); // 0=Sun, 6=Sat
-        const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
 
-        // ★★★ 逻辑优化：如果是周末，不执行缝合，只读取Yahoo最后一天数据 ★★★
-        if (userEndDate >= todayStr && rawData.length > 0 && rtPrice > 0 && !isWeekend) {
+        if (userEndDate >= todayStr && rawData.length > 0 && rtPrice > 0 && rtTimestamp > 0) {
             const lastData = rawData[rawData.length - 1];
+            // 获取 Yahoo 最后一根 K 线的时间戳 (秒)
+            const yahooLastEpoch = result.timestamp[result.timestamp.length - 1];
+            
             const rtMv = rtPrice * totalShares;
             const rtScore = (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap));
             const rtItem = { date: todayStr, close: rtPrice, mv: rtMv, valScore: rtScore };
 
-            if (lastData.date === todayStr) {
-                // Yahoo 今天可能已经更新，用东财实时数据覆盖（通常更准）
-                rawData[rawData.length - 1] = rtItem;
-            } else {
-                // 交易时段：Yahoo 是昨天的，追加今天的
+            // 逻辑：如果 东财实时时间 比 Yahoo 最后时间 晚了超过 12 小时 (43200秒)
+            // 说明 Yahoo 还没更新到今天，而今天已经有交易了 -> 新增/Append
+            // 否则 (时间差很小，或者是周末导致东财时间没变) -> 覆盖/Update
+            if (rtTimestamp > yahooLastEpoch + 43200) {
                 rawData.push(rtItem);
+            } else {
+                // 时间没跨越太多，说明是同一天，或者非交易日(RT时间戳停留在周五)
+                // 仅更新价格，不新增Bar
+                // 注意：日期可能需要保持为 Yahoo 的日期，避免周末变成"今天"
+                rtItem.date = lastData.date; 
+                rawData[rawData.length - 1] = rtItem;
             }
         }
 
