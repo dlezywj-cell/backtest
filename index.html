@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (自动同步+图表联动版)</title>
+    <title>估值杠杆策略 (智能交易日版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -719,16 +719,23 @@
         const now = new Date();
         const todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
         const userEndDate = document.getElementById('inEndDate').value; 
+        
+        // ★★★ 修复：增加周末检查 ★★★
+        const dayOfWeek = now.getDay(); // 0=Sun, 6=Sat
+        const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
 
-        if (userEndDate >= todayStr && rawData.length > 0 && rtPrice > 0) {
+        // ★★★ 逻辑优化：如果是周末，不执行缝合，只读取Yahoo最后一天数据 ★★★
+        if (userEndDate >= todayStr && rawData.length > 0 && rtPrice > 0 && !isWeekend) {
             const lastData = rawData[rawData.length - 1];
             const rtMv = rtPrice * totalShares;
             const rtScore = (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap));
             const rtItem = { date: todayStr, close: rtPrice, mv: rtMv, valScore: rtScore };
 
             if (lastData.date === todayStr) {
+                // Yahoo 今天可能已经更新，用东财实时数据覆盖（通常更准）
                 rawData[rawData.length - 1] = rtItem;
             } else {
+                // 交易时段：Yahoo 是昨天的，追加今天的
                 rawData.push(rtItem);
             }
         }
