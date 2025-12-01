@@ -149,16 +149,14 @@
         .op-btn-group { display: flex; justify-content: center; gap: 8px; } 
         input[type="checkbox"] { width: 18px; height: 18px; vertical-align: middle; cursor: pointer; }
 
-        /* === [修改] 交易日志表格样式 === */
         .log-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .log-table th { background: #fff; color: #666; font-size: 12px; position: sticky; top: 0; border-bottom: 2px solid #eee; text-align: left; padding: 8px 5px; }
         .log-table td { padding: 8px 5px; border-bottom: 1px solid #f0f0f0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
         
-        /* 调整列宽以容纳均线列 */
         .log-col-date { width: 18%; }
         .log-col-action { width: 12%; text-align: center !important; }
         .log-col-val { width: 20%; text-align: center !important; }
-        .log-col-mas { width: 20%; font-size: 10px; color: #888; line-height: 1.2; font-family: monospace; } /* 新增均线列样式 */
+        .log-col-mas { width: 20%; font-size: 10px; color: #888; line-height: 1.2; font-family: monospace; }
         .log-col-reason { width: 30%; }
 
         .badge { padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #fff; font-weight: normal; }
@@ -370,6 +368,20 @@
                 </div>
             </div>
 
+            <!-- 6. 新增：各股盈亏贡献堆叠图 -->
+            <div id="contribution-section" style="margin-bottom:15px;">
+                <div class="section-header" onclick="toggleSection('contribution-content', this)">
+                    <span>💰 累计盈亏贡献 (Profit Contribution)</span> 
+                    <span class="arrow header-arrow">▼</span>
+                </div>
+                <div id="contribution-content" class="section-body collapsed">
+                    <div id="contribution-chart" style="width: 100%; height: 400px;"></div>
+                    <div style="text-align:center; font-size:11px; color:#999; margin-top:5px;">
+                        展示每只股票对组合总收益的累计点数贡献 (Stacked P&L)。
+                    </div>
+                </div>
+            </div>
+
         </div> <!-- end results-container -->
         
         <!-- 单只详情展示区 -->
@@ -402,7 +414,7 @@
                                     <th class="log-col-date">日期</th>
                                     <th class="log-col-action">动作</th>
                                     <th class="log-col-val">变动</th>
-                                    <th class="log-col-mas">均线(5/10/20)</th> <!-- 新增表头 -->
+                                    <th class="log-col-mas">均线(5/10/20)</th>
                                     <th class="log-col-reason">原因</th>
                                 </tr>
                             </thead>
@@ -440,6 +452,7 @@
     let portfolioChart = null; 
     let holdingsChart = null; 
     let statusChart = null; 
+    let contributionChart = null; // 新增图表实例
 
     function checkUnsavedStatus() {
         const dirty = localStorage.getItem('gridHasUnsavedChanges') === 'true';
@@ -493,6 +506,7 @@
                 if(myChart) myChart.resize();
                 if(portfolioChart) portfolioChart.resize();
                 if(statusChart) statusChart.resize();
+                if(contributionChart) contributionChart.resize(); // 新增resize
             }, 200);
         }
     }
@@ -510,6 +524,7 @@
                 if (contentId === 'portfolio-content' && portfolioChart) portfolioChart.resize();
                 if (contentId === 'holdings-content' && holdingsChart) holdingsChart.resize();
                 if (contentId === 'status-dist-content' && statusChart) statusChart.resize(); 
+                if (contentId === 'contribution-content' && contributionChart) contributionChart.resize(); // 新增resize
             }, 50); 
         }
     }
@@ -816,7 +831,6 @@
                 let dateDisplay = d.date;
                 if (i === rawData.length - 1 && d.date === todayStr) dateDisplay += ' (盘中)';
                 
-                // === 修改：计算均线并添加到日志 ===
                 let maStr = "-";
                 if (m5 !== null && m10 !== null && m20 !== null) {
                     maStr = `M5:${m5.toFixed(2)}<br>M10:${m10.toFixed(2)}<br>M20:${m20.toFixed(2)}`;
@@ -913,6 +927,10 @@
 
             document.querySelector('#status-dist-section .section-header').classList.remove('expanded');
             document.getElementById('status-dist-content').classList.add('collapsed');
+            
+            // 默认折叠新增的贡献模块
+            document.querySelector('#contribution-section .section-header').classList.remove('expanded');
+            document.getElementById('contribution-content').classList.add('collapsed');
 
             runPortfolioStrategy(); 
             renderStatusDistribution(); 
@@ -955,7 +973,6 @@
         const tbody = document.getElementById('log-tbody'); document.getElementById('log-count').innerText = `(${logs.length})`;
         if(logs.length === 0) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">期间无操作</td></tr>'; return; }
         
-        // 动态更新表头以显示均线列
         const thead = document.querySelector('.log-table thead tr');
         if(thead) {
             thead.innerHTML = `
@@ -1026,6 +1043,10 @@
         if (sortedDates.length < 2) return alert("有效日期数据不足");
 
         let portNav = 1.0, portHistory = [], maxDD = 0, peak = 1.0, lastValidData = {}, prevAllocatedLevs = {}; 
+        
+        // 新增：用于跟踪每只股票的累计贡献点数
+        let accContribution = {}; 
+        batchResults.forEach((res, idx) => { accContribution[idx] = 0; });
 
         for (let i = 0; i < sortedDates.length; i++) {
             const currDate = sortedDates[i];
@@ -1033,16 +1054,31 @@
             const prevValidData = { ...lastValidData };
             batchResults.forEach((res, idx) => { if (rawDayData.stocks[idx]) lastValidData[idx] = rawDayData.stocks[idx]; });
 
+            let dailyContribBreakdown = {}; // 存储当日各股的累计贡献值
+
             if (i > 0) {
                 let dayPnLComponent = 0;
                 batchResults.forEach((res, idx) => {
                     const sCurr = lastValidData[idx]; const sPrev = prevValidData[idx]; const allocatedL = prevAllocatedLevs[idx] || 0; 
-                    if (sCurr && sPrev && sPrev.close > 0) { dayPnLComponent += ((sCurr.close - sPrev.close) / sPrev.close * allocatedL); }
+                    if (sCurr && sPrev && sPrev.close > 0) { 
+                        // 计算该股票当日贡献的收益点数 (盈亏 * 权重)
+                        const stockRet = (sCurr.close - sPrev.close) / sPrev.close;
+                        const contribution = stockRet * allocatedL;
+                        dayPnLComponent += contribution; 
+                        
+                        // 累加到该股票的总贡献中
+                        accContribution[idx] += contribution;
+                    }
                 });
                 portNav = portNav * (1 + dayPnLComponent); 
                 if (portNav > peak) peak = portNav;
                 const dd = (peak - portNav) / peak; if (dd > maxDD) maxDD = dd;
             }
+
+            // 记录当日各股的累计贡献
+            batchResults.forEach((res, idx) => {
+                dailyContribBreakdown[res.stockName] = accContribution[idx];
+            });
 
             let currentValidStocks = {}; let activeCount = 0;
             batchResults.forEach((res, idx) => {
@@ -1060,12 +1096,20 @@
                 } else { prevAllocatedLevs[idx] = 0; }
             });
 
-            portHistory.push({ date: currDate, nav: portNav, totalLev: currentCalculatedSumAlloc, breakdown: dailyBreakdown, activeCount: activeCount });
+            portHistory.push({ 
+                date: currDate, 
+                nav: portNav, 
+                totalLev: currentCalculatedSumAlloc, 
+                breakdown: dailyBreakdown, 
+                contribBreakdown: dailyContribBreakdown, // 保存贡献数据
+                activeCount: activeCount 
+            });
         }
         
         renderPortfolioStats(portHistory, maxDD); 
         renderHoldingsChart(portHistory);
         renderTradeLog(portHistory);
+        renderContributionChart(portHistory); // 渲染新增图表
     }
 
     function renderPortfolioStats(hist, maxDD) {
@@ -1218,6 +1262,71 @@
             xAxis: { type: 'category', data: dates, axisTick: { show: false }, axisLine: { lineStyle: { color: '#ccc' } } },
             yAxis: { type: 'value', minInterval: 1, splitLine: { show: true, lineStyle: { type: 'dashed' } } },
             dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 0, height: 20 }],
+            series: seriesData
+        });
+    }
+
+    // === 新增：各股盈亏贡献堆叠图 ===
+    function renderContributionChart(hist) {
+        const dom = document.getElementById('contribution-chart'); 
+        if (contributionChart) contributionChart.dispose(); 
+        contributionChart = echarts.init(dom);
+        contributionChart.group = 'stockGroup'; 
+
+        const dates = hist.map(h => h.date); 
+        const allStockNames = batchResults.map(r => r.stockName);
+
+        const seriesData = allStockNames.map(name => { 
+            return { 
+                name: name, 
+                type: 'line', 
+                stack: 'Total', // 堆叠模式
+                areaStyle: {}, 
+                emphasis: { focus: 'series' }, 
+                showSymbol: false, 
+                lineStyle: { width: 0 }, 
+                data: hist.map(h => h.contribBreakdown[name] || 0) // 读取每只股票的累计贡献值
+            }; 
+        });
+        
+        contributionChart.setOption({
+            tooltip: { 
+                trigger: 'axis', 
+                axisPointer: { type: 'cross', label: { backgroundColor: '#6a7985' } }, 
+                formatter: function (params) { 
+                    let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${params[0].name}</div>`; 
+                    let sum = 0; 
+                    // 按绝对值排序显示，方便看到主要贡献者
+                    const sortedParams = params.sort((a, b) => Math.abs(parseFloat(b.value)) - Math.abs(parseFloat(a.value)));
+                    
+                    sortedParams.forEach(p => { 
+                        const val = parseFloat(p.value); 
+                        if(Math.abs(val) > 0.001) { 
+                            const valPct = (val * 100).toFixed(2) + '%';
+                            const color = val >= 0 ? '#d32f2f' : '#2e7d32';
+                            h += `<div style="font-size:11px; display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:2px;">
+                                    <span style="min-width:70px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span>
+                                    <div style="text-align:right"><b style="color:${color}">${valPct}</b></div>
+                                  </div>`; 
+                            sum += val; 
+                        } 
+                    }); 
+                    const totalPct = (sum * 100).toFixed(2) + '%';
+                    const totalColor = sum >= 0 ? '#d32f2f' : '#2e7d32';
+                    h += `<div style="border-top:1px solid #eee; margin-top:5px; padding-top:4px; font-weight:bold; text-align:right;">
+                            总累计盈亏: <span style="color:${totalColor}">${totalPct}</span>
+                          </div>`; 
+                    return h; 
+                } 
+            },
+            legend: { data: allStockNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, 
+            grid: { left: '12%', right: '8%', bottom: '25px', containLabel: false }, 
+            xAxis: { type: 'category', boundaryGap: false, data: dates }, 
+            yAxis: { 
+                type: 'value', 
+                axisLabel: { formatter: (val) => (val*100).toFixed(0)+'%' } // Y轴显示百分比
+            },
+            dataZoom: [{type:'inside'}, {type:'slider', bottom:0, height:20}], 
             series: seriesData
         });
     }
