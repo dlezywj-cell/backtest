@@ -60,10 +60,8 @@
         .btn:disabled { background: #ccc !important; cursor: not-allowed; }
         .btn-blue { background: #007bff; } .btn-green { background: #28a745; } .btn-purple { background: #6f42c1; } .btn-gray { background: #6c757d; }
         
-        /* 修改：基础橙色按钮样式，增加过渡 */
         .btn-orange { background: #fd7e14; transition: all 0.3s ease; }
 
-        /* ★★★ 新增：未保存时的提醒样式 (覆盖橙色) ★★★ */
         .btn-orange.unsaved { 
             background-color: #dc3545 !important; 
             font-weight: 800;
@@ -87,18 +85,16 @@
         .win { color: #d32f2f; } .loss { color: #2e7d32; }
         #chart-box { width: 100%; height: 400px; }
 
-        /* === [修改] 收益排行榜容器优化 === */
         .summary-wrapper { 
             overflow-x: auto; 
-            overflow-y: auto; /* 允许垂直滚动 */
+            overflow-y: auto; 
             margin-bottom: 15px; 
             border: 1px solid #eee; 
             border-radius: 6px; 
-            max-height: 400px; /* 限制高度，约显示10行 */
+            max-height: 400px; 
         }
         .summary-table { width: 100%; font-size: 13px; border-collapse: collapse; background: #fff; min-width: 300px; }
         
-        /* === [修改] 排行榜表头固定 === */
         .summary-table th { 
             background: #f1f3f5; 
             padding: 10px 8px; 
@@ -107,10 +103,10 @@
             font-size: 12px; 
             text-align: right; 
             white-space: nowrap; 
-            position: sticky; /* 固定表头 */
+            position: sticky; 
             top: 0;
             z-index: 10;
-            box-shadow: 0 1px 0 #ddd; /* 滚动时的分割线 */
+            box-shadow: 0 1px 0 #ddd;
         }
         .summary-table th:first-child { text-align: left; }
         .summary-table td { padding: 12px 8px; border-bottom: 1px solid #eee; text-align: right; }
@@ -121,21 +117,18 @@
         .summary-table tr.selected td { font-weight: 500; }
         .val-pos { color: #d32f2f; } .val-neg { color: #2e7d32; }
 
-        /* === 列表优化样式 === */
         .list-search-bar { padding: 10px 15px; border-bottom: 1px solid #f0f0f0; background: #fff; display: flex; align-items: center; gap: 8px; }
         .list-search-bar input { flex: 1; border: 1px solid #eee; border-radius: 6px; padding: 8px; font-size: 13px; background: #f9f9f9; outline: none; transition: all 0.2s; }
         .list-search-bar input:focus { background: #fff; border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.1); }
         
-        /* === [新增] 监控列表滚动容器 === */
         .table-scroll-box {
             overflow-x: auto;
             overflow-y: auto;
-            max-height: 420px; /* 限制高度，约显示10只股票 */
+            max-height: 420px;
         }
 
         .base-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         
-        /* === [修改] 监控列表表头固定 === */
         .base-table th { 
             background: #f8f9fa; 
             padding: 10px; 
@@ -143,7 +136,7 @@
             font-size: 12px; 
             color:#666; 
             border-bottom: 1px solid #ddd;
-            position: sticky; /* 固定表头 */
+            position: sticky; 
             top: 0;
             z-index: 10;
             box-shadow: 0 1px 0 #ddd;
@@ -156,13 +149,17 @@
         .op-btn-group { display: flex; justify-content: center; gap: 8px; } 
         input[type="checkbox"] { width: 18px; height: 18px; vertical-align: middle; cursor: pointer; }
 
+        /* === [修改] 交易日志表格样式 === */
         .log-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .log-table th { background: #fff; color: #666; font-size: 12px; position: sticky; top: 0; border-bottom: 2px solid #eee; text-align: left; padding: 8px 5px; }
-        .log-table td { padding: 8px 5px; border-bottom: 1px solid #f0f0f0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .log-col-date { width: 22%; }
-        .log-col-action { width: 15%; text-align: center !important; }
-        .log-col-val { width: 28%; text-align: center !important; }
-        .log-col-reason { width: 35%; }
+        .log-table td { padding: 8px 5px; border-bottom: 1px solid #f0f0f0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+        
+        /* 调整列宽以容纳均线列 */
+        .log-col-date { width: 18%; }
+        .log-col-action { width: 12%; text-align: center !important; }
+        .log-col-val { width: 20%; text-align: center !important; }
+        .log-col-mas { width: 20%; font-size: 10px; color: #888; line-height: 1.2; font-family: monospace; } /* 新增均线列样式 */
+        .log-col-reason { width: 30%; }
 
         .badge { padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #fff; font-weight: normal; }
         .bg-red { background: #d32f2f; } .bg-green { background: #2e7d32; }
@@ -170,7 +167,6 @@
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; }
         .modal-box { background: #fff; padding: 20px; border-radius: 12px; width: 85%; max-width: 320px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
 
-        /* === 交易明细专用样式 === */
         .daily-log-header {
             padding: 8px 10px; background: #fff; border: 1px solid #eee; margin-top: -1px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 13px; transition: background 0.2s;
         }
@@ -182,7 +178,6 @@
         .arrow-daily { font-size: 10px; color: #999; transform: rotate(0deg); transition: transform 0.2s; }
         .daily-log-header.open .arrow-daily { transform: rotate(90deg); }
 
-        /* === 可搜索组合框 (Combo Box) 样式 === */
         .combo-box { position: relative; max-width: 70%; flex: 1; }
         .combo-input { width: 100%; padding: 8px 30px 8px 10px; border: 1px solid #ddd; border-radius: 6px; outline: none; font-weight: bold; color: #333; box-sizing: border-box; font-size: 16px; background: #fff; transition: border 0.2s; }
         .combo-input:focus { border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.1); }
@@ -237,7 +232,6 @@
             <input type="text" id="list-search-input" placeholder="输入名称或代码筛选..." oninput="filterStockList()">
         </div>
 
-        <!-- 使用新的 class: table-scroll-box 控制高度 -->
         <div class="table-scroll-box">
             <table class="base-table">
                 <thead>
@@ -351,7 +345,7 @@
                 </div>
             </div>
 
-            <!-- 4. 交易明细 (新增模块) -->
+            <!-- 4. 交易明细 -->
             <div id="trade-log-section" style="margin-bottom:15px;">
                 <div class="section-header" onclick="toggleSection('trade-log-content', this)">
                     <span>📝 每日调仓明细 (Trading Signals)</span> 
@@ -362,7 +356,7 @@
                 </div>
             </div>
             
-            <!-- 5. 每日状态分布 (新增模块) -->
+            <!-- 5. 每日状态分布 -->
             <div id="status-dist-section" style="margin-bottom:15px;">
                 <div class="section-header" onclick="toggleSection('status-dist-content', this)">
                     <span>🚥 每日状态占比 (Market Status)</span> 
@@ -381,7 +375,6 @@
         <!-- 单只详情展示区 -->
         <div id="detail-view" style="display:none; border-top: 2px dashed #eee; margin-top: 20px; padding-top: 15px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <!-- 自定义可搜索组合框 (Combo Box) -->
                 <div class="combo-box" id="detail-combo">
                     <input type="text" class="combo-input" id="detail-combo-input" placeholder="点击选择或输入搜索..." oninput="filterDetailCombo()" onfocus="openDetailCombo()" onclick="this.select()">
                     <span class="combo-arrow" onclick="toggleDetailCombo(event)">▼</span>
@@ -409,6 +402,7 @@
                                     <th class="log-col-date">日期</th>
                                     <th class="log-col-action">动作</th>
                                     <th class="log-col-val">变动</th>
+                                    <th class="log-col-mas">均线(5/10/20)</th> <!-- 新增表头 -->
                                     <th class="log-col-reason">原因</th>
                                 </tr>
                             </thead>
@@ -447,7 +441,6 @@
     let holdingsChart = null; 
     let statusChart = null; 
 
-    // ★★★ 新增：管理未保存状态 ★★★
     function checkUnsavedStatus() {
         const dirty = localStorage.getItem('gridHasUnsavedChanges') === 'true';
         const btn = document.getElementById('btn-push');
@@ -647,30 +640,24 @@
     // === 核心数据逻辑 ===
     const getEmSecId = c => { let raw = c.replace(/\.[A-Z]+$/, ''); if (c.includes('.HK') || /^\d{5}$/.test(raw)) return '116.' + raw.padStart(5, '0'); if (c.includes('.US')) return '105.' + raw; if (raw.startsWith('6')) return '1.' + raw; return '0.' + raw; };
     
-    // ★★★ 辅助函数：根据市场类型转换时间戳为日期字符串，解决时区对齐问题 ★★★
     function getMarketDate(timestamp, stockCode) {
         const date = new Date(timestamp * 1000);
-        let timeZone = 'Asia/Shanghai'; // 默认中国时间
-        if (stockCode.includes('.US')) timeZone = 'America/New_York'; // 美股用纽约时间
+        let timeZone = 'Asia/Shanghai'; 
+        if (stockCode.includes('.US')) timeZone = 'America/New_York'; 
         
-        // 使用 Intl.DateTimeFormat 获取当地 YYYY-MM-DD
         const formatter = new Intl.DateTimeFormat('en-CA', {
             timeZone: timeZone, year: 'numeric', month: '2-digit', day: '2-digit'
         });
         return formatter.format(date);
     }
 
-    // 1. 获取东财K线历史数据 (直接作为主数据源)
     async function fetchEmKline(secId) {
-        // klt=101 (日K), fqt=1 (前复权), lmt=500 (最近500天)
-        // f51:日期, f53:收盘价
         const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&fields1=f1&fields2=f51,f53&klt=101&fqt=1&end=20500101&lmt=500`;
         const res = await fetch(PROXY + encodeURIComponent(url));
         const json = await res.json();
         return json?.data?.klines || [];
     }
 
-    // 2. 核心计算函数 (完全重写数据获取部分)
     async function calculateStock(stock) {
         const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
         const lowSens = parseFloat(document.getElementById('pLowSens').value) || 12; 
@@ -681,18 +668,14 @@
         let emSecId = getEmSecId(stock.code); 
         let emCode = emSecId.split('.')[1];
 
-        // --- A. 获取总股本 (用于计算市值) ---
-        // 依然使用 snapshot 接口获取最新总市值 f20 和最新价 f2，反推总股本
-        // 增加 f124 时间戳
         const snapUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emSecId}&fields=f2,f20,f124&invt=2&fltt=2`;
         const snapRes = await fetch(PROXY + encodeURIComponent(snapUrl));
         const snapJson = await snapRes.json();
         
         let totalShares = 0;
         let rtPrice = 0; 
-        let rtTimestamp = 0; // 实时更新时间戳
+        let rtTimestamp = 0; 
 
-        // 尝试修正美股 secid (106 or 105)
         if(stock.code.includes('.US') && (!snapJson.data || !snapJson.data.diff)) {
              emSecId = '106.' + emCode;
              const retryRes = await fetch(PROXY + encodeURIComponent(`https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emSecId}&fields=f2,f20,f124&invt=2&fltt=2`));
@@ -716,7 +699,6 @@
         
         if(!totalShares) throw new Error(`无法获取股本数据`);
 
-        // --- B. 获取东财 K 线数据 (替代 Yahoo) ---
         const klines = await fetchEmKline(emSecId);
         if(!klines || klines.length === 0) throw new Error("无K线数据");
 
@@ -727,15 +709,13 @@
         const userStartDate = document.getElementById('inStartDate').value;
         const userEndDate = document.getElementById('inEndDate').value;
         const now = new Date();
-        const todayStr = getMarketDate(now.getTime() / 1000, stock.code); // 根据市场获取"今天"
+        const todayStr = getMarketDate(now.getTime() / 1000, stock.code); 
 
         klines.forEach(k => {
-            // k 的格式: "2023-10-27,145.3" (日期,收盘价)
             const parts = k.split(',');
             const dateStr = parts[0];
             const close = parseFloat(parts[1]);
             
-            // 过滤日期范围
             if (dateStr >= userStartDate && dateStr <= userEndDate) {
                 let mv = close * totalShares;
                 rawData.push({
@@ -749,12 +729,9 @@
 
         if (rawData.length === 0) throw new Error("所选日期范围内无数据");
 
-        // --- C. 强制缝合实时数据 (智能休市判定) ---
-        // ★★★ 核心修改：利用时间戳差异判断交易状态 ★★★
         if (rtPrice > 0 && rtTimestamp > 0 && userEndDate >= todayStr) {
             const lastData = rawData[rawData.length - 1];
             
-            // 1. 判断数据新鲜度：如果东财时间戳滞后当前系统时间超过 20小时 (72000秒)，说明今天是休市日(周末/假日)
             const secondsSinceTrade = (Date.now() / 1000) - rtTimestamp;
             const isMarketClosedToday = secondsSinceTrade > 72000;
 
@@ -762,38 +739,30 @@
                 const rtMv = rtPrice * totalShares;
                 const rtScore = (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap));
                 
-                // 2. 生成实时数据的日期字符串 (注意：必须用 getMarketDate 保证时区对齐)
                 const rtDateStr = getMarketDate(rtTimestamp, stock.code);
                 const rtItem = { date: rtDateStr, close: rtPrice, mv: rtMv, valScore: rtScore };
 
-                // 3. 判断是“新增一天”还是“覆盖最后一天”
-                // 如果东财k线最后一天还不是今天，而实时接口是今天 -> 新增
                 if (lastData.date !== rtDateStr) {
                     rawData.push(rtItem);
                 } else {
-                    // 已经是今天，覆盖最新的价格 (盘中变动)
                     rawData[rawData.length - 1] = rtItem;
                 }
             }
         }
 
-        // --- D. 策略回测逻辑 ---
         const ma = (idx, n) => { if(idx<n) return null; let sum=0; for(let k=idx-n; k<idx; k++) sum+=rawData[k].close; return sum/n; };
         
         let nav = 1.0, peakNav = 1.0, prevL = getTargetLeverage(rawData[0].mv), inProtect = false, history = [], changeLogs = [];
-        // 初始化第一天
         history.push({date: rawData[0].date, nav:1.0, close:rawData[0].close, leverage:prevL, status: "震荡整理"});
 
         for(let i=1; i<rawData.length; i++) {
             const d = rawData[i]; const prevD = rawData[i-1]; const r = d.close / prevD.close - 1; const curMv = d.mv;
             const targetL = getTargetLeverage(curMv); let newL = targetL; let reason = "估值驱动";
             
-            // --- 状态标记逻辑开始 ---
             let statusTag = "震荡整理"; 
             let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20);
             const isUp = (m5 && m10 && m20 && m5 > m10 && m10 > m20);
             const isDown = (m5 && m10 && m20 && m5 < m10 && m10 < m20);
-            // --- 状态标记逻辑结束 ---
 
             const nearLowMv = (curMv <= minCap * 1.05);
             let winStart = Math.max(0, i - 20); let winNav = 0; for(let k=winStart; k<history.length; k++) if(history[k].nav > winNav) winNav = history[k].nav; if(i < 20) winNav = peakNav; if(nav > winNav) winNav = nav;
@@ -804,7 +773,7 @@
             }
             
             if(inProtect) {
-                statusTag = "触发风控"; // 优先标记风控
+                statusTag = "触发风控"; 
                 if(isUp && d.valScore > 0) { inProtect = false; newL = targetL; reason = "趋势恢复且估值改善"; } 
                 else {
                     if(isDown) { let slope = (m10 - m20)/m20; let reduce = Math.min(1.0, Math.abs(slope)*25); let trendL = Math.max(0.01, prevL * (1 - reduce * 0.8)); if(trendL < newL) { newL = trendL; reason = "保护中极速减仓"; } } 
@@ -818,14 +787,12 @@
                 else statusTag = "震荡整理";
 
                 if(isDown) {
-                    // ★★★ 低估值特赦逻辑 ★★★
                     if (d.valScore > 0.6 && d.close > m5) {
                         if (newL < prevL) {
                             newL = prevL;
                             reason = "低估且站上MA5(暂停减仓)";
                         }
                     } else {
-                        // === 原有减仓逻辑 ===
                         let slope = (m10 - m20)/m20; 
                         let reduceSpeed, reduceMsg;
                         if (curMv <= minCap) { 
@@ -847,13 +814,24 @@
             
             if(Math.abs(newL - prevL) > 0.005) { 
                 let dateDisplay = d.date;
-                // 判断是否是今天 (东财接口会自动过滤周末，所以只要日期对上就是盘中)
                 if (i === rawData.length - 1 && d.date === todayStr) dateDisplay += ' (盘中)';
-                changeLogs.push({ date: dateDisplay, action: `<span class="badge ${newL>prevL?'bg-red':'bg-green'}">${newL>prevL?'加仓':'减仓'}</span>`, val: `${prevL.toFixed(2)} → ${newL.toFixed(2)}`, reason: reason }); 
+                
+                // === 修改：计算均线并添加到日志 ===
+                let maStr = "-";
+                if (m5 !== null && m10 !== null && m20 !== null) {
+                    maStr = `M5:${m5.toFixed(2)}<br>M10:${m10.toFixed(2)}<br>M20:${m20.toFixed(2)}`;
+                }
+
+                changeLogs.push({ 
+                    date: dateDisplay, 
+                    action: `<span class="badge ${newL>prevL?'bg-red':'bg-green'}">${newL>prevL?'加仓':'减仓'}</span>`, 
+                    val: `${prevL.toFixed(2)} → ${newL.toFixed(2)}`, 
+                    reason: reason,
+                    mas: maStr 
+                }); 
             }
             nav = nav * (1 + prevL * r); if(nav > peakNav) peakNav = nav; 
             
-            // 保存状态到历史记录
             history.push({date: d.date, nav, close: d.close, leverage: newL, status: statusTag}); 
             prevL = newL;
         }
@@ -924,7 +902,6 @@
         if(batchResults.length > 0) {
             resultsContainer.style.display = 'block';
             
-            // 展开摘要和组合，折叠持仓和日志
             document.querySelector('#batch-summary-box .section-header').classList.add('expanded');
             document.getElementById('summary-content').classList.remove('collapsed');
             document.querySelector('#portfolio-section .section-header').classList.add('expanded');
@@ -934,12 +911,11 @@
             document.querySelector('#trade-log-section .section-header').classList.remove('expanded');
             document.getElementById('trade-log-content').classList.add('collapsed');
 
-            // 默认折叠新模块
             document.querySelector('#status-dist-section .section-header').classList.remove('expanded');
             document.getElementById('status-dist-content').classList.add('collapsed');
 
             runPortfolioStrategy(); 
-            renderStatusDistribution(); // 渲染新的状态分布图
+            renderStatusDistribution(); 
             renderDetailCombo(); 
             showDetail(batchResults[0].index);
             
@@ -977,14 +953,35 @@
 
     function renderLog(logs) {
         const tbody = document.getElementById('log-tbody'); document.getElementById('log-count').innerText = `(${logs.length})`;
-        if(logs.length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">期间无操作</td></tr>'; return; }
-        tbody.innerHTML = logs.slice().reverse().map(l => `<tr><td class="log-col-date" style="color:#666;">${l.date}</td><td class="log-col-action">${l.action}</td><td class="log-col-val" style="font-family:monospace;">${l.val}</td><td class="log-col-reason" style="color:#555;" title="${l.reason}">${l.reason}</td></tr>`).join('');
+        if(logs.length === 0) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">期间无操作</td></tr>'; return; }
+        
+        // 动态更新表头以显示均线列
+        const thead = document.querySelector('.log-table thead tr');
+        if(thead) {
+            thead.innerHTML = `
+                <th class="log-col-date">日期</th>
+                <th class="log-col-action">动作</th>
+                <th class="log-col-val">变动</th>
+                <th class="log-col-mas">均线(5/10/20)</th>
+                <th class="log-col-reason">原因</th>
+            `;
+        }
+
+        tbody.innerHTML = logs.slice().reverse().map(l => `
+            <tr>
+                <td class="log-col-date" style="color:#666;">${l.date}</td>
+                <td class="log-col-action">${l.action}</td>
+                <td class="log-col-val" style="font-family:monospace;">${l.val}</td>
+                <td class="log-col-mas">${l.mas}</td>
+                <td class="log-col-reason" style="color:#555;" title="${l.reason}">${l.reason}</td>
+            </tr>
+        `).join('');
     }
 
     // === 图表渲染：单股详情 ===
     function renderChart(hist) {
         const dom = document.getElementById('chart-box'); if(myChart) myChart.clear(); else myChart = echarts.init(dom);
-        myChart.group = 'stockGroup'; // ★ 设置联动组名
+        myChart.group = 'stockGroup'; 
         const dates = hist.map(h=>h.date);
         myChart.setOption({
             tooltip: { 
@@ -1006,7 +1003,6 @@
                 backgroundColor: 'rgba(255,255,255,0.95)', borderColor: '#eee', borderWidth: 1, textStyle: {color:'#333'} 
             },
             legend: { top: 0, data: ['股价','净值','杠杆'], itemWidth:12, itemHeight:8, textStyle:{fontSize:11} },
-            // ★ 修改 Grid 统一边距
             grid: [{ left: '12%', right: '8%', top: '12%', height: '58%' }, { left: '12%', right: '8%', top: '78%', height: '15%' }],
             xAxis: [{type:'category', data: dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}, axisLine:{lineStyle:{color:'#eee'}}}, {type:'category', data: dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}],
             yAxis: [{type:'value', position:'left', splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#999'}}, {type:'value', position:'right', splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#d32f2f'}}, {type:'value', gridIndex:1, splitLine:{show:true, lineStyle:{type:'dashed', color:'#eee'}}, min:0, max:2.1, axisLabel:{fontSize:10, color:'#28a745'}}],
@@ -1078,7 +1074,7 @@
         document.getElementById('port-lev').innerText = avgLev.toFixed(2) + 'x'; 
         const ddEl = document.getElementById('port-dd'); ddEl.innerText = (maxDD * 100).toFixed(2) + '%'; ddEl.className = 'stat-val loss'; 
         const dom = document.getElementById('portfolio-chart'); if (portfolioChart) portfolioChart.dispose(); portfolioChart = echarts.init(dom);
-        portfolioChart.group = 'stockGroup'; // ★ 设置联动组名
+        portfolioChart.group = 'stockGroup'; 
         const dates = hist.map(h => h.date);
         portfolioChart.setOption({
             tooltip: { 
@@ -1094,7 +1090,6 @@
                 }, backgroundColor: 'rgba(255,255,255,0.95)' 
             },
             legend: { top: 0, data: ['组合净值', '实际总杠杆'] },
-            // ★ 修改 Grid 统一边距
             grid: [{ left: '12%', right: '8%', top: '15%', height: '55%' }, { left: '12%', right: '8%', top: '75%', height: '15%' }],
             xAxis: [{type:'category', data:dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}}, {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}],
             yAxis: [{type:'value', gridIndex:0, scale:true, splitLine:{show:false}}, {type:'value', gridIndex:1, splitLine:{show:false}, min:0}],
@@ -1108,7 +1103,7 @@
 
     function renderHoldingsChart(hist) {
         const dom = document.getElementById('holdings-chart'); if (holdingsChart) holdingsChart.dispose(); holdingsChart = echarts.init(dom);
-        holdingsChart.group = 'stockGroup'; // ★ 设置联动组名
+        holdingsChart.group = 'stockGroup'; 
         const dates = hist.map(h => h.date); const allStockNames = batchResults.map(r => r.stockName);
         const seriesData = allStockNames.map(name => { return { name: name, type: 'line', stack: 'Total', areaStyle: {}, emphasis: { focus: 'series' }, showSymbol: false, lineStyle: { width: 0 }, data: hist.map(h => h.breakdown[name] || 0) }; });
         
@@ -1133,7 +1128,6 @@
                 } 
             },
             legend: { data: allStockNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, 
-            // ★ 修改 Grid 统一边距
             grid: { left: '12%', right: '8%', bottom: '25px', containLabel: false }, 
             xAxis: { type: 'category', boundaryGap: false, data: dates }, 
             yAxis: { type: 'value', min: 0 },
@@ -1183,7 +1177,6 @@
         if (container.innerHTML === '') container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无调仓记录</div>';
     }
 
-    // === 新增：渲染市场状态分布图 ===
     function renderStatusDistribution() {
         if (!batchResults || batchResults.length === 0) return;
         
@@ -1204,7 +1197,7 @@
         });
 
         const dom = document.getElementById('status-chart'); if (statusChart) statusChart.dispose(); statusChart = echarts.init(dom);
-        statusChart.group = 'stockGroup'; // ★ 设置联动组名
+        statusChart.group = 'stockGroup'; 
         statusChart.setOption({
             tooltip: {
                 trigger: 'axis', axisPointer: { type: 'shadow' },
@@ -1221,7 +1214,6 @@
                 }, backgroundColor: 'rgba(255,255,255,0.95)'
             },
             legend: { data: seriesNames, top: 0, selectedMode: true, textStyle: { fontSize: 11 } },
-            // ★ 修改 Grid 统一边距
             grid: { left: '12%', right: '8%', bottom: '30px', top: '30px', containLabel: true },
             xAxis: { type: 'category', data: dates, axisTick: { show: false }, axisLine: { lineStyle: { color: '#ccc' } } },
             yAxis: { type: 'value', minInterval: 1, splitLine: { show: true, lineStyle: { type: 'dashed' } } },
@@ -1230,7 +1222,6 @@
         });
     }
 
-    // ★★★ 新增：防止意外关闭
     window.addEventListener('beforeunload', (e) => {
         if (localStorage.getItem('gridHasUnsavedChanges') === 'true') {
             e.preventDefault();
@@ -1238,12 +1229,10 @@
         }
     });
 
-    // ★★★ 自动同步逻辑 ★★★
     (async function autoSyncFromGithub() {
         const token = localStorage.getItem("github_token");
-        if (!token) return; // 无 Token 不自动同步
+        if (!token) return; 
         
-        // 尝试临时改变拉取按钮文字以示正在同步
         const btnPull = document.getElementById('btn-pull');
         const originText = btnPull.innerText;
         btnPull.innerText = "☁️...";
@@ -1265,8 +1254,7 @@
                 stocks = data;
                 localStorage.setItem('gridStocks', JSON.stringify(stocks)); 
                 renderTable(); 
-                setLocalChanges(false); // 同步成功，视为已保存
-                // 成功提示
+                setLocalChanges(false); 
                 btnPull.innerText = "✅";
                 setTimeout(() => btnPull.innerText = originText, 2000);
             } else {
@@ -1279,7 +1267,6 @@
         }
     })();
 
-    // ★★★ 启动图表联动 ★★★
     echarts.connect('stockGroup');
 </script>
 </body>
