@@ -149,15 +149,20 @@
         .op-btn-group { display: flex; justify-content: center; gap: 8px; } 
         input[type="checkbox"] { width: 18px; height: 18px; vertical-align: middle; cursor: pointer; }
 
-        .log-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        .log-table th { background: #fff; color: #666; font-size: 12px; position: sticky; top: 0; border-bottom: 2px solid #eee; text-align: left; padding: 8px 5px; }
-        .log-table td { padding: 8px 5px; border-bottom: 1px solid #f0f0f0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+        /* === 修改部分：交易日志表格样式 === */
+        /* 1. 设置最小宽度 min-width: 750px，强制在小屏下出现横向滚动条 */
+        .log-table { width: 100%; min-width: 750px; border-collapse: collapse; table-layout: fixed; }
         
-        .log-col-date { width: 18%; }
-        .log-col-action { width: 12%; text-align: center !important; }
-        .log-col-val { width: 20%; text-align: center !important; }
+        .log-table th { background: #fff; color: #666; font-size: 12px; position: sticky; top: 0; border-bottom: 2px solid #eee; text-align: left; padding: 8px 5px; z-index: 5; }
+        
+        /* 2. 去掉 overflow: hidden 和 text-overflow: ellipsis，允许完整显示内容 */
+        .log-table td { padding: 8px 5px; border-bottom: 1px solid #f0f0f0; font-size: 12px; white-space: nowrap; vertical-align: middle; }
+        
+        .log-col-date { width: 15%; }
+        .log-col-action { width: 10%; text-align: center !important; }
+        .log-col-val { width: 15%; text-align: center !important; }
         .log-col-mas { width: 20%; font-size: 10px; color: #888; line-height: 1.2; font-family: monospace; }
-        .log-col-reason { width: 30%; }
+        .log-col-reason { width: 40%; }
 
         .badge { padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #fff; font-weight: normal; }
         .bg-red { background: #d32f2f; } .bg-green { background: #2e7d32; }
@@ -193,7 +198,6 @@
 </head>
 <body>
 <div class="container">
-
 <!-- 配置卡片 -->
 <div class="card open" id="card-config">
     <div class="card-header" onclick="toggleCard('card-config')">
@@ -217,7 +221,6 @@
         </div>
     </div>
 </div>
-
 <!-- 列表卡片 -->
 <div class="card open" id="card-list">
     <div class="card-header" onclick="toggleCard('card-list')">
@@ -245,7 +248,6 @@
         </div>
     </div>
 </div>
-
 <!-- 结果卡片 -->
 <div class="card open" id="card-result">
     <div class="card-header" onclick="toggleCard('card-result')">
@@ -406,8 +408,9 @@
                     <span>📜 交易日志 <span id="log-count" style="font-weight:normal; color:#999; font-size:12px;"></span></span> 
                     <span class="arrow header-arrow">▼</span>
                 </div>
+                <!-- 修改部分：调整容器支持左右滑动 -->
                 <div id="log-content" class="section-body collapsed" style="border:1px solid #eee; border-radius:6px; border-top:0;">
-                    <div style="max-height: 300px; overflow-y: auto;">
+                    <div style="max-height: 300px; overflow: auto; -webkit-overflow-scrolling: touch;">
                         <table class="log-table">
                             <thead style="background:#f9f9f9;">
                                 <tr>
@@ -427,9 +430,7 @@
 
     </div>
 </div>
-
 </div>
-
 <!-- Token Modal -->
 <div id="token-modal" class="modal">
     <div class="modal-box">
@@ -441,7 +442,6 @@
         </div>
     </div>
 </div>
-
 <script>
     // === 配置与工具 ===
     const GITHUB_CONFIG = { username: "dlezywj-cell", repo: "backtest", path: "grid_config.json", branch: "main" };
