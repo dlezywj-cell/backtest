@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (清仓修正版)</title>
+    <title>估值杠杆策略 (每日日志版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -160,7 +160,7 @@
         .log-col-reason { width: 40%; }
 
         .badge { padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #fff; font-weight: normal; }
-        .bg-red { background: #d32f2f; } .bg-green { background: #2e7d32; }
+        .bg-red { background: #d32f2f; } .bg-green { background: #2e7d32; } .bg-gray { background: #999; }
         
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; }
         .modal-box { background: #fff; padding: 20px; border-radius: 12px; width: 85%; max-width: 320px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
@@ -714,12 +714,11 @@
         let rawData = [];
         const minCap = stock.minCap; const maxCap = stock.maxCap; const midCap = (minCap + maxCap) / 2.0;
         
-        // === 修改 1：严重高估时，目标杠杆也改为 0 ===
         const getTargetLeverage = (mv) => { 
             if(mv <= minCap) return maxLev; 
-            if(mv >= maxCap) return 0.0; // 修改：从 0.01 改为 0
+            if(mv >= maxCap) return 0.0; 
             let r = (mv - minCap) / (maxCap - minCap); 
-            return 0.0 + (maxLev - 0.0) * Math.exp(-2.5 * r); // 修改：基数改为 0
+            return 0.0 + (maxLev - 0.0) * Math.exp(-2.5 * r); 
         };
 
         const userStartDate = document.getElementById('inStartDate').value;
@@ -790,17 +789,14 @@
             
             if(inProtect) {
                 statusTag = "触发风控"; 
-                // === 这里是关键：买回逻辑。直接赋值 targetL，即使之前是 0 也能买回 ===
                 if(isUp && d.valScore > 0) { inProtect = false; newL = targetL; reason = "趋势恢复且估值改善"; } 
                 else {
                     if(isDown) { 
                         let slope = (m10 - m20)/m20; 
                         let reduce = Math.min(1.0, Math.abs(slope)*25); 
-                        // === 修改 2：减仓允许减到 0 ===
                         let trendL = Math.max(0.00, prevL * (1 - reduce * 0.8)); 
                         if(trendL < newL) { newL = trendL; reason = "保护中极速减仓"; } 
                     } else { 
-                        // === 修改 3：震荡期彻底空仓 ===
                         newL = 0; 
                         if(prevL > 0.001) reason = "保护中(空仓)"; 
                     }
@@ -830,7 +826,6 @@
                             reduceSpeed = reduce * normRed; 
                             reduceMsg = "趋势转弱极速减仓"; 
                         }
-                        // === 修改 4：减仓允许减到 0 ===
                         let trendL = Math.max(0.00, prevL * (1 - reduceSpeed)); 
                         if(trendL < newL) { newL = trendL; reason = reduceMsg; }
                     }
@@ -839,23 +834,39 @@
             
             if(!inProtect && isUp) { if(r < -0.02) { newL = Math.min(maxLev, prevL * 1.05); reason = "上涨中急跌加仓"; } else { newL = Math.max(prevL, targetL); } }
             
-            if(Math.abs(newL - prevL) > 0.005) { 
-                let dateDisplay = d.date;
-                if (i === rawData.length - 1 && d.date === todayStr) dateDisplay += ' (盘中)';
-                
-                let maStr = "-";
-                if (m5 !== null && m10 !== null && m20 !== null) {
-                    maStr = `M5:${m5.toFixed(2)}<br>M10:${m10.toFixed(2)}<br>M20:${m20.toFixed(2)}`;
-                }
-
-                changeLogs.push({ 
-                    date: dateDisplay, 
-                    action: `<span class="badge ${newL>prevL?'bg-red':'bg-green'}">${newL>prevL?'加仓':'减仓'}</span>`, 
-                    val: `${prevL.toFixed(2)} → ${newL.toFixed(2)}`, 
-                    reason: reason,
-                    mas: maStr 
-                }); 
+            // === 修改：取消阈值判断，强制记录日志 ===
+            let dateDisplay = d.date;
+            if (i === rawData.length - 1 && d.date === todayStr) dateDisplay += ' (盘中)';
+            
+            let maStr = "-";
+            if (m5 !== null && m10 !== null && m20 !== null) {
+                maStr = `M5:${m5.toFixed(2)}<br>M10:${m10.toFixed(2)}<br>M20:${m20.toFixed(2)}`;
             }
+
+            const diff = newL - prevL;
+            let actionHtml = '';
+            
+            if (diff > 0.005) {
+                actionHtml = `<span class="badge bg-red">加仓</span>`;
+            } else if (diff < -0.005) {
+                actionHtml = `<span class="badge bg-green">减仓</span>`;
+            } else {
+                actionHtml = `<span class="badge bg-gray">持仓</span>`;
+                // 如果没有显著变化，且不在特殊风控原因下，显示当前状态作为原因
+                if (!reason.includes('保护中') && !reason.includes('止损') && !reason.includes('低估')) {
+                   reason = statusTag + " (策略维持)";
+                }
+            }
+
+            changeLogs.push({ 
+                date: dateDisplay, 
+                action: actionHtml, 
+                val: `${prevL.toFixed(2)} → ${newL.toFixed(2)}`, 
+                reason: reason,
+                mas: maStr 
+            }); 
+            // ======================================
+
             nav = nav * (1 + prevL * r); if(nav > peakNav) peakNav = nav; 
             
             history.push({date: d.date, nav, close: d.close, leverage: newL, status: statusTag}); 
