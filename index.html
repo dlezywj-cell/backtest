@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (东财数据终极版)</title>
+    <title>估值杠杆策略 (清仓修正版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -149,13 +149,8 @@
         .op-btn-group { display: flex; justify-content: center; gap: 8px; } 
         input[type="checkbox"] { width: 18px; height: 18px; vertical-align: middle; cursor: pointer; }
 
-        /* === 修改部分：交易日志表格样式 === */
-        /* 1. 设置最小宽度 min-width: 750px，强制在小屏下出现横向滚动条 */
         .log-table { width: 100%; min-width: 750px; border-collapse: collapse; table-layout: fixed; }
-        
         .log-table th { background: #fff; color: #666; font-size: 12px; position: sticky; top: 0; border-bottom: 2px solid #eee; text-align: left; padding: 8px 5px; z-index: 5; }
-        
-        /* 2. 去掉 overflow: hidden 和 text-overflow: ellipsis，允许完整显示内容 */
         .log-table td { padding: 8px 5px; border-bottom: 1px solid #f0f0f0; font-size: 12px; white-space: nowrap; vertical-align: middle; }
         
         .log-col-date { width: 15%; }
@@ -370,7 +365,7 @@
                 </div>
             </div>
 
-            <!-- 6. 新增：各股盈亏贡献堆叠图 -->
+            <!-- 6. 各股盈亏贡献堆叠图 -->
             <div id="contribution-section" style="margin-bottom:15px;">
                 <div class="section-header" onclick="toggleSection('contribution-content', this)">
                     <span>💰 累计盈亏贡献 (Profit Contribution)</span> 
@@ -408,7 +403,6 @@
                     <span>📜 交易日志 <span id="log-count" style="font-weight:normal; color:#999; font-size:12px;"></span></span> 
                     <span class="arrow header-arrow">▼</span>
                 </div>
-                <!-- 修改部分：调整容器支持左右滑动 -->
                 <div id="log-content" class="section-body collapsed" style="border:1px solid #eee; border-radius:6px; border-top:0;">
                     <div style="max-height: 300px; overflow: auto; -webkit-overflow-scrolling: touch;">
                         <table class="log-table">
@@ -452,7 +446,7 @@
     let portfolioChart = null; 
     let holdingsChart = null; 
     let statusChart = null; 
-    let contributionChart = null; // 新增图表实例
+    let contributionChart = null; 
 
     function checkUnsavedStatus() {
         const dirty = localStorage.getItem('gridHasUnsavedChanges') === 'true';
@@ -506,7 +500,7 @@
                 if(myChart) myChart.resize();
                 if(portfolioChart) portfolioChart.resize();
                 if(statusChart) statusChart.resize();
-                if(contributionChart) contributionChart.resize(); // 新增resize
+                if(contributionChart) contributionChart.resize(); 
             }, 200);
         }
     }
@@ -524,7 +518,7 @@
                 if (contentId === 'portfolio-content' && portfolioChart) portfolioChart.resize();
                 if (contentId === 'holdings-content' && holdingsChart) holdingsChart.resize();
                 if (contentId === 'status-dist-content' && statusChart) statusChart.resize(); 
-                if (contentId === 'contribution-content' && contributionChart) contributionChart.resize(); // 新增resize
+                if (contentId === 'contribution-content' && contributionChart) contributionChart.resize(); 
             }, 50); 
         }
     }
@@ -719,7 +713,14 @@
 
         let rawData = [];
         const minCap = stock.minCap; const maxCap = stock.maxCap; const midCap = (minCap + maxCap) / 2.0;
-        const getTargetLeverage = (mv) => { if(mv <= minCap) return maxLev; if(mv >= maxCap) return 0.01; let r = (mv - minCap) / (maxCap - minCap); return 0.01 + (maxLev - 0.01) * Math.exp(-2.5 * r); };
+        
+        // === 修改 1：严重高估时，目标杠杆也改为 0 ===
+        const getTargetLeverage = (mv) => { 
+            if(mv <= minCap) return maxLev; 
+            if(mv >= maxCap) return 0.0; // 修改：从 0.01 改为 0
+            let r = (mv - minCap) / (maxCap - minCap); 
+            return 0.0 + (maxLev - 0.0) * Math.exp(-2.5 * r); // 修改：基数改为 0
+        };
 
         const userStartDate = document.getElementById('inStartDate').value;
         const userEndDate = document.getElementById('inEndDate').value;
@@ -789,10 +790,20 @@
             
             if(inProtect) {
                 statusTag = "触发风控"; 
+                // === 这里是关键：买回逻辑。直接赋值 targetL，即使之前是 0 也能买回 ===
                 if(isUp && d.valScore > 0) { inProtect = false; newL = targetL; reason = "趋势恢复且估值改善"; } 
                 else {
-                    if(isDown) { let slope = (m10 - m20)/m20; let reduce = Math.min(1.0, Math.abs(slope)*25); let trendL = Math.max(0.01, prevL * (1 - reduce * 0.8)); if(trendL < newL) { newL = trendL; reason = "保护中极速减仓"; } } 
-                    else { newL = 0.01; if(prevL > 0.02) reason = "保护中(空仓)"; }
+                    if(isDown) { 
+                        let slope = (m10 - m20)/m20; 
+                        let reduce = Math.min(1.0, Math.abs(slope)*25); 
+                        // === 修改 2：减仓允许减到 0 ===
+                        let trendL = Math.max(0.00, prevL * (1 - reduce * 0.8)); 
+                        if(trendL < newL) { newL = trendL; reason = "保护中极速减仓"; } 
+                    } else { 
+                        // === 修改 3：震荡期彻底空仓 ===
+                        newL = 0; 
+                        if(prevL > 0.001) reason = "保护中(空仓)"; 
+                    }
                 }
             }
             
@@ -819,7 +830,8 @@
                             reduceSpeed = reduce * normRed; 
                             reduceMsg = "趋势转弱极速减仓"; 
                         }
-                        let trendL = Math.max(0.01, prevL * (1 - reduceSpeed)); 
+                        // === 修改 4：减仓允许减到 0 ===
+                        let trendL = Math.max(0.00, prevL * (1 - reduceSpeed)); 
                         if(trendL < newL) { newL = trendL; reason = reduceMsg; }
                     }
                 }
@@ -928,7 +940,6 @@
             document.querySelector('#status-dist-section .section-header').classList.remove('expanded');
             document.getElementById('status-dist-content').classList.add('collapsed');
             
-            // 默认折叠新增的贡献模块
             document.querySelector('#contribution-section .section-header').classList.remove('expanded');
             document.getElementById('contribution-content').classList.add('collapsed');
 
@@ -1044,7 +1055,6 @@
 
         let portNav = 1.0, portHistory = [], maxDD = 0, peak = 1.0, lastValidData = {}, prevAllocatedLevs = {}; 
         
-        // 新增：用于跟踪每只股票的累计贡献点数
         let accContribution = {}; 
         batchResults.forEach((res, idx) => { accContribution[idx] = 0; });
 
@@ -1054,19 +1064,17 @@
             const prevValidData = { ...lastValidData };
             batchResults.forEach((res, idx) => { if (rawDayData.stocks[idx]) lastValidData[idx] = rawDayData.stocks[idx]; });
 
-            let dailyContribBreakdown = {}; // 存储当日各股的累计贡献值
+            let dailyContribBreakdown = {}; 
 
             if (i > 0) {
                 let dayPnLComponent = 0;
                 batchResults.forEach((res, idx) => {
                     const sCurr = lastValidData[idx]; const sPrev = prevValidData[idx]; const allocatedL = prevAllocatedLevs[idx] || 0; 
                     if (sCurr && sPrev && sPrev.close > 0) { 
-                        // 计算该股票当日贡献的收益点数 (盈亏 * 权重)
                         const stockRet = (sCurr.close - sPrev.close) / sPrev.close;
                         const contribution = stockRet * allocatedL;
                         dayPnLComponent += contribution; 
                         
-                        // 累加到该股票的总贡献中
                         accContribution[idx] += contribution;
                     }
                 });
@@ -1075,7 +1083,6 @@
                 const dd = (peak - portNav) / peak; if (dd > maxDD) maxDD = dd;
             }
 
-            // 记录当日各股的累计贡献
             batchResults.forEach((res, idx) => {
                 dailyContribBreakdown[res.stockName] = accContribution[idx];
             });
@@ -1101,7 +1108,7 @@
                 nav: portNav, 
                 totalLev: currentCalculatedSumAlloc, 
                 breakdown: dailyBreakdown, 
-                contribBreakdown: dailyContribBreakdown, // 保存贡献数据
+                contribBreakdown: dailyContribBreakdown,
                 activeCount: activeCount 
             });
         }
@@ -1109,7 +1116,7 @@
         renderPortfolioStats(portHistory, maxDD); 
         renderHoldingsChart(portHistory);
         renderTradeLog(portHistory);
-        renderContributionChart(portHistory); // 渲染新增图表
+        renderContributionChart(portHistory); 
     }
 
     function renderPortfolioStats(hist, maxDD) {
@@ -1266,7 +1273,6 @@
         });
     }
 
-    // === 新增：各股盈亏贡献堆叠图 ===
     function renderContributionChart(hist) {
         const dom = document.getElementById('contribution-chart'); 
         if (contributionChart) contributionChart.dispose(); 
@@ -1285,7 +1291,7 @@
                 emphasis: { focus: 'series' }, 
                 showSymbol: false, 
                 lineStyle: { width: 0 }, 
-                data: hist.map(h => h.contribBreakdown[name] || 0) // 读取每只股票的累计贡献值
+                data: hist.map(h => h.contribBreakdown[name] || 0) 
             }; 
         });
         
@@ -1296,7 +1302,6 @@
                 formatter: function (params) { 
                     let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${params[0].name}</div>`; 
                     let sum = 0; 
-                    // 按绝对值排序显示，方便看到主要贡献者
                     const sortedParams = params.sort((a, b) => Math.abs(parseFloat(b.value)) - Math.abs(parseFloat(a.value)));
                     
                     sortedParams.forEach(p => { 
@@ -1324,7 +1329,7 @@
             xAxis: { type: 'category', boundaryGap: false, data: dates }, 
             yAxis: { 
                 type: 'value', 
-                axisLabel: { formatter: (val) => (val*100).toFixed(0)+'%' } // Y轴显示百分比
+                axisLabel: { formatter: (val) => (val*100).toFixed(0)+'%' } 
             },
             dataZoom: [{type:'inside'}, {type:'slider', bottom:0, height:20}], 
             series: seriesData
