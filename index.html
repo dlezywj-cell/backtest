@@ -1052,40 +1052,53 @@
         if (!batchResults || batchResults.length === 0) return alert("请先运行【批量回测】生成数据");
         const minPosThreshold = parseFloat(document.getElementById('pMinPos').value) || 0.4;
         
-        // --- 构建 dateMap (保持原逻辑不变) ---
+        // 1. 构建 dateMap (改为以 StockName 为 Key)
         let dateMap = {}; 
-        batchResults.forEach((res, stockIdx) => { 
+        batchResults.forEach((res) => { 
             res.history.forEach(day => { 
                 if (!dateMap[day.date]) { dateMap[day.date] = { date: day.date, stocks: {} }; } 
-                dateMap[day.date].stocks[stockIdx] = { close: day.close, idealLev: day.leverage }; 
+                // 使用 StockName 而不是 Index 作为 Key
+                dateMap[day.date].stocks[res.stockName] = { close: day.close, idealLev: day.leverage }; 
             }); 
         });
         const sortedDates = Object.keys(dateMap).sort(); 
         if (sortedDates.length < 2) return alert("有效日期数据不足");
 
-        let portNav = 1.0, portHistory = [], maxDD = 0, peak = 1.0, lastValidData = {}, prevAllocatedLevs = {}; 
+        let portNav = 1.0, portHistory = [], maxDD = 0, peak = 1.0;
+        let lastValidData = {}; // Keyed by StockName
+        let prevAllocatedLevs = {}; // Keyed by StockName
         
         let accContribution = {}; 
-        batchResults.forEach((res, idx) => { accContribution[idx] = 0; });
+        // 初始化 Contribution
+        batchResults.forEach((res) => { accContribution[res.stockName] = 0; });
 
         for (let i = 0; i < sortedDates.length; i++) {
             const currDate = sortedDates[i];
             const rawDayData = dateMap[currDate];
             const prevValidData = { ...lastValidData };
-            batchResults.forEach((res, idx) => { if (rawDayData.stocks[idx]) lastValidData[idx] = rawDayData.stocks[idx]; });
+            
+            // 更新 lastValidData
+            batchResults.forEach((res) => { 
+                if (rawDayData.stocks[res.stockName]) {
+                    lastValidData[res.stockName] = rawDayData.stocks[res.stockName]; 
+                }
+            });
 
             let dailyContribBreakdown = {}; 
 
             if (i > 0) {
                 let dayPnLComponent = 0;
-                batchResults.forEach((res, idx) => {
-                    const sCurr = lastValidData[idx]; const sPrev = prevValidData[idx]; const allocatedL = prevAllocatedLevs[idx] || 0; 
+                batchResults.forEach((res) => {
+                    const sCurr = lastValidData[res.stockName]; 
+                    const sPrev = prevValidData[res.stockName]; 
+                    const allocatedL = prevAllocatedLevs[res.stockName] || 0; 
+                    
                     if (sCurr && sPrev && sPrev.close > 0) { 
                         const stockRet = (sCurr.close - sPrev.close) / sPrev.close;
                         const contribution = stockRet * allocatedL;
                         dayPnLComponent += contribution; 
                         
-                        accContribution[idx] += contribution;
+                        accContribution[res.stockName] += contribution;
                     }
                 });
                 portNav = portNav * (1 + dayPnLComponent); 
@@ -1093,24 +1106,24 @@
                 const dd = (peak - portNav) / peak; if (dd > maxDD) maxDD = dd;
             }
 
-            batchResults.forEach((res, idx) => {
-                dailyContribBreakdown[res.stockName] = accContribution[idx];
+            batchResults.forEach((res) => {
+                dailyContribBreakdown[res.stockName] = accContribution[res.stockName];
             });
 
             let currentValidStocks = {}; let activeCount = 0;
-            batchResults.forEach((res, idx) => {
-                const sData = lastValidData[idx]; 
+            batchResults.forEach((res) => {
+                const sData = lastValidData[res.stockName]; 
                 if (sData) {
-                    if(sData.idealLev >= minPosThreshold) { currentValidStocks[idx] = sData.idealLev; activeCount++; }
+                    if(sData.idealLev >= minPosThreshold) { currentValidStocks[res.stockName] = sData.idealLev; activeCount++; }
                 }
             });
 
             let dailyBreakdown = {}; let currentCalculatedSumAlloc = 0; 
-            batchResults.forEach((res, idx) => {
-                if (currentValidStocks[idx] !== undefined && activeCount > 0) {
-                    const rawL = currentValidStocks[idx]; const alloc = rawL / activeCount; 
-                    prevAllocatedLevs[idx] = alloc; dailyBreakdown[res.stockName] = alloc; currentCalculatedSumAlloc += alloc;
-                } else { prevAllocatedLevs[idx] = 0; }
+            batchResults.forEach((res) => {
+                if (currentValidStocks[res.stockName] !== undefined && activeCount > 0) {
+                    const rawL = currentValidStocks[res.stockName]; const alloc = rawL / activeCount; 
+                    prevAllocatedLevs[res.stockName] = alloc; dailyBreakdown[res.stockName] = alloc; currentCalculatedSumAlloc += alloc;
+                } else { prevAllocatedLevs[res.stockName] = 0; }
             });
 
             portHistory.push({ 
@@ -1126,7 +1139,7 @@
         renderPortfolioStats(portHistory, maxDD); 
         renderHoldingsChart(portHistory);
         
-        // --- 变动点：传入 dateMap ---
+        // 传入 dateMap 以便日志查找
         renderTradeLog(portHistory, dateMap); 
         
         renderContributionChart(portHistory); 
@@ -1205,12 +1218,6 @@
         container.innerHTML = '';
         const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
 
-        // 建立名称到 index 的映射，用于从 dateMap 查找数据
-        const nameToIdx = {};
-        if (typeof batchResults !== 'undefined') {
-            batchResults.forEach(r => nameToIdx[r.stockName] = r.index);
-        }
-
         for (let i = hist.length - 1; i > 0; i--) {
             const today = hist[i]; const yesterday = hist[i-1];
             let changes = []; let dailyNetChange = 0; 
@@ -1226,22 +1233,19 @@
                     let levStr = "";
                     let isPassive = false;
                     if(dateMap) {
-                        const idx = nameToIdx[name];
-                        if(idx !== undefined) {
-                            // 安全获取当天和前一天的个股策略杠杆
-                            const dNow = dateMap[today.date] ? dateMap[today.date].stocks[idx] : null;
-                            const dPrev = dateMap[yesterday.date] ? dateMap[yesterday.date].stocks[idx] : null;
-                            const lNow = dNow ? dNow.idealLev : 0;
-                            const lPrev = dPrev ? dPrev.idealLev : 0;
-                            
-                            // 如果策略杠杆没变，标记为灰色（被动），否则高亮
-                            if (Math.abs(lNow - lPrev) < 0.01) {
-                                levStr = `<span style="color:#bbb; font-family:monospace;">${lNow.toFixed(1)}x → ${lNow.toFixed(1)}x</span>`;
-                                isPassive = true;
-                            } else {
-                                const color = lNow > lPrev ? '#d32f2f' : '#2e7d32';
-                                levStr = `<span style="color:${color}; font-weight:bold; font-family:monospace;">${lPrev.toFixed(1)}x → ${lNow.toFixed(1)}x</span>`;
-                            }
+                        // 使用 Name 直接查找，不使用 Index
+                        const dNow = dateMap[today.date] ? dateMap[today.date].stocks[name] : null;
+                        const dPrev = dateMap[yesterday.date] ? dateMap[yesterday.date].stocks[name] : null;
+                        const lNow = dNow ? dNow.idealLev : 0;
+                        const lPrev = dPrev ? dPrev.idealLev : 0;
+                        
+                        // 如果策略杠杆没变，标记为灰色（被动），否则高亮
+                        if (Math.abs(lNow - lPrev) < 0.01) {
+                            levStr = `<span style="color:#bbb; font-family:monospace;">${lNow.toFixed(1)}x → ${lNow.toFixed(1)}x</span>`;
+                            isPassive = true;
+                        } else {
+                            const color = lNow > lPrev ? '#d32f2f' : '#2e7d32';
+                            levStr = `<span style="color:${color}; font-weight:bold; font-family:monospace;">${lPrev.toFixed(1)}x → ${lNow.toFixed(1)}x</span>`;
                         }
                     }
                     
