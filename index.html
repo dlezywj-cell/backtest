@@ -834,7 +834,6 @@
             
             if(!inProtect && isUp) { if(r < -0.02) { newL = Math.min(maxLev, prevL * 1.05); reason = "上涨中急跌加仓"; } else { newL = Math.max(prevL, targetL); } }
             
-            // === 修改：取消阈值判断，强制记录日志 ===
             let dateDisplay = d.date;
             if (i === rawData.length - 1 && d.date === todayStr) dateDisplay += ' (盘中)';
             
@@ -852,7 +851,6 @@
                 actionHtml = `<span class="badge bg-green">减仓</span>`;
             } else {
                 actionHtml = `<span class="badge bg-gray">持仓</span>`;
-                // 如果没有显著变化，且不在特殊风控原因下，显示当前状态作为原因
                 if (!reason.includes('保护中') && !reason.includes('止损') && !reason.includes('低估')) {
                    reason = statusTag + " (策略维持)";
                 }
@@ -865,8 +863,7 @@
                 reason: reason,
                 mas: maStr 
             }); 
-            // ======================================
-
+            
             nav = nav * (1 + prevL * r); if(nav > peakNav) peakNav = nav; 
             
             history.push({date: d.date, nav, close: d.close, leverage: newL, status: statusTag}); 
@@ -1054,6 +1051,8 @@
     function runPortfolioStrategy() {
         if (!batchResults || batchResults.length === 0) return alert("请先运行【批量回测】生成数据");
         const minPosThreshold = parseFloat(document.getElementById('pMinPos').value) || 0.4;
+        
+        // --- 构建 dateMap (保持原逻辑不变) ---
         let dateMap = {}; 
         batchResults.forEach((res, stockIdx) => { 
             res.history.forEach(day => { 
@@ -1126,7 +1125,10 @@
         
         renderPortfolioStats(portHistory, maxDD); 
         renderHoldingsChart(portHistory);
-        renderTradeLog(portHistory);
+        
+        // --- 变动点：传入 dateMap ---
+        renderTradeLog(portHistory, dateMap); 
+        
         renderContributionChart(portHistory); 
     }
 
@@ -1198,25 +1200,66 @@
         });
     }
 
-    function renderTradeLog(hist) {
+    function renderTradeLog(hist, dateMap) {
         const container = document.getElementById('trade-log-list');
         container.innerHTML = '';
         const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
+
+        // 建立名称到 index 的映射，用于从 dateMap 查找数据
+        const nameToIdx = {};
+        if (typeof batchResults !== 'undefined') {
+            batchResults.forEach(r => nameToIdx[r.stockName] = r.index);
+        }
 
         for (let i = hist.length - 1; i > 0; i--) {
             const today = hist[i]; const yesterday = hist[i-1];
             let changes = []; let dailyNetChange = 0; 
             const allStocks = new Set([...Object.keys(today.breakdown), ...Object.keys(yesterday.breakdown)]);
+            
             allStocks.forEach(name => {
                 const nowPos = (today.breakdown[name] || 0) / maxLev * 100;
                 const prevPos = (yesterday.breakdown[name] || 0) / maxLev * 100;
                 const diffPos = nowPos - prevPos;
-                if (Math.abs(diffPos) > 0.1) { changes.push({name, diffPos, nowPos, prevPos}); dailyNetChange += diffPos; }
+                
+                if (Math.abs(diffPos) > 0.1) { 
+                    // --- 获取个股策略杠杆变动 ---
+                    let levStr = "";
+                    let isPassive = false;
+                    if(dateMap) {
+                        const idx = nameToIdx[name];
+                        if(idx !== undefined) {
+                            // 安全获取当天和前一天的个股策略杠杆
+                            const dNow = dateMap[today.date] ? dateMap[today.date].stocks[idx] : null;
+                            const dPrev = dateMap[yesterday.date] ? dateMap[yesterday.date].stocks[idx] : null;
+                            const lNow = dNow ? dNow.idealLev : 0;
+                            const lPrev = dPrev ? dPrev.idealLev : 0;
+                            
+                            // 如果策略杠杆没变，标记为灰色（被动），否则高亮
+                            if (Math.abs(lNow - lPrev) < 0.01) {
+                                levStr = `<span style="color:#bbb; font-family:monospace;">${lNow.toFixed(1)}x → ${lNow.toFixed(1)}x</span>`;
+                                isPassive = true;
+                            } else {
+                                const color = lNow > lPrev ? '#d32f2f' : '#2e7d32';
+                                levStr = `<span style="color:${color}; font-weight:bold; font-family:monospace;">${lPrev.toFixed(1)}x → ${lNow.toFixed(1)}x</span>`;
+                            }
+                        }
+                    }
+                    
+                    changes.push({name, diffPos, nowPos, prevPos, levStr, isPassive}); 
+                    dailyNetChange += diffPos; 
+                }
             });
+
             const totalPosPct = (today.totalLev / maxLev) * 100;
             const isLatest = (i === hist.length - 1);
             if (changes.length === 0 && !isLatest) continue;
-            changes.sort((a,b) => Math.abs(b.diffPos) - Math.abs(a.diffPos));
+            
+            // 排序：主动变动排前面，绝对值大的排前面
+            changes.sort((a,b) => {
+                if(a.isPassive !== b.isPassive) return a.isPassive ? 1 : -1;
+                return Math.abs(b.diffPos) - Math.abs(a.diffPos)
+            });
+
             const netSign = dailyNetChange > 0 ? '+' : '';
             const netColor = dailyNetChange > 0 ? '#d32f2f' : (dailyNetChange < 0 ? '#2e7d32' : '#999');
             
@@ -1227,11 +1270,22 @@
 
             const body = document.createElement('div');
             body.className = 'daily-log-body' + (isLatest ? ' open' : '');
-            if (changes.length === 0) { body.innerHTML = `<div class="daily-item" style="justify-content:center; color:#999; font-style:italic; padding:10px 0;">本日仓位保持稳定，无建议调仓</div>`; } 
-            else {
+            if (changes.length === 0) { 
+                body.innerHTML = `<div class="daily-item" style="justify-content:center; color:#999; font-style:italic; padding:10px 0;">本日仓位保持稳定，无建议调仓</div>`; 
+            } else {
                 body.innerHTML = changes.map(c => {
                     const isBuy = c.diffPos > 0; const color = isBuy ? '#d32f2f' : '#2e7d32'; const sign = isBuy ? '+' : '';
-                    return `<div class="daily-item"><span style="font-weight:500;">${c.name}</span><span><span style="color:${color}; font-weight:bold; margin-right:8px;">${sign}${c.diffPos.toFixed(1)}%</span><span style="color:#999;">(${c.prevPos.toFixed(1)}% → ${c.nowPos.toFixed(1)}%)</span></span></div>`;
+                    return `
+                    <div class="daily-item">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="font-weight:500; min-width:60px;">${c.name}</span>
+                            <span style="font-size:11px; background:#f5f5f5; padding:1px 5px; border-radius:3px;">${c.levStr}</span>
+                        </div>
+                        <span>
+                            <span style="color:${color}; font-weight:bold; margin-right:8px;">${sign}${c.diffPos.toFixed(1)}%</span>
+                            <span style="color:#999; font-size:11px;">(${c.prevPos.toFixed(1)}% → ${c.nowPos.toFixed(1)}%)</span>
+                        </span>
+                    </div>`;
                 }).join('');
             }
             container.appendChild(header); container.appendChild(body);
