@@ -1052,14 +1052,19 @@
     // === 组合策略 (Portfolio) ===
     function runPortfolioStrategy() {
         if (!batchResults || batchResults.length === 0) return alert("请先运行【批量回测】生成数据");
-        const minPosThreshold = parseFloat(document.getElementById('pMinPos').value) || 0.4;
+        
+        // --- 修复开始：正确处理 0 值输入 ---
+        let rawThres = parseFloat(document.getElementById('pMinPos').value);
+        // 只有当输入为空或非数字时，才使用默认值 0.4，否则接受输入值（包括 0）
+        const minPosThreshold = isNaN(rawThres) ? 0.4 : rawThres;
+        // --- 修复结束 ---
         
         // 1. 构建 dateMap (改为以 StockName 为 Key)
         let dateMap = {}; 
         batchResults.forEach((res) => { 
             res.history.forEach(day => { 
                 if (!dateMap[day.date]) { dateMap[day.date] = { date: day.date, stocks: {} }; } 
-                // === 修改点：把 reason 也存进去 ===
+                // 使用 StockName 而不是 Index 作为 Key，并存入 reason
                 dateMap[day.date].stocks[res.stockName] = { close: day.close, idealLev: day.leverage, reason: day.reason }; 
             }); 
         });
@@ -1116,6 +1121,7 @@
             batchResults.forEach((res) => {
                 const sData = lastValidData[res.stockName]; 
                 if (sData) {
+                    // 这里使用的是修复后的 minPosThreshold
                     if(sData.idealLev >= minPosThreshold) { currentValidStocks[res.stockName] = sData.idealLev; activeCount++; }
                 }
             });
@@ -1140,10 +1146,7 @@
         
         renderPortfolioStats(portHistory, maxDD); 
         renderHoldingsChart(portHistory);
-        
-        // 传入 dateMap 以便日志查找
         renderTradeLog(portHistory, dateMap); 
-        
         renderContributionChart(portHistory); 
     }
 
