@@ -365,6 +365,17 @@
                 </div>
             </div>
 
+            <!-- 5.5 新增：趋势变更日志 -->
+            <div id="trend-log-section" style="margin-bottom:15px;">
+                <div class="section-header" onclick="toggleSection('trend-log-content', this)">
+                    <span>🗂 每日趋势变更日志 (Trend Log)</span> 
+                    <span class="arrow header-arrow">▼</span>
+                </div>
+                <div id="trend-log-content" class="section-body collapsed" style="padding:0; border:none; max-height:400px; overflow-y:auto;">
+                    <div id="trend-log-list"></div>
+                </div>
+            </div>
+
             <!-- 6. 各股盈亏贡献堆叠图 -->
             <div id="contribution-section" style="margin-bottom:15px;">
                 <div class="section-header" onclick="toggleSection('contribution-content', this)">
@@ -950,11 +961,18 @@
             document.querySelector('#status-dist-section .section-header').classList.remove('expanded');
             document.getElementById('status-dist-content').classList.add('collapsed');
             
+            document.querySelector('#trend-log-section .section-header').classList.remove('expanded');
+            document.getElementById('trend-log-content').classList.add('collapsed');
+
             document.querySelector('#contribution-section .section-header').classList.remove('expanded');
             document.getElementById('contribution-content').classList.add('collapsed');
 
             runPortfolioStrategy(); 
             renderStatusDistribution(); 
+            
+            // 这里调用新功能渲染函数
+            renderTrendLog();
+
             renderDetailCombo(); 
             showDetail(batchResults[0].index);
             
@@ -1349,6 +1367,115 @@
             dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 0, height: 20 }],
             series: seriesData
         });
+    }
+
+    function renderTrendLog() {
+        const container = document.getElementById('trend-log-list');
+        if (!container) return;
+        container.innerHTML = '';
+        
+        if (!batchResults || batchResults.length === 0) return;
+
+        // 1. 构建数据映射：Date -> Stock -> Status
+        let dateMap = {};
+        let allDates = new Set();
+        
+        batchResults.forEach(res => {
+            res.history.forEach(day => {
+                if (!dateMap[day.date]) dateMap[day.date] = {};
+                dateMap[day.date][res.stockName] = day.status;
+                allDates.add(day.date);
+            });
+        });
+        
+        // 排序日期（倒序，最新的在最上面）
+        const sortedDates = Array.from(allDates).sort().reverse();
+
+        // 2. 遍历日期，对比 T 和 T-1
+        let hasContent = false;
+
+        for (let i = 0; i < sortedDates.length - 1; i++) {
+            const today = sortedDates[i];
+            const yesterday = sortedDates[i+1];
+            
+            let newUp = [];
+            let newDown = [];
+            
+            // 遍历所有股票检查状态变化
+            batchResults.forEach(res => {
+                const name = res.stockName;
+                const statusNow = dateMap[today][name];
+                const statusPrev = dateMap[yesterday][name]; // 如果是上市首日，prev可能undefined
+
+                if (statusNow && statusPrev) {
+                    // 判定新增上涨
+                    if (statusNow === '上涨趋势' && statusPrev !== '上涨趋势') {
+                        newUp.push(name);
+                    }
+                    // 判定新增下跌
+                    if (statusNow === '下跌趋势' && statusPrev !== '下跌趋势') {
+                        newDown.push(name);
+                    }
+                }
+            });
+
+            // 如果当天没有变化，且不是最新的一天，通常跳过不显示（为了版面简洁）
+            if (newUp.length === 0 && newDown.length === 0) continue;
+
+            hasContent = true;
+            const isLatest = (i === 0);
+
+            // 3. 生成 HTML
+            // Header 部分
+            const header = document.createElement('div');
+            header.className = 'daily-log-header' + (isLatest ? ' open' : '');
+            header.onclick = function() { toggleDailyLog(this); };
+            
+            let summaryHtml = '';
+            if (newUp.length > 0) summaryHtml += `<span style="font-size:11px; color:#fff; background:#d32f2f; padding:2px 6px; border-radius:4px; margin-right:5px;">红+${newUp.length}</span>`;
+            if (newDown.length > 0) summaryHtml += `<span style="font-size:11px; color:#fff; background:#2e7d32; padding:2px 6px; border-radius:4px;">绿+${newDown.length}</span>`;
+            
+            header.innerHTML = `
+                <div style="font-weight:bold; color:#555; display:flex; align-items:center; gap:8px;">
+                    ${today} 
+                    <div style="display:flex;">${summaryHtml}</div>
+                    ${isLatest ? '<span style="font-size:10px; color:#fff; background:#fd7e14; padding:1px 4px; border-radius:3px; margin-left:auto;">最新</span>' : ''}
+                </div>
+                <span class="arrow-daily">▶</span>
+            `;
+
+            // Body 部分
+            const body = document.createElement('div');
+            body.className = 'daily-log-body' + (isLatest ? ' open' : '');
+            
+            let contentHtml = '';
+            
+            if (newUp.length > 0) {
+                contentHtml += `
+                    <div class="daily-item" style="align-items:flex-start; margin-bottom:8px;">
+                        <span style="font-size:11px; color:#fff; background:#d32f2f; padding:2px 6px; border-radius:3px; margin-right:8px; white-space:nowrap;">🔥 入上涨</span>
+                        <div style="color:#333; line-height:1.4;">${newUp.join('、')}</div>
+                    </div>
+                `;
+            }
+            
+            if (newDown.length > 0) {
+                contentHtml += `
+                    <div class="daily-item" style="align-items:flex-start;">
+                        <span style="font-size:11px; color:#fff; background:#2e7d32; padding:2px 6px; border-radius:3px; margin-right:8px; white-space:nowrap;">❄️ 入下跌</span>
+                        <div style="color:#333; line-height:1.4;">${newDown.join('、')}</div>
+                    </div>
+                `;
+            }
+
+            body.innerHTML = contentHtml;
+            container.appendChild(header);
+            container.appendChild(body);
+        }
+
+        if (!hasContent) {
+            container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无趋势变更记录</div>';
+        }
     }
 
     function renderContributionChart(hist) {
