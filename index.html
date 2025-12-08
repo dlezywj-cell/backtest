@@ -1336,8 +1336,13 @@
             });
         });
         dates.sort(); dates = [...new Set(dates)];
-        const seriesNames = ['上涨趋势', '震荡整理', '下跌趋势', '触发风控'];
-        const colors = ['#d32f2f', '#1976d2', '#2e7d32', '#616161']; 
+        
+        // === 修改点开始：调整堆叠顺序 ===
+        // 旧顺序：['上涨趋势', '震荡整理', '下跌趋势', '触发风控']
+        // 新顺序（从下到上）：上涨 -> 震荡 -> 风控 -> 下跌
+        const seriesNames = ['上涨趋势', '震荡整理', '触发风控', '下跌趋势'];
+        const colors = ['#d32f2f', '#1976d2', '#616161', '#2e7d32']; 
+        // === 修改点结束 ===
         
         const seriesData = seriesNames.map((name, i) => {
             return { name: name, type: 'bar', stack: 'total', emphasis: { focus: 'series' }, itemStyle: { color: colors[i] }, data: dates.map(d => statsMap[d][name] || 0) };
