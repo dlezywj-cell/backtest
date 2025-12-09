@@ -832,9 +832,13 @@
             let m10 = ma10Arr[i];
             let m20 = ma20Arr[i];
 
-            // 修改处：增加 r > -0.02 条件
-            const isUp = (m5 && m10 && m20 && m5 > m10 && m10 > m20) && (r > 0.0);
-            const isDown = (m5 && m10 && m20 && m5 < m10 && m10 < m20)&& (r < 0.0);
+            // 1. 定义纯技术趋势 (仅均线，不看当天涨跌) -> 用于状态显示
+            const isTechUp = (m5 && m10 && m20 && m5 > m10 && m10 > m20);
+            const isTechDown = (m5 && m10 && m20 && m5 < m10 && m10 < m20);
+
+            // 2. 定义操作信号 (结合当天涨跌) -> 用于交易加减仓
+            const isUp = isTechUp && (r > 0.0);
+            const isDown = isTechDown && (r < 0.0);
 
             const nearLowMv = (curMv <= minCap * 1.05);
             let winStart = Math.max(0, i - 20); let winNav = 0; for(let k=winStart; k<history.length; k++) if(history[k].nav > winNav) winNav = history[k].nav; if(i < 20) winNav = peakNav; if(nav > winNav) winNav = nav;
@@ -861,10 +865,12 @@
             }
             
             if(!inProtect) {
-                if(isUp) statusTag = "上涨趋势";
-                else if(isDown) statusTag = "下跌趋势";
+                // 使用纯技术形态标记状态，避免因当天微涨微跌导致状态反复跳变
+                if(isTechUp) statusTag = "上涨趋势";
+                else if(isTechDown) statusTag = "下跌趋势";
                 else statusTag = "震荡整理";
 
+                // 下面的减仓逻辑仍然使用 isDown (带 r < 0 限制)，保持交易逻辑不变
                 if(isDown) {
                     if (d.valScore > 0.6 && d.close > m5) {
                         if (newL < prevL) {
