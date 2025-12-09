@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (每日日志版)</title>
+    <title>估值杠杆策略 (均价算法升级版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -294,7 +294,15 @@
                 <div id="summary-content" class="section-body">
                     <div class="summary-wrapper">
                         <table class="summary-table">
-                            <thead><tr><th>股票</th><th>策略收益</th><th>超额</th><th>最大回撤</th></tr></thead>
+                            <thead>
+                                <tr>
+                                    <th>股票</th>
+                                    <th>策略收益</th>
+                                    <th>最大回撤</th>
+                                    <th>最新变动</th>
+                                    <th style="text-align:left; padding-left:10px;">最新原因</th>
+                                </tr>
+                            </thead>
                             <tbody id="summary-tbody"></tbody>
                         </table>
                     </div>
@@ -776,10 +784,24 @@
             }
         }
 
-        const ma = (idx, n) => { if(idx<n) return null; let sum=0; for(let k=idx-n; k<idx; k++) sum+=rawData[k].close; return sum/n; };
+        // === 修改开始：使用新代码中的均价计算方式 ===
+        // 新的 avg 辅助函数 (来自 Code B)
+        const avg = (arr) => arr.reduce((a,b) => a+b, 0) / arr.length;
+
+        // 修改 getMa 逻辑，包含当日 (idx)
+        // 之前是 k < idx (不含当日)，现在改为 k <= idx (含当日)
+        const getMa = (idx, n) => {
+            if (idx < n - 1) return null; // 数据不足
+            let subset = [];
+            // 获取从 idx - n + 1 到 idx 的数据，共 n 个
+            for (let k = idx - n + 1; k <= idx; k++) {
+                subset.push(rawData[k].close);
+            }
+            return avg(subset);
+        };
+        // === 修改结束 ===
         
         let nav = 1.0, peakNav = 1.0, prevL = getTargetLeverage(rawData[0].mv), inProtect = false, history = [], changeLogs = [];
-        // 初始化 history 时，也可以给个默认 reason
         history.push({date: rawData[0].date, nav:1.0, close:rawData[0].close, leverage:prevL, status: "震荡整理", reason: "初始建仓"});
 
         for(let i=1; i<rawData.length; i++) {
@@ -787,7 +809,12 @@
             const targetL = getTargetLeverage(curMv); let newL = targetL; let reason = "估值驱动";
             
             let statusTag = "震荡整理"; 
-            let m5=ma(i,5), m10=ma(i,10), m20=ma(i,20);
+            
+            // 使用新的 getMa 函数
+            let m5 = getMa(i, 5);
+            let m10 = getMa(i, 10);
+            let m20 = getMa(i, 20);
+
             const isUp = (m5 && m10 && m20 && m5 > m10 && m10 > m20);
             const isDown = (m5 && m10 && m20 && m5 < m10 && m10 < m20);
 
@@ -878,7 +905,6 @@
             
             nav = nav * (1 + prevL * r); if(nav > peakNav) peakNav = nav; 
             
-            // === 修改点: 把 reason 也存入 history, 以便 Portfolio 取用 ===
             history.push({date: d.date, nav, close: d.close, leverage: newL, status: statusTag, reason: reason}); 
             prevL = newL;
         }
@@ -981,9 +1007,29 @@
     }
 
     function appendSummaryRow(res, index) {
-        const tr = document.createElement('tr'); tr.id = `row-${index}`; tr.onclick = () => showDetail(index);
-        const cRet = res.stats.ret >= 0 ? 'val-pos' : 'val-neg'; const cAlpha = res.stats.alpha >= 0 ? 'val-pos' : 'val-neg';
-        tr.innerHTML = `<td><b>${res.stockName}</b><br><span style="color:#999;font-size:10px">${res.stockCode}</span></td><td class="${cRet}">${res.stats.ret.toFixed(1)}%</td><td class="${cAlpha}">${res.stats.alpha > 0 ? '+' : ''}${res.stats.alpha.toFixed(1)}%</td><td style="color:#555;">${res.stats.maxDD.toFixed(1)}%</td>`;
+        const tr = document.createElement('tr'); 
+        tr.id = `row-${index}`; 
+        tr.onclick = () => showDetail(index);
+        
+        const cRet = res.stats.ret >= 0 ? 'val-pos' : 'val-neg'; 
+        
+        // --- 新增逻辑：获取最后一日的日志信息 ---
+        const lastLog = res.logs && res.logs.length > 0 ? res.logs[res.logs.length - 1] : { action: '-', val: '-', reason: '无数据' };
+
+        tr.innerHTML = `
+            <td><b>${res.stockName}</b><br><span style="color:#999;font-size:10px">${res.stockCode}</span></td>
+            <td class="${cRet}">${res.stats.ret.toFixed(1)}%</td>
+            <td style="color:#555;">${res.stats.maxDD.toFixed(1)}%</td>
+            <td>
+                <div style="display:flex; flex-direction:column; align-items:flex-end; justify-content:center;">
+                    ${lastLog.action}
+                    <span style="font-size:10px; color:#888; margin-top:3px; font-family:monospace;">${lastLog.val}</span>
+                </div>
+            </td>
+            <td style="text-align:left; padding-left:10px; max-width:220px;">
+                <span style="font-size:11px; color:#333; display:block; line-height:1.4; white-space:normal;">${lastLog.reason}</span>
+            </td>
+        `;
         document.getElementById('summary-tbody').appendChild(tr);
     }
 
