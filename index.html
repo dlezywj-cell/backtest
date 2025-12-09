@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (均价算法升级版)</title>
+    <title>估值杠杆策略 (极速优化版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -292,7 +292,7 @@
         <!-- 结果统一展示容器 -->
         <div id="results-container" style="display:none; margin-top:15px;">
 
-            <!-- 1. 收益排行榜 (修改部分) -->
+            <!-- 1. 收益排行榜 -->
             <div id="batch-summary-box" style="margin-bottom:15px;">
                 <div class="section-header expanded" onclick="toggleSection('summary-content', this)">
                     <span>📈 收益排行榜</span> 
@@ -680,7 +680,7 @@
         setLocalChanges(true); 
     }
 
-    // === 核心数据逻辑 ===
+    // === 核心数据逻辑 (优化版) ===
     const getEmSecId = c => { let raw = c.replace(/\.[A-Z]+$/, ''); if (c.includes('.HK') || /^\d{5}$/.test(raw)) return '116.' + raw.padStart(5, '0'); if (c.includes('.US')) return '105.' + raw; if (raw.startsWith('6')) return '1.' + raw; return '0.' + raw; };
     
     function getMarketDate(timestamp, stockCode) {
@@ -699,6 +699,22 @@
         const res = await fetch(PROXY + encodeURIComponent(url));
         const json = await res.json();
         return json?.data?.klines || [];
+    }
+
+    // 优化：预计算均线数组 (复杂度 O(N))
+    function calculateMA_Array(data, dayCount) {
+        let result = new Array(data.length).fill(null);
+        let sum = 0;
+        for (let i = 0; i < data.length; i++) {
+            sum += data[i].close;
+            if (i >= dayCount) {
+                sum -= data[i - dayCount].close;
+            }
+            if (i >= dayCount - 1) {
+                result[i] = sum / dayCount;
+            }
+        }
+        return result;
     }
 
     async function calculateStock(stock) {
@@ -799,23 +815,12 @@
             }
         }
 
-        // === 修改开始：使用新代码中的均价计算方式 ===
-        // 新的 avg 辅助函数 (来自 Code B)
-        const avg = (arr) => arr.reduce((a,b) => a+b, 0) / arr.length;
+        // === 优化点1：预先计算所有均线，避免循环内重复运算 ===
+        // 关键注释：此时 rawData 已经包含了实时数据（如果开盘的话），所以算出来的均线自然也包含实时价格。
+        const ma5Arr = calculateMA_Array(rawData, 5);
+        const ma10Arr = calculateMA_Array(rawData, 10);
+        const ma20Arr = calculateMA_Array(rawData, 20);
 
-        // 修改 getMa 逻辑，包含当日 (idx)
-        // 之前是 k < idx (不含当日)，现在改为 k <= idx (含当日)
-        const getMa = (idx, n) => {
-            if (idx < n - 1) return null; // 数据不足
-            let subset = [];
-            // 获取从 idx - n + 1 到 idx 的数据，共 n 个
-            for (let k = idx - n + 1; k <= idx; k++) {
-                subset.push(rawData[k].close);
-            }
-            return avg(subset);
-        };
-        // === 修改结束 ===
-        
         let nav = 1.0, peakNav = 1.0, prevL = getTargetLeverage(rawData[0].mv), inProtect = false, history = [], changeLogs = [];
         history.push({date: rawData[0].date, nav:1.0, close:rawData[0].close, leverage:prevL, status: "震荡整理", reason: "初始建仓"});
 
@@ -825,10 +830,10 @@
             
             let statusTag = "震荡整理"; 
             
-            // 使用新的 getMa 函数
-            let m5 = getMa(i, 5);
-            let m10 = getMa(i, 10);
-            let m20 = getMa(i, 20);
+            // 使用预计算的均线值 (复杂度 O(1))
+            let m5 = ma5Arr[i];
+            let m10 = ma10Arr[i];
+            let m20 = ma20Arr[i];
 
             const isUp = (m5 && m10 && m20 && m5 > m10 && m10 > m20);
             const isDown = (m5 && m10 && m20 && m5 < m10 && m10 < m20);
@@ -962,7 +967,6 @@
         const select = document.getElementById('summary-filter-reason');
         if(!select) return;
         
-        // 收集所有唯一的“最新原因”
         let uniqueReasons = new Set();
         batchResults.forEach(res => {
             const lastLog = res.logs && res.logs.length > 0 ? res.logs[res.logs.length - 1] : null;
@@ -971,11 +975,9 @@
             }
         });
 
-        // 保存当前选中的值（如果还在列表中）
         const currentVal = select.value;
         select.innerHTML = '<option value="">全部原因</option>';
         
-        // 排序并添加到下拉框
         Array.from(uniqueReasons).sort().forEach(r => {
             const opt = document.createElement('option');
             opt.value = r;
@@ -994,23 +996,15 @@
         const rows = document.querySelectorAll('#summary-tbody tr');
         
         rows.forEach(row => {
-            // 获取第一列文本（股票名称和代码）
             const stockInfo = row.cells[0].innerText.toLowerCase();
-            // 获取第五列文本（原因）
             const reasonText = row.cells[4].innerText.trim();
-            
             const matchSearch = searchTerm === '' || stockInfo.includes(searchTerm);
             const matchReason = reasonFilter === '' || reasonText === reasonFilter;
-            
-            if (matchSearch && matchReason) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-            }
+            if (matchSearch && matchReason) { row.style.display = ''; } else { row.style.display = 'none'; }
         });
     }
 
-    // === 运行主逻辑 ===
+    // === 运行主逻辑 (优化版：并发) ===
     async function runBatchBacktest() {
         const checkedBoxes = document.querySelectorAll('.stock-chk:checked');
         if(checkedBoxes.length === 0) return alert("请至少勾选一只股票");
@@ -1029,19 +1023,47 @@
         
         batchResults = []; let successCount = 0; const total = selectedIndices.length;
 
-        for(let step=0; step < total; step++) {
-            const i = selectedIndices[step]; const s = stocks[i];
-            progress.innerHTML = `正在计算 <b>${s.name}</b> (${step+1}/${total})...`;
-            try {
-                const res = await calculateStock(s); res.index = i; batchResults.push(res); appendSummaryRow(res, i); successCount++;
-            } catch(e) { console.error(s.name, e); sumTbody.innerHTML += `<tr><td style="text-align:left">${s.name}<br><span style="font-size:10px;color:#999">${s.code}</span></td><td colspan="3" style="text-align:center; color:orange; font-size:12px">❌ ${e.message}</td></tr>`; }
-            await new Promise(r => setTimeout(r, 100));
+        // === 优化点2：分批并发执行 ===
+        // 手机浏览器一般支持 4-6 个并发连接，设置 Batch=5 是安全且高效的
+        const BATCH_SIZE = 5; 
+        
+        for (let i = 0; i < total; i += BATCH_SIZE) {
+            const batchIndices = selectedIndices.slice(i, i + BATCH_SIZE);
+            const promises = batchIndices.map(async (idx) => {
+                const s = stocks[idx];
+                progress.innerHTML = `正在计算 (${Math.min(i + BATCH_SIZE, total)}/${total})...`;
+                try {
+                    const res = await calculateStock(s);
+                    res.index = idx;
+                    return res;
+                } catch (e) {
+                    console.error(s.name, e);
+                    // 错误时直接返回错误信息对象，方便后面渲染
+                    return { error: true, stockName: s.name, stockCode: s.code, msg: e.message };
+                }
+            });
+
+            // 等待当前批次全部完成
+            const results = await Promise.all(promises);
+
+            // 处理结果
+            for (const res of results) {
+                if (res.error) {
+                    sumTbody.innerHTML += `<tr><td style="text-align:left">${res.stockName}<br><span style="font-size:10px;color:#999">${res.stockCode}</span></td><td colspan="3" style="text-align:center; color:orange; font-size:12px">❌ ${res.msg}</td></tr>`;
+                } else {
+                    batchResults.push(res);
+                    appendSummaryRow(res, res.index);
+                    successCount++;
+                }
+            }
+            // 稍作停顿，避免 CPU 过热或浏览器 UI 卡死
+            await new Promise(r => setTimeout(r, 20));
         }
+
         progress.innerHTML = `✅ 运行完成! 成功 ${successCount} / 选中 ${total}`;
         btn.innerText = "🚀 运行选中"; btn.disabled = false;
         
         if(batchResults.length > 0) {
-            // 新增：更新筛选下拉框的选项
             updateSummaryFilterOptions();
 
             resultsContainer.style.display = 'block';
@@ -1066,10 +1088,7 @@
 
             runPortfolioStrategy(); 
             renderStatusDistribution(); 
-            
-            // 这里调用新功能渲染函数
             renderTrendLog();
-
             renderDetailCombo(); 
             showDetail(batchResults[0].index);
             
@@ -1081,10 +1100,7 @@
         const tr = document.createElement('tr'); 
         tr.id = `row-${index}`; 
         tr.onclick = () => showDetail(index);
-        
         const cRet = res.stats.ret >= 0 ? 'val-pos' : 'val-neg'; 
-        
-        // --- 新增逻辑：获取最后一日的日志信息 ---
         const lastLog = res.logs && res.logs.length > 0 ? res.logs[res.logs.length - 1] : { action: '-', val: '-', reason: '无数据' };
 
         tr.innerHTML = `
@@ -1188,18 +1204,13 @@
     function runPortfolioStrategy() {
         if (!batchResults || batchResults.length === 0) return alert("请先运行【批量回测】生成数据");
         
-        // --- 修复开始：正确处理 0 值输入 ---
         let rawThres = parseFloat(document.getElementById('pMinPos').value);
-        // 只有当输入为空或非数字时，才使用默认值 0.4，否则接受输入值（包括 0）
         const minPosThreshold = isNaN(rawThres) ? 0.4 : rawThres;
-        // --- 修复结束 ---
         
-        // 1. 构建 dateMap (改为以 StockName 为 Key)
         let dateMap = {}; 
         batchResults.forEach((res) => { 
             res.history.forEach(day => { 
                 if (!dateMap[day.date]) { dateMap[day.date] = { date: day.date, stocks: {} }; } 
-                // 使用 StockName 而不是 Index 作为 Key，并存入 reason
                 dateMap[day.date].stocks[res.stockName] = { close: day.close, idealLev: day.leverage, reason: day.reason }; 
             }); 
         });
@@ -1207,11 +1218,9 @@
         if (sortedDates.length < 2) return alert("有效日期数据不足");
 
         let portNav = 1.0, portHistory = [], maxDD = 0, peak = 1.0;
-        let lastValidData = {}; // Keyed by StockName
-        let prevAllocatedLevs = {}; // Keyed by StockName
-        
+        let lastValidData = {}; 
+        let prevAllocatedLevs = {}; 
         let accContribution = {}; 
-        // 初始化 Contribution
         batchResults.forEach((res) => { accContribution[res.stockName] = 0; });
 
         for (let i = 0; i < sortedDates.length; i++) {
@@ -1219,7 +1228,6 @@
             const rawDayData = dateMap[currDate];
             const prevValidData = { ...lastValidData };
             
-            // 更新 lastValidData
             batchResults.forEach((res) => { 
                 if (rawDayData.stocks[res.stockName]) {
                     lastValidData[res.stockName] = rawDayData.stocks[res.stockName]; 
@@ -1256,7 +1264,6 @@
             batchResults.forEach((res) => {
                 const sData = lastValidData[res.stockName]; 
                 if (sData) {
-                    // 这里使用的是修复后的 minPosThreshold
                     if(sData.idealLev >= minPosThreshold) { currentValidStocks[res.stockName] = sData.idealLev; activeCount++; }
                 }
             });
@@ -1369,20 +1376,17 @@
                 const diffPos = nowPos - prevPos;
                 
                 if (Math.abs(diffPos) > 0.1) { 
-                    // --- 获取个股策略杠杆变动 ---
                     let levStr = "";
                     let isPassive = false;
                     let reasonStr = "";
 
                     if(dateMap) {
-                        // 使用 Name 直接查找，不使用 Index
                         const dNow = dateMap[today.date] ? dateMap[today.date].stocks[name] : null;
                         const dPrev = dateMap[yesterday.date] ? dateMap[yesterday.date].stocks[name] : null;
                         const lNow = dNow ? dNow.idealLev : 0;
                         const lPrev = dPrev ? dPrev.idealLev : 0;
                         reasonStr = dNow ? dNow.reason : "";
                         
-                        // 如果策略杠杆没变，标记为灰色（被动），否则高亮
                         if (Math.abs(lNow - lPrev) < 0.01) {
                             levStr = `<span style="color:#bbb; font-family:monospace;">${lNow.toFixed(1)}x → ${lNow.toFixed(1)}x</span>`;
                             isPassive = true;
@@ -1401,7 +1405,6 @@
             const isLatest = (i === hist.length - 1);
             if (changes.length === 0 && !isLatest) continue;
             
-            // 排序：主动变动排前面，绝对值大的排前面
             changes.sort((a,b) => {
                 if(a.isPassive !== b.isPassive) return a.isPassive ? 1 : -1;
                 return Math.abs(b.diffPos) - Math.abs(a.diffPos)
@@ -1454,12 +1457,8 @@
         });
         dates.sort(); dates = [...new Set(dates)];
         
-        // === 修改点开始：调整堆叠顺序 ===
-        // 旧顺序：['上涨趋势', '震荡整理', '下跌趋势', '触发风控']
-        // 新顺序（从下到上）：上涨 -> 震荡 -> 风控 -> 下跌
         const seriesNames = ['上涨趋势', '震荡整理', '触发风控', '下跌趋势'];
         const colors = ['#d32f2f', '#1976d2', '#616161', '#2e7d32']; 
-        // === 修改点结束 ===
         
         const seriesData = seriesNames.map((name, i) => {
             return { name: name, type: 'bar', stack: 'total', emphasis: { focus: 'series' }, itemStyle: { color: colors[i] }, data: dates.map(d => statsMap[d][name] || 0) };
@@ -1498,7 +1497,6 @@
         
         if (!batchResults || batchResults.length === 0) return;
 
-        // 1. 构建数据映射：Date -> Stock -> Status
         let dateMap = {};
         let allDates = new Set();
         
@@ -1510,45 +1508,30 @@
             });
         });
         
-        // 排序日期（倒序，最新的在最上面）
         const sortedDates = Array.from(allDates).sort().reverse();
-
-        // 2. 遍历日期，对比 T 和 T-1
         let hasContent = false;
 
         for (let i = 0; i < sortedDates.length - 1; i++) {
             const today = sortedDates[i];
             const yesterday = sortedDates[i+1];
-            
             let newUp = [];
             let newDown = [];
             
-            // 遍历所有股票检查状态变化
             batchResults.forEach(res => {
                 const name = res.stockName;
                 const statusNow = dateMap[today][name];
-                const statusPrev = dateMap[yesterday][name]; // 如果是上市首日，prev可能undefined
+                const statusPrev = dateMap[yesterday][name]; 
 
                 if (statusNow && statusPrev) {
-                    // 判定新增上涨
-                    if (statusNow === '上涨趋势' && statusPrev !== '上涨趋势') {
-                        newUp.push(name);
-                    }
-                    // 判定新增下跌
-                    if (statusNow === '下跌趋势' && statusPrev !== '下跌趋势') {
-                        newDown.push(name);
-                    }
+                    if (statusNow === '上涨趋势' && statusPrev !== '上涨趋势') { newUp.push(name); }
+                    if (statusNow === '下跌趋势' && statusPrev !== '下跌趋势') { newDown.push(name); }
                 }
             });
 
-            // 如果当天没有变化，且不是最新的一天，通常跳过不显示（为了版面简洁）
             if (newUp.length === 0 && newDown.length === 0) continue;
-
             hasContent = true;
             const isLatest = (i === 0);
 
-            // 3. 生成 HTML
-            // Header 部分
             const header = document.createElement('div');
             header.className = 'daily-log-header' + (isLatest ? ' open' : '');
             header.onclick = function() { toggleDailyLog(this); };
@@ -1566,7 +1549,6 @@
                 <span class="arrow-daily">▶</span>
             `;
 
-            // Body 部分
             const body = document.createElement('div');
             body.className = 'daily-log-body' + (isLatest ? ' open' : '');
             
@@ -1613,7 +1595,7 @@
             return { 
                 name: name, 
                 type: 'line', 
-                stack: 'Total', // 堆叠模式
+                stack: 'Total', 
                 areaStyle: {}, 
                 emphasis: { focus: 'series' }, 
                 showSymbol: false, 
