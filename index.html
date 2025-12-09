@@ -833,7 +833,7 @@
             let m20 = ma20Arr[i];
 
             // 修改处：增加 r > -0.02 条件
-            const isUp = (m5 && m10 && m20 && m5 > m10 && m10 > m20) && (r > -0.02);
+            const isUp = (m5 && m10 && m20 && m5 > m10 && m10 > m20) && (r > 0.0);
             const isDown = (m5 && m10 && m20 && m5 < m10 && m10 < m20);
 
             const nearLowMv = (curMv <= minCap * 1.05);
