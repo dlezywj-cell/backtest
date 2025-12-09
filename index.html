@@ -834,7 +834,7 @@
 
             // 修改处：增加 r > -0.02 条件
             const isUp = (m5 && m10 && m20 && m5 > m10 && m10 > m20) && (r > 0.0);
-            const isDown = (m5 && m10 && m20 && m5 < m10 && m10 < m20);
+            const isDown = (m5 && m10 && m20 && m5 < m10 && m10 < m20)&& (r < 0.0);
 
             const nearLowMv = (curMv <= minCap * 1.05);
             let winStart = Math.max(0, i - 20); let winNav = 0; for(let k=winStart; k<history.length; k++) if(history[k].nav > winNav) winNav = history[k].nav; if(i < 20) winNav = peakNav; if(nav > winNav) winNav = nav;
