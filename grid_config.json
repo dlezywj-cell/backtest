@@ -307,5 +307,12 @@
     "minCap": 300,
     "maxCap": 600,
     "lastMod": "2025-12-09"
+  },
+  {
+    "code": "TSM.US",
+    "name": "台积电",
+    "minCap": 11000,
+    "maxCap": 22000,
+    "lastMod": "2025-12-09"
   }
 ]
