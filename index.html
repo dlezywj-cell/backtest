@@ -189,6 +189,13 @@
         .combo-option.active { background: #e3f2fd; color: #007bff; font-weight: bold; }
         .combo-code { color: #999; font-size: 12px; margin-left: 8px; font-weight: normal; }
         .combo-option:hover .combo-code { color: #6699cc; }
+
+        /* 新增：收益榜筛选栏样式 */
+        .summary-filter-bar { display: flex; gap: 8px; padding: 0 0 10px 0; background: #fff; border-bottom: 1px solid #eee; margin-bottom: 0; }
+        .summary-filter-bar input, .summary-filter-bar select { border: 1px solid #ddd; padding: 6px 10px; border-radius: 6px; font-size: 12px; outline: none; background: #f9f9f9; transition: all 0.2s; }
+        .summary-filter-bar input:focus, .summary-filter-bar select:focus { border-color: #007bff; background: #fff; }
+        .summary-filter-bar input { flex: 1; }
+        .summary-filter-bar select { max-width: 140px; color: #555; }
     </style>
 </head>
 <body>
@@ -285,13 +292,21 @@
         <!-- 结果统一展示容器 -->
         <div id="results-container" style="display:none; margin-top:15px;">
 
-            <!-- 1. 收益排行榜 -->
+            <!-- 1. 收益排行榜 (修改部分) -->
             <div id="batch-summary-box" style="margin-bottom:15px;">
                 <div class="section-header expanded" onclick="toggleSection('summary-content', this)">
                     <span>📈 收益排行榜</span> 
                     <span class="arrow header-arrow">▼</span>
                 </div>
                 <div id="summary-content" class="section-body">
+                    <!-- 新增：搜索和筛选栏 -->
+                    <div class="summary-filter-bar">
+                        <input type="text" id="summary-search" placeholder="🔍 搜股票/代码..." oninput="filterSummaryTable()">
+                        <select id="summary-filter-reason" onchange="filterSummaryTable()">
+                            <option value="">全部原因</option>
+                        </select>
+                    </div>
+
                     <div class="summary-wrapper">
                         <table class="summary-table">
                             <thead>
@@ -942,6 +957,59 @@
     function selectDetailComboIndex(index) { showDetail(index); closeDetailCombo(); }
     document.addEventListener('click', function(e) { const combo = document.getElementById('detail-combo'); if (combo && !combo.contains(e.target)) { closeDetailCombo(); } });
 
+    // === 新增：收益榜筛选与搜索逻辑 ===
+    function updateSummaryFilterOptions() {
+        const select = document.getElementById('summary-filter-reason');
+        if(!select) return;
+        
+        // 收集所有唯一的“最新原因”
+        let uniqueReasons = new Set();
+        batchResults.forEach(res => {
+            const lastLog = res.logs && res.logs.length > 0 ? res.logs[res.logs.length - 1] : null;
+            if(lastLog && lastLog.reason) {
+                uniqueReasons.add(lastLog.reason);
+            }
+        });
+
+        // 保存当前选中的值（如果还在列表中）
+        const currentVal = select.value;
+        select.innerHTML = '<option value="">全部原因</option>';
+        
+        // 排序并添加到下拉框
+        Array.from(uniqueReasons).sort().forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r;
+            opt.innerText = r;
+            select.appendChild(opt);
+        });
+
+        if(uniqueReasons.has(currentVal)) {
+            select.value = currentVal;
+        }
+    }
+
+    function filterSummaryTable() {
+        const searchTerm = document.getElementById('summary-search').value.toLowerCase().trim();
+        const reasonFilter = document.getElementById('summary-filter-reason').value;
+        const rows = document.querySelectorAll('#summary-tbody tr');
+        
+        rows.forEach(row => {
+            // 获取第一列文本（股票名称和代码）
+            const stockInfo = row.cells[0].innerText.toLowerCase();
+            // 获取第五列文本（原因）
+            const reasonText = row.cells[4].innerText.trim();
+            
+            const matchSearch = searchTerm === '' || stockInfo.includes(searchTerm);
+            const matchReason = reasonFilter === '' || reasonText === reasonFilter;
+            
+            if (matchSearch && matchReason) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
     // === 运行主逻辑 ===
     async function runBatchBacktest() {
         const checkedBoxes = document.querySelectorAll('.stock-chk:checked');
@@ -973,6 +1041,9 @@
         btn.innerText = "🚀 运行选中"; btn.disabled = false;
         
         if(batchResults.length > 0) {
+            // 新增：更新筛选下拉框的选项
+            updateSummaryFilterOptions();
+
             resultsContainer.style.display = 'block';
             
             document.querySelector('#batch-summary-box .section-header').classList.add('expanded');
