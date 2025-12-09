@@ -815,8 +815,6 @@
             }
         }
 
-        // === 优化点1：预先计算所有均线，避免循环内重复运算 ===
-        // 关键注释：此时 rawData 已经包含了实时数据（如果开盘的话），所以算出来的均线自然也包含实时价格。
         const ma5Arr = calculateMA_Array(rawData, 5);
         const ma10Arr = calculateMA_Array(rawData, 10);
         const ma20Arr = calculateMA_Array(rawData, 20);
@@ -830,12 +828,12 @@
             
             let statusTag = "震荡整理"; 
             
-            // 使用预计算的均线值 (复杂度 O(1))
             let m5 = ma5Arr[i];
             let m10 = ma10Arr[i];
             let m20 = ma20Arr[i];
 
-            const isUp = (m5 && m10 && m20 && m5 > m10 && m10 > m20);
+            // 修改处：增加 r > -0.02 条件
+            const isUp = (m5 && m10 && m20 && m5 > m10 && m10 > m20) && (r > -0.02);
             const isDown = (m5 && m10 && m20 && m5 < m10 && m10 < m20);
 
             const nearLowMv = (curMv <= minCap * 1.05);
