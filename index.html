@@ -1504,6 +1504,7 @@
         
         if (!batchResults || batchResults.length === 0) return;
 
+        // 1. 准备数据映射
         let dateMap = {};
         let allDates = new Set();
         
@@ -1518,39 +1519,67 @@
         const sortedDates = Array.from(allDates).sort().reverse();
         let hasContent = false;
 
+        // 定义四种状态的显示配置
+        const statusConfig = {
+            '上涨趋势': { color: '#d32f2f', icon: '🔥', label: '入上涨' },
+            '下跌趋势': { color: '#2e7d32', icon: '❄️', label: '入下跌' },
+            '震荡整理': { color: '#1976d2', icon: '〰️', label: '入震荡' },
+            '触发风控': { color: '#616161', icon: '🛡️', label: '触风控' }
+        };
+
+        // 2. 遍历日期对比差异
         for (let i = 0; i < sortedDates.length - 1; i++) {
             const today = sortedDates[i];
             const yesterday = sortedDates[i+1];
-            let newUp = [];
-            let newDown = [];
+            
+            // 初始化当日变更列表
+            let changes = {
+                '上涨趋势': [],
+                '下跌趋势': [],
+                '震荡整理': [],
+                '触发风控': []
+            };
+            let totalChanges = 0;
             
             batchResults.forEach(res => {
                 const name = res.stockName;
                 const statusNow = dateMap[today][name];
                 const statusPrev = dateMap[yesterday][name]; 
 
-                if (statusNow && statusPrev) {
-                    if (statusNow === '上涨趋势' && statusPrev !== '上涨趋势') { newUp.push(name); }
-                    if (statusNow === '下跌趋势' && statusPrev !== '下跌趋势') { newDown.push(name); }
+                // 只有状态存在且发生了变化，才记录
+                if (statusNow && statusPrev && statusNow !== statusPrev) {
+                    if (changes[statusNow]) {
+                        changes[statusNow].push(name);
+                        totalChanges++;
+                    }
                 }
             });
 
-            if (newUp.length === 0 && newDown.length === 0) continue;
+            if (totalChanges === 0) continue;
             hasContent = true;
             const isLatest = (i === 0);
 
+            // 3. 构建 HTML
             const header = document.createElement('div');
             header.className = 'daily-log-header' + (isLatest ? ' open' : '');
             header.onclick = function() { toggleDailyLog(this); };
             
+            // 生成 Header 上的摘要 (小徽章)
             let summaryHtml = '';
-            if (newUp.length > 0) summaryHtml += `<span style="font-size:11px; color:#fff; background:#d32f2f; padding:2px 6px; border-radius:4px; margin-right:5px;">红+${newUp.length}</span>`;
-            if (newDown.length > 0) summaryHtml += `<span style="font-size:11px; color:#fff; background:#2e7d32; padding:2px 6px; border-radius:4px;">绿+${newDown.length}</span>`;
+            // 按照特定顺序显示摘要
+            const order = ['上涨趋势', '震荡整理', '下跌趋势', '触发风控'];
+            
+            order.forEach(key => {
+                if (changes[key].length > 0) {
+                    const cfg = statusConfig[key];
+                    summaryHtml += `<span style="font-size:11px; color:#fff; background:${cfg.color}; padding:2px 6px; border-radius:4px; margin-right:4px;">${cfg.icon}+${changes[key].length}</span>`;
+                }
+            });
             
             header.innerHTML = `
                 <div style="font-weight:bold; color:#555; display:flex; align-items:center; gap:8px;">
                     ${today} 
-                    <div style="display:flex;">${summaryHtml}</div>
+                    <div style="display:flex; flex-wrap:wrap; gap:2px;">${summaryHtml}</div>
                     ${isLatest ? '<span style="font-size:10px; color:#fff; background:#fd7e14; padding:1px 4px; border-radius:3px; margin-left:auto;">最新</span>' : ''}
                 </div>
                 <span class="arrow-daily">▶</span>
@@ -1561,23 +1590,18 @@
             
             let contentHtml = '';
             
-            if (newUp.length > 0) {
-                contentHtml += `
-                    <div class="daily-item" style="align-items:flex-start; margin-bottom:8px;">
-                        <span style="font-size:11px; color:#fff; background:#d32f2f; padding:2px 6px; border-radius:3px; margin-right:8px; white-space:nowrap;">🔥 入上涨</span>
-                        <div style="color:#333; line-height:1.4;">${newUp.join('、')}</div>
-                    </div>
-                `;
-            }
-            
-            if (newDown.length > 0) {
-                contentHtml += `
-                    <div class="daily-item" style="align-items:flex-start;">
-                        <span style="font-size:11px; color:#fff; background:#2e7d32; padding:2px 6px; border-radius:3px; margin-right:8px; white-space:nowrap;">❄️ 入下跌</span>
-                        <div style="color:#333; line-height:1.4;">${newDown.join('、')}</div>
-                    </div>
-                `;
-            }
+            // 生成 Body 里的详细列表
+            order.forEach(key => {
+                if (changes[key].length > 0) {
+                    const cfg = statusConfig[key];
+                    contentHtml += `
+                        <div class="daily-item" style="align-items:flex-start; margin-bottom:6px; border-bottom:1px dashed #eee; padding-bottom:6px;">
+                            <span style="font-size:11px; color:#fff; background:${cfg.color}; padding:2px 6px; border-radius:3px; margin-right:8px; white-space:nowrap; min-width:50px; text-align:center;">${cfg.label}</span>
+                            <div style="color:#333; line-height:1.4; font-size:12px;">${changes[key].join('、')}</div>
+                        </div>
+                    `;
+                }
+            });
 
             body.innerHTML = contentHtml;
             container.appendChild(header);
