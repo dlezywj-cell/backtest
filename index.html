@@ -705,12 +705,12 @@ const normRed = parseFloat(document.getElementById('pNormRed').value) || 0.8;
 let emSecId = getEmSecId(stock.code); 
 let emCode = emSecId.split('.')[1];
 
-// 增加时间戳参数 &cb=${Date.now()} 防止缓存
+// 修复：使用下划线 _ 代替 cb，避免触发 JSONP 格式错误
 const timestamp = Date.now();
-const snapUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emSecId}&fields=f2,f20,f124&invt=2&fltt=2&cb=${timestamp}`;
+const snapUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emSecId}&fields=f2,f20,f124&invt=2&fltt=2&_=${timestamp}`;
 
-// 增加 cache: 'no-store' 选项
-const snapRes = await fetch(PROXY + encodeURIComponent(snapUrl), { cache: 'no-store' });
+// 修复：移除 cache: 'no-store'，因为 URL 变动已经足够防缓存
+const snapRes = await fetch(PROXY + encodeURIComponent(snapUrl));
 const snapJson = await snapRes.json();
 
 let totalShares = 0;
@@ -719,9 +719,9 @@ let rtTimestamp = 0;
 
 if(stock.code.includes('.US') && (!snapJson.data || !snapJson.data.diff)) {
      emSecId = '106.' + emCode;
-     // 同样增加防缓存处理
-     const retryUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emSecId}&fields=f2,f20,f124&invt=2&fltt=2&cb=${timestamp}`;
-     const retryRes = await fetch(PROXY + encodeURIComponent(retryUrl), { cache: 'no-store' });
+     // 同样修复重试逻辑
+     const retryUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emSecId}&fields=f2,f20,f124&invt=2&fltt=2&_=${timestamp}`;
+     const retryRes = await fetch(PROXY + encodeURIComponent(retryUrl));
      const retryJson = await retryRes.json();
      if(retryJson.data?.diff) {
          let d = Array.isArray(retryJson.data.diff) ? retryJson.data.diff[0] : retryJson.data.diff[emCode];
