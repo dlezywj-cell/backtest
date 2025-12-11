@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (极速缓存版)</title>
+    <title>估值杠杆策略 (极速缓存+高并发版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -726,15 +726,24 @@ const normRed = parseFloat(document.getElementById('pNormRed').value) || 0.8;
 let emSecId = getEmSecId(stock.code); 
 let emCode = emSecId.split('.')[1];
 
-// 实时行情：强制刷新 (不缓存)
+// 实时行情URL (加_=${timestamp}防缓存)
 const timestamp = Date.now();
 const snapUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emSecId}&fields=f2,f20,f124&invt=2&fltt=2&_=${timestamp}`;
-const snapRes = await fetch(PROXY + encodeURIComponent(snapUrl));
-const snapJson = await snapRes.json();
+
+// === 并行获取数据：Snapshot 和 K线同时发起 ===
+// 第一次运行时，两个请求同时发，比顺序发快一倍。
+// 第二次运行时，K线直接走缓存(瞬时)，只有Snapshot走网络。
+const [snapRes, klines] = await Promise.all([
+    fetch(PROXY + encodeURIComponent(snapUrl)).then(r => r.json()),
+    fetchEmKline(emSecId)
+]);
+
+if(!klines || klines.length === 0) throw new Error("无K线数据");
 
 let totalShares = 0;
 let rtPrice = 0; 
 let rtTimestamp = 0; 
+const snapJson = snapRes;
 
 if(stock.code.includes('.US') && (!snapJson.data || !snapJson.data.diff)) {
      emSecId = '106.' + emCode;
@@ -760,10 +769,6 @@ if(stock.code.includes('.US') && (!snapJson.data || !snapJson.data.diff)) {
 }
 
 if(!totalShares) throw new Error(`无法获取股本数据`);
-
-// 历史K线：使用带缓存的函数
-const klines = await fetchEmKline(emSecId);
-if(!klines || klines.length === 0) throw new Error("无K线数据");
 
 let rawData = [];
 const minCap = stock.minCap; const maxCap = stock.maxCap; const midCap = (minCap + maxCap) / 2.0;
@@ -1030,9 +1035,8 @@ sumTbody.innerHTML = ''; progress.style.display = 'block';
 
 batchResults = []; let successCount = 0; const total = selectedIndices.length;
 
-// === 优化点2：分批并发执行 ===
-// 手机浏览器一般支持 4-6 个并发连接，设置 Batch=5 是安全且高效的
-const BATCH_SIZE = 5; 
+// === 优化点2：加大并发至 12，配合缓存实现秒开 ===
+const BATCH_SIZE = 12; 
 
 for (let i = 0; i < total; i += BATCH_SIZE) {
     const batchIndices = selectedIndices.slice(i, i + BATCH_SIZE);
@@ -1063,8 +1067,8 @@ for (let i = 0; i < total; i += BATCH_SIZE) {
             successCount++;
         }
     }
-    // 稍作停顿，避免 CPU 过热或浏览器 UI 卡死
-    await new Promise(r => setTimeout(r, 20));
+    // 稍作停顿
+    await new Promise(r => setTimeout(r, 5));
 }
 
 progress.innerHTML = `✅ 运行完成! 成功 ${successCount} / 选中 ${total}`;
