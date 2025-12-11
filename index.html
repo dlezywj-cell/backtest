@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (极速优化版)</title>
+    <title>估值杠杆策略 (极速缓存版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -481,6 +481,10 @@ input[type="checkbox"] { width: 18px; height: 18px; vertical-align: middle; curs
     let statusChart = null; 
     let contributionChart = null; 
     
+    // === 甬道/缓存机制 ===
+    // 内存缓存，刷新页面后失效。格式: { secId: [KLines] }
+    const KLINE_CACHE = new Map();
+
 function checkUnsavedStatus() {
     const dirty = localStorage.getItem('gridHasUnsavedChanges') === 'true';
     const btn = document.getElementById('btn-push');
@@ -674,12 +678,29 @@ const formatter = new Intl.DateTimeFormat('en-CA', {
 });
 return formatter.format(date);
 }
+
+// === 修改：增加缓存机制的 fetchEmKline ===
 async function fetchEmKline(secId) {
+    // 1. 检查内存缓存 (甬道)
+    if (KLINE_CACHE.has(secId)) {
+        // 返回缓存的深拷贝，防止后续修改影响缓存
+        return [...KLINE_CACHE.get(secId)];
+    }
+
+    // 2. 无缓存，发起网络请求
     const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&fields1=f1&fields2=f51,f53&klt=101&fqt=1&end=20500101&lmt=500`;
     const res = await fetch(PROXY + encodeURIComponent(url));
     const json = await res.json();
-    return json?.data?.klines || [];
+    const data = json?.data?.klines || [];
+
+    // 3. 存入缓存 (仅当数据有效时)
+    if (data.length > 0) {
+        KLINE_CACHE.set(secId, data);
+    }
+
+    return data;
 }
+
 // 优化：预计算均线数组 (复杂度 O(N))
 function calculateMA_Array(data, dayCount) {
 let result = new Array(data.length).fill(null);
@@ -705,11 +726,9 @@ const normRed = parseFloat(document.getElementById('pNormRed').value) || 0.8;
 let emSecId = getEmSecId(stock.code); 
 let emCode = emSecId.split('.')[1];
 
-// 修复：使用下划线 _ 代替 cb，避免触发 JSONP 格式错误
+// 实时行情：强制刷新 (不缓存)
 const timestamp = Date.now();
 const snapUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emSecId}&fields=f2,f20,f124&invt=2&fltt=2&_=${timestamp}`;
-
-// 修复：移除 cache: 'no-store'，因为 URL 变动已经足够防缓存
 const snapRes = await fetch(PROXY + encodeURIComponent(snapUrl));
 const snapJson = await snapRes.json();
 
@@ -742,6 +761,7 @@ if(stock.code.includes('.US') && (!snapJson.data || !snapJson.data.diff)) {
 
 if(!totalShares) throw new Error(`无法获取股本数据`);
 
+// 历史K线：使用带缓存的函数
 const klines = await fetchEmKline(emSecId);
 if(!klines || klines.length === 0) throw new Error("无K线数据");
 
@@ -760,6 +780,7 @@ const userEndDate = document.getElementById('inEndDate').value;
 const now = new Date();
 const todayStr = getMarketDate(now.getTime() / 1000, stock.code); 
 
+// 构建基础数据
 klines.forEach(k => {
     const parts = k.split(',');
     const dateStr = parts[0];
@@ -778,6 +799,7 @@ klines.forEach(k => {
 
 if (rawData.length === 0) throw new Error("所选日期范围内无数据");
 
+// 实时更新逻辑：覆盖/追加最后一个点
 if (rtPrice > 0 && rtTimestamp > 0 && userEndDate >= todayStr) {
     const lastData = rawData[rawData.length - 1];
     
@@ -791,6 +813,7 @@ if (rtPrice > 0 && rtTimestamp > 0 && userEndDate >= todayStr) {
         const rtDateStr = getMarketDate(rtTimestamp, stock.code);
         const rtItem = { date: rtDateStr, close: rtPrice, mv: rtMv, valScore: rtScore };
 
+        // 如果缓存里的最后一条是旧的今天数据，这里会直接用实时数据覆盖它
         if (lastData.date !== rtDateStr) {
             rawData.push(rtItem);
         } else {
