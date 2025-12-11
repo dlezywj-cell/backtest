@@ -235,8 +235,7 @@ input[type="checkbox"] { width: 18px; height: 18px; vertical-align: middle; curs
             <span style="font-size:14px">🔍</span>
             <input type="text" id="list-search-input" placeholder="输入名称或代码筛选..." oninput="filterStockList()">
         </div>
-code
-Code
+
 <div class="table-scroll-box">
         <table class="base-table">
             <thead>
@@ -264,11 +263,9 @@ Code
             <div class="form-group"><label>结束日期</label><input type="date" id="inEndDate"></div>
             <button class="btn btn-blue" id="btn-run-all" onclick="runBatchBacktest()">🚀 运行选中</button>
         </div>
-code
-Code
+
 <div class="toggle-link" onclick="toggleAdvSettings()">🛠 高级参数设置 ▼</div>
-code
-Code
+
 <div id="adv-settings">
     <div style="font-size:12px; color:#007bff; margin-bottom:8px; font-weight:bold;">基础设定</div>
     <div class="form-row">
@@ -484,8 +481,7 @@ Code
     let holdingsChart = null; 
     let statusChart = null; 
     let contributionChart = null; 
-code
-Code
+    
 function checkUnsavedStatus() {
     const dirty = localStorage.getItem('gridHasUnsavedChanges') === 'true';
     const btn = document.getElementById('btn-push');
@@ -631,8 +627,7 @@ const name = document.getElementById('inName').value;
 const min = parseFloat(document.getElementById('inMin').value);
 const max = parseFloat(document.getElementById('inMax').value);
 if(!code || isNaN(min)) return alert("请填写完整");
-code
-Code
+
 const today = new Date().toISOString().split('T')[0];
 const item = { code, name, minCap: min, maxCap: max, lastMod: today }; 
 
@@ -667,8 +662,7 @@ function getMarketDate(timestamp, stockCode) {
 const date = new Date(timestamp * 1000);
 let timeZone = 'Asia/Shanghai';
 if (stockCode.includes('.US')) timeZone = 'America/New_York';
-code
-Code
+
 const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: timeZone, year: 'numeric', month: '2-digit', day: '2-digit'
 });
@@ -701,8 +695,7 @@ const lowSens = parseFloat(document.getElementById('pLowSens').value) || 12;
 const lowRed = parseFloat(document.getElementById('pLowRed').value) || 0.3;
 const normSens = parseFloat(document.getElementById('pNormSens').value) || 25;
 const normRed = parseFloat(document.getElementById('pNormRed').value) || 0.8;
-code
-Code
+
 let emSecId = getEmSecId(stock.code); 
 let emCode = emSecId.split('.')[1];
 
@@ -947,8 +940,7 @@ document.addEventListener('click', function(e) { const combo = document.getEleme
 function updateSummaryFilterOptions() {
 const select = document.getElementById('summary-filter-reason');
 if(!select) return;
-code
-Code
+
 let uniqueReasons = new Set();
 batchResults.forEach(res => {
     const lastLog = res.logs && res.logs.length > 0 ? res.logs[res.logs.length - 1] : null;
@@ -975,8 +967,7 @@ function filterSummaryTable() {
 const searchTerm = document.getElementById('summary-search').value.toLowerCase().trim();
 const reasonFilter = document.getElementById('summary-filter-reason').value;
 const rows = document.querySelectorAll('#summary-tbody tr');
-code
-Code
+
 rows.forEach(row => {
     const stockInfo = row.cells[0].innerText.toLowerCase();
     const reasonText = row.cells[4].innerText.trim();
@@ -989,8 +980,7 @@ rows.forEach(row => {
 async function runBatchBacktest() {
 const checkedBoxes = document.querySelectorAll('.stock-chk:checked');
 if(checkedBoxes.length === 0) return alert("请至少勾选一只股票");
-code
-Code
+
 const selectedIndices = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
 const btn = document.getElementById('btn-run-all');
 const progress = document.getElementById('batch-progress');
@@ -1083,8 +1073,7 @@ tr.id = row-${index};
 tr.onclick = () => showDetail(index);
 const cRet = res.stats.ret >= 0 ? 'val-pos' : 'val-neg';
 const lastLog = res.logs && res.logs.length > 0 ? res.logs[res.logs.length - 1] : { action: '-', val: '-', reason: '无数据' };
-code
-Code
+
 tr.innerHTML = `
     <td><b>${res.stockName}</b><br><span style="color:#999;font-size:10px">${res.stockCode}</span></td>
     <td class="${cRet}">${res.stats.ret.toFixed(1)}%</td>
@@ -1106,8 +1095,7 @@ const res = batchResults.find(r => r.index === index); if(!res) return;
 document.querySelectorAll('.summary-table tr').forEach(r => r.classList.remove('selected'));
 const row = document.getElementById(row-${index}); if(row) row.classList.add('selected');
 document.getElementById('detail-view').style.display = 'block';
-code
-Code
+
 const input = document.getElementById('detail-combo-input');
 if(input) {
     input.value = `${res.stockName} (${res.stockCode})`;
@@ -1125,8 +1113,7 @@ renderChart(res.history); renderLog(res.logs); if(myChart) myChart.resize();
 function renderLog(logs) {
 const tbody = document.getElementById('log-tbody'); document.getElementById('log-count').innerText = (${logs.length});
 if(logs.length === 0) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">期间无操作</td></tr>'; return; }
-code
-Code
+
 const thead = document.querySelector('.log-table thead tr');
 if(thead) {
     thead.innerHTML = `
@@ -1162,8 +1149,7 @@ if(!params.length) return '';
 const index = params[0].dataIndex;
 const item = hist[index];
 if(!item) return '';
-code
-Code
+
 let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${item.date}</div>`;
             h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#999;margin-right:5px;"></span>股价</span><b>${item.close.toFixed(2)}</b></div>`;
             h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d32f2f;margin-right:5px;"></span>净值</span><b>${item.nav.toFixed(2)}</b></div>`;
@@ -1184,8 +1170,7 @@ let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${item.d
 // === 组合策略 (Portfolio) ===
 function runPortfolioStrategy() {
 if (!batchResults || batchResults.length === 0) return alert("请先运行【批量回测】生成数据");
-code
-Code
+
 let rawThres = parseFloat(document.getElementById('pMinPos').value);
 const minPosThreshold = isNaN(rawThres) ? 0.4 : rawThres;
 
@@ -1310,8 +1295,7 @@ const dom = document.getElementById('holdings-chart'); if (holdingsChart) holdin
 holdingsChart.group = 'stockGroup';
 const dates = hist.map(h => h.date); const allStockNames = batchResults.map(r => r.stockName);
 const seriesData = allStockNames.map(name => { return { name: name, type: 'line', stack: 'Total', areaStyle: {}, emphasis: { focus: 'series' }, showSymbol: false, lineStyle: { width: 0 }, data: hist.map(h => h.breakdown[name] || 0) }; });
-code
-Code
+
 holdingsChart.setOption({
     tooltip: { 
         trigger: 'axis', axisPointer: { type: 'cross', label: { backgroundColor: '#6a7985' } }, 
@@ -1344,8 +1328,7 @@ function renderTradeLog(hist, dateMap) {
 const container = document.getElementById('trade-log-list');
 container.innerHTML = '';
 const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
-code
-Code
+
 for (let i = hist.length - 1; i > 0; i--) {
     const today = hist[i]; const yesterday = hist[i-1];
     let changes = []; let dailyNetChange = 0; 
@@ -1426,8 +1409,7 @@ if (container.innerHTML === '') container.innerHTML = '<div style="padding:20px;
 }
 function renderStatusDistribution() {
 if (!batchResults || batchResults.length === 0) return;
-code
-Code
+
 let statsMap = {}; let dates = [];
 batchResults.forEach(res => {
     res.history.forEach(day => {
@@ -1474,8 +1456,7 @@ function renderTrendLog() {
 const container = document.getElementById('trend-log-list');
 if (!container) return;
 container.innerHTML = '';
-code
-Code
+
 if (!batchResults || batchResults.length === 0) return;
 
 // 1. 准备数据映射
@@ -1591,8 +1572,7 @@ const dom = document.getElementById('contribution-chart');
 if (contributionChart) contributionChart.dispose();
 contributionChart = echarts.init(dom);
 contributionChart.group = 'stockGroup';
-code
-Code
+
 const dates = hist.map(h => h.date); 
 const allStockNames = batchResults.map(r => r.stockName);
 
@@ -1658,8 +1638,7 @@ e.returnValue = '';
 (async function autoSyncFromGithub() {
 const token = localStorage.getItem("github_token");
 if (!token) return;
-code
-Code
+
 const btnPull = document.getElementById('btn-pull');
 const originText = btnPull.innerText;
 btnPull.innerText = "☁️...";
