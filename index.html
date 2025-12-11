@@ -482,6 +482,17 @@
     let statusChart = null; 
     let contributionChart = null; 
 
+    // === 核心改进 1: 强大的 ID 处理逻辑 (解决美股/港股识别问题) ===
+    function getSecid(c) { 
+        if (c.endsWith('.SH')) return `1.${c.slice(0,-3)}`;
+        if (c.endsWith('.SZ')) return `0.${c.slice(0,-3)}`;
+        if (c.endsWith('.HK')) return `116.${c.slice(0,-3)}`;
+        // 如果代码本身包含 . 且前面是数字(市场ID)，则直接返回 (例如 106.TSM)
+        if (c.includes('.') && !isNaN(parseInt(c.split('.')[0]))) return c;
+        // 默认回退 (如果没有前缀，默认105纳斯达克)
+        return `105.${c}`; 
+    }
+
     function checkUnsavedStatus() {
         const dirty = localStorage.getItem('gridHasUnsavedChanges') === 'true';
         const btn = document.getElementById('btn-push');
@@ -618,15 +629,30 @@
         const t = document.getElementById('gh-token-input').value.trim();
         if(t) { localStorage.setItem('github_token', t); document.getElementById('token-modal').style.display='none'; uploadToGithub(); }
     }
+
+    // 搜索补全逻辑 (改进版：自动匹配最佳ID)
     function searchStock() {
         const val = document.getElementById('inName').value.trim(); if(!val) return;
         const s = document.createElement('script');
         s.src = `https://searchapi.eastmoney.com/api/suggest/get?input=${encodeURIComponent(val)}&type=14&token=D43BF722C8E33BD5D50F639205545E43&cb=handleSearch`;
         window.handleSearch = (d) => {
             if(d?.QuotationCodeTable?.Data?.[0]) {
-                let r = d.QuotationCodeTable.Data[0]; let suffix = "";
-                if (/^\d{5}$/.test(r.Code)) suffix = ".HK"; else if (/^\d{6}$/.test(r.Code)) suffix = r.Code.startsWith('6') ? ".SH" : ".SZ"; else if (!/^\d+$/.test(r.Code)) suffix = ".US"; else { if(r.MarketType == "1") suffix = ".SH"; else if(r.MarketType == "2") suffix = ".SZ"; else if(r.MarketType == "5") suffix = ".HK"; }
-                document.getElementById('inCode').value = r.Code + suffix; document.getElementById('inName').value = r.Name;
+                let r = d.QuotationCodeTable.Data[0]; 
+                let finalCode = r.Code;
+                // 使用估值系统里的优秀前缀匹配逻辑
+                if (r.QuoteID && r.QuoteID.includes('.') && r.QuoteID.endsWith(r.Code)) finalCode = r.QuoteID;
+                else if (r.ID && r.ID.includes('.') && r.ID.endsWith(r.Code)) finalCode = r.ID;
+                else if (r.UnifiedCode && r.UnifiedCode.includes('.') && r.UnifiedCode.endsWith(r.Code)) finalCode = r.UnifiedCode;
+                else {
+                    const mt = String(r.MarketType);
+                    if (mt === "105" || mt === "106" || mt === "107") finalCode = mt + "." + r.Code;
+                    else if (mt === "116" || (r.Code.length === 5 && /^\d+$/.test(r.Code))) finalCode += ".HK";
+                    else if (mt === "1" || r.Code.startsWith('6')) finalCode += ".SH";
+                    else if (mt === "2" || r.Code.startsWith('0') || r.Code.startsWith('3')) finalCode += ".SZ";
+                }
+
+                document.getElementById('inCode').value = finalCode; 
+                document.getElementById('inName').value = r.Name;
             } else alert("未找到"); s.remove();
         }
         document.body.appendChild(s);
@@ -646,7 +672,6 @@
         if(idx >= 0) stocks[idx] = item; else stocks.push(item); 
         localStorage.setItem('gridStocks', JSON.stringify(stocks)); 
         renderTable(); 
-        
         setLocalChanges(true); 
         alert("已保存");
     }
@@ -680,13 +705,12 @@
         setLocalChanges(true); 
     }
 
-    // === 核心数据逻辑 (优化版) ===
-    const getEmSecId = c => { let raw = c.replace(/\.[A-Z]+$/, ''); if (c.includes('.HK') || /^\d{5}$/.test(raw)) return '116.' + raw.padStart(5, '0'); if (c.includes('.US')) return '105.' + raw; if (raw.startsWith('6')) return '1.' + raw; return '0.' + raw; };
+    // === 核心数据逻辑 ===
     
     function getMarketDate(timestamp, stockCode) {
         const date = new Date(timestamp * 1000);
         let timeZone = 'Asia/Shanghai'; 
-        if (stockCode.includes('.US')) timeZone = 'America/New_York'; 
+        if (stockCode.includes('.US') || stockCode.startsWith('105.') || stockCode.startsWith('106.')) timeZone = 'America/New_York'; 
         
         const formatter = new Intl.DateTimeFormat('en-CA', {
             timeZone: timeZone, year: 'numeric', month: '2-digit', day: '2-digit'
@@ -695,13 +719,51 @@
     }
 
     async function fetchEmKline(secId) {
+        // K线数据依然需要单独获取，因为每个股票历史不同
         const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&fields1=f1&fields2=f51,f53&klt=101&fqt=1&end=20500101&lmt=500`;
         const res = await fetch(PROXY + encodeURIComponent(url));
         const json = await res.json();
         return json?.data?.klines || [];
     }
 
-    // 优化：预计算均线数组 (复杂度 O(N))
+    // === 核心改进 2: 批量极速获取实时快照 ===
+    // 返回一个 Map: { code: { price, mv, timestamp } }
+    async function fetchBatchSnapshots(stockList) {
+        if (!stockList || stockList.length === 0) return {};
+
+        // 使用 getSecid 处理所有代码
+        const secids = stockList.map(s => getSecid(s.code)).join(',');
+        
+        // 加上 timestamp 防止缓存 (fltt=2 和 invt=2 也是关键参数)
+        const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${secids}&fields=f12,f14,f2,f20,f124&invt=2&fltt=2&_=${Date.now()}`;
+        
+        try {
+            // 这里依然使用 PROXY，因为回测页面通常是一个纯 HTML 文件，可能受 CORS 限制
+            // 但因为是一次性请求所有，速度会比循环请求快 N 倍
+            const res = await fetch(PROXY + encodeURIComponent(url));
+            const json = await res.json();
+            
+            let map = {};
+            if (json?.data?.diff) {
+                // diff 可能是数组也可能是对象
+                const items = Array.isArray(json.data.diff) ? json.data.diff : Object.values(json.data.diff);
+                items.forEach(d => {
+                    // f12 是纯代码 (如 700, 600519, TSM)
+                    // 最稳妥的是直接存 f12，并在 calculateStock 里匹配
+                    map[d.f12] = {
+                        price: d.f2,       // 现价
+                        mv: d.f20,         // 总市值 (注意单位，东财这里通常是元)
+                        timestamp: d.f124  // 时间戳
+                    };
+                });
+            }
+            return map;
+        } catch (e) {
+            console.error("Batch fetch failed", e);
+            return {};
+        }
+    }
+
     function calculateMA_Array(data, dayCount) {
         let result = new Array(data.length).fill(null);
         let sum = 0;
@@ -717,48 +779,18 @@
         return result;
     }
 
-    async function calculateStock(stock) {
+    // 注意：calculateStock 现在多了一个参数 rtData (该股票的实时数据)
+    async function calculateStock(stock, rtData) {
         const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
         const lowSens = parseFloat(document.getElementById('pLowSens').value) || 12; 
         const lowRed = parseFloat(document.getElementById('pLowRed').value) || 0.3;
         const normSens = parseFloat(document.getElementById('pNormSens').value) || 25; 
         const normRed = parseFloat(document.getElementById('pNormRed').value) || 0.8;
         
-        let emSecId = getEmSecId(stock.code); 
-        let emCode = emSecId.split('.')[1];
-
-        const snapUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emSecId}&fields=f2,f20,f124&invt=2&fltt=2`;
-        const snapRes = await fetch(PROXY + encodeURIComponent(snapUrl));
-        const snapJson = await snapRes.json();
+        const secId = getSecid(stock.code); // 使用新函数
         
-        let totalShares = 0;
-        let rtPrice = 0; 
-        let rtTimestamp = 0; 
-
-        if(stock.code.includes('.US') && (!snapJson.data || !snapJson.data.diff)) {
-             emSecId = '106.' + emCode;
-             const retryRes = await fetch(PROXY + encodeURIComponent(`https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emSecId}&fields=f2,f20,f124&invt=2&fltt=2`));
-             const retryJson = await retryRes.json();
-             if(retryJson.data?.diff) {
-                 let d = Array.isArray(retryJson.data.diff) ? retryJson.data.diff[0] : retryJson.data.diff[emCode];
-                 if(d && d.f2 > 0) {
-                     totalShares = (d.f20 / d.f2) / 100000000;
-                     rtPrice = d.f2;
-                     rtTimestamp = d.f124;
-                 }
-             }
-        } else if (snapJson.data?.diff) {
-             let d = Array.isArray(snapJson.data.diff) ? snapJson.data.diff[0] : snapJson.data.diff[emCode];
-             if(d && d.f2 > 0) {
-                 totalShares = (d.f20 / d.f2) / 100000000;
-                 rtPrice = d.f2;
-                 rtTimestamp = d.f124;
-             }
-        }
-        
-        if(!totalShares) throw new Error(`无法获取股本数据`);
-
-        const klines = await fetchEmKline(emSecId);
+        // 获取K线 (这个必须单独拿，因为数据量大)
+        const klines = await fetchEmKline(secId);
         if(!klines || klines.length === 0) throw new Error("无K线数据");
 
         let rawData = [];
@@ -776,12 +808,30 @@
         const now = new Date();
         const todayStr = getMarketDate(now.getTime() / 1000, stock.code); 
 
+        let totalShares = 0;
+        let rtPrice = 0;
+        let rtMvRaw = 0;
+        let rtTimestamp = 0;
+
+        // 使用传入的批量获取的数据
+        if (rtData && rtData.price > 0 && rtData.mv > 0) {
+            rtPrice = rtData.price;
+            rtMvRaw = rtData.mv; // 单位：元
+            rtTimestamp = rtData.timestamp;
+            // 计算总股本 (亿股) = (总市值元 / 现价) / 1亿
+            totalShares = (rtMvRaw / rtPrice) / 100000000;
+        }
+
+        // 如果获取不到实时数据导致无法算股本，尝试抛错
+        if (totalShares === 0) throw new Error("无法获取实时市值以计算股本");
+
         klines.forEach(k => {
             const parts = k.split(',');
             const dateStr = parts[0];
             const close = parseFloat(parts[1]);
             
             if (dateStr >= userStartDate && dateStr <= userEndDate) {
+                // 假设股本不变，用 Close * TotalShares 估算历史市值
                 let mv = close * totalShares;
                 rawData.push({
                     date: dateStr,
@@ -794,24 +844,23 @@
 
         if (rawData.length === 0) throw new Error("所选日期范围内无数据");
 
+        // 拼接实时数据 (盘中)
         if (rtPrice > 0 && rtTimestamp > 0 && userEndDate >= todayStr) {
             const lastData = rawData[rawData.length - 1];
             
-            const secondsSinceTrade = (Date.now() / 1000) - rtTimestamp;
-            const isMarketClosedToday = secondsSinceTrade > 72000;
+            // 只要日期不重复就追加
+            const rtDateStr = getMarketDate(rtTimestamp, stock.code);
+            
+            const rtMv = rtMvRaw / 100000000; // 转为亿
+            const rtScore = (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap));
+            const rtItem = { date: rtDateStr, close: rtPrice, mv: rtMv, valScore: rtScore };
 
-            if (!isMarketClosedToday) {
-                const rtMv = rtPrice * totalShares;
-                const rtScore = (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap));
-                
-                const rtDateStr = getMarketDate(rtTimestamp, stock.code);
-                const rtItem = { date: rtDateStr, close: rtPrice, mv: rtMv, valScore: rtScore };
-
-                if (lastData.date !== rtDateStr) {
-                    rawData.push(rtItem);
-                } else {
-                    rawData[rawData.length - 1] = rtItem;
-                }
+            if (lastData.date !== rtDateStr) {
+                // 如果日期不同，说明是新的一天（或者盘中），追加
+                rawData.push(rtItem);
+            } else {
+                // 如果日期相同，说明K线已经包含了今天（可能是收盘后），用实时数据覆盖可能更准
+                rawData[rawData.length - 1] = rtItem;
             }
         }
 
@@ -832,14 +881,9 @@
             let m10 = ma10Arr[i];
             let m20 = ma20Arr[i];
 
-            // 1. 定义纯技术趋势 (仅均线，不看当天涨跌) -> 用于状态显示
-            // 优化：只要5日线同时高于10日和20日线，且股价在20日线上方，即视为趋势确立（比等待10>20更及时）
             const isTechUp = (m5 && m10 && m20 && m5 > m10 && m5 > m20 && d.close > m20);
-            
-            // 优化：只要5日线同时低于10日和20日线，且股价在20日线下方，即视为趋势破坏
             const isTechDown = (m5 && m10 && m20 && m5 < m10 && m5 < m20 && d.close < m20);
 
-            // 2. 定义操作信号 (结合当天涨跌) -> 用于交易加减仓
             const isUp = isTechUp && (r > 0.0);
             const isDown = isTechDown && (r < 0.0);
 
@@ -868,12 +912,10 @@
             }
             
             if(!inProtect) {
-                // 使用纯技术形态标记状态，避免因当天微涨微跌导致状态反复跳变
                 if(isTechUp) statusTag = "上涨趋势";
                 else if(isTechDown) statusTag = "下跌趋势";
                 else statusTag = "震荡整理";
 
-                // 下面的减仓逻辑仍然使用 isDown (带 r < 0 限制)，保持交易逻辑不变
                 if(isDown) {
                     if (d.valScore > 0.6 && d.close > m5) {
                         if (newL < prevL) {
@@ -1011,7 +1053,7 @@
         });
     }
 
-    // === 运行主逻辑 (优化版：并发) ===
+    // === 运行主逻辑 (优化版：批量获取 + 并发计算) ===
     async function runBatchBacktest() {
         const checkedBoxes = document.querySelectorAll('.stock-chk:checked');
         if(checkedBoxes.length === 0) return alert("请至少勾选一只股票");
@@ -1023,15 +1065,19 @@
         const sumTbody = document.getElementById('summary-tbody');
         const detailView = document.getElementById('detail-view');
 
-        btn.innerText = "⏳ 计算中..."; btn.disabled = true;
+        btn.innerText = "⏳ 初始化..."; btn.disabled = true;
         detailView.style.display = 'none'; 
         resultsContainer.style.display = 'none'; 
         sumTbody.innerHTML = ''; progress.style.display = 'block';
         
         batchResults = []; let successCount = 0; const total = selectedIndices.length;
 
-        // === 优化点2：分批并发执行 ===
-        // 手机浏览器一般支持 4-6 个并发连接，设置 Batch=5 是安全且高效的
+        // 1. 批量获取实时快照
+        progress.innerText = `正在批量获取实时行情 (${total}只)...`;
+        const targetStocks = selectedIndices.map(i => stocks[i]);
+        const snapshotMap = await fetchBatchSnapshots(targetStocks);
+
+        // 2. 分批并发执行 K线获取与计算
         const BATCH_SIZE = 5; 
         
         for (let i = 0; i < total; i += BATCH_SIZE) {
@@ -1039,21 +1085,23 @@
             const promises = batchIndices.map(async (idx) => {
                 const s = stocks[idx];
                 progress.innerHTML = `正在计算 (${Math.min(i + BATCH_SIZE, total)}/${total})...`;
+                
+                // 从 Map 中提取该股票的实时数据
+                const cleanCode = getSecid(s.code).split('.')[1];
+                const rtData = snapshotMap[cleanCode];
+
                 try {
-                    const res = await calculateStock(s);
+                    const res = await calculateStock(s, rtData); // 传入实时数据
                     res.index = idx;
                     return res;
                 } catch (e) {
                     console.error(s.name, e);
-                    // 错误时直接返回错误信息对象，方便后面渲染
                     return { error: true, stockName: s.name, stockCode: s.code, msg: e.message };
                 }
             });
 
-            // 等待当前批次全部完成
             const results = await Promise.all(promises);
 
-            // 处理结果
             for (const res of results) {
                 if (res.error) {
                     sumTbody.innerHTML += `<tr><td style="text-align:left">${res.stockName}<br><span style="font-size:10px;color:#999">${res.stockCode}</span></td><td colspan="3" style="text-align:center; color:orange; font-size:12px">❌ ${res.msg}</td></tr>`;
@@ -1063,7 +1111,7 @@
                     successCount++;
                 }
             }
-            // 稍作停顿，避免 CPU 过热或浏览器 UI 卡死
+            // 稍作停顿
             await new Promise(r => setTimeout(r, 20));
         }
 
@@ -1504,7 +1552,6 @@
         
         if (!batchResults || batchResults.length === 0) return;
 
-        // 1. 准备数据映射
         let dateMap = {};
         let allDates = new Set();
         
@@ -1519,7 +1566,6 @@
         const sortedDates = Array.from(allDates).sort().reverse();
         let hasContent = false;
 
-        // 定义四种状态的显示配置
         const statusConfig = {
             '上涨趋势': { color: '#d32f2f', icon: '🔥', label: '入上涨' },
             '下跌趋势': { color: '#2e7d32', icon: '❄️', label: '入下跌' },
@@ -1527,18 +1573,11 @@
             '触发风控': { color: '#616161', icon: '🛡️', label: '触风控' }
         };
 
-        // 2. 遍历日期对比差异
         for (let i = 0; i < sortedDates.length - 1; i++) {
             const today = sortedDates[i];
             const yesterday = sortedDates[i+1];
             
-            // 初始化当日变更列表
-            let changes = {
-                '上涨趋势': [],
-                '下跌趋势': [],
-                '震荡整理': [],
-                '触发风控': []
-            };
+            let changes = { '上涨趋势': [], '下跌趋势': [], '震荡整理': [], '触发风控': [] };
             let totalChanges = 0;
             
             batchResults.forEach(res => {
@@ -1546,7 +1585,6 @@
                 const statusNow = dateMap[today][name];
                 const statusPrev = dateMap[yesterday][name]; 
 
-                // 只有状态存在且发生了变化，才记录
                 if (statusNow && statusPrev && statusNow !== statusPrev) {
                     if (changes[statusNow]) {
                         changes[statusNow].push(name);
@@ -1559,14 +1597,11 @@
             hasContent = true;
             const isLatest = (i === 0);
 
-            // 3. 构建 HTML
             const header = document.createElement('div');
             header.className = 'daily-log-header' + (isLatest ? ' open' : '');
             header.onclick = function() { toggleDailyLog(this); };
             
-            // 生成 Header 上的摘要 (小徽章)
             let summaryHtml = '';
-            // 按照特定顺序显示摘要
             const order = ['上涨趋势', '震荡整理', '下跌趋势', '触发风控'];
             
             order.forEach(key => {
@@ -1589,8 +1624,6 @@
             body.className = 'daily-log-body' + (isLatest ? ' open' : '');
             
             let contentHtml = '';
-            
-            // 生成 Body 里的详细列表
             order.forEach(key => {
                 if (changes[key].length > 0) {
                     const cfg = statusConfig[key];
