@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (极速优化版)</title>
+    <title>估值杠杆策略 (美股修复版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -482,15 +482,21 @@
     let statusChart = null; 
     let contributionChart = null; 
 
-    // === 核心改进 1: 强大的 ID 处理逻辑 (解决美股/港股识别问题) ===
+    // === 核心改进 1: 强大的 ID 处理逻辑 (修复美股/旧版数据) ===
     function getSecid(c) { 
+        // 1. 兼容旧版数据，去掉 .US 后缀
+        let raw = c;
+        if (c.endsWith('.US')) raw = c.slice(0, -3);
+
         if (c.endsWith('.SH')) return `1.${c.slice(0,-3)}`;
         if (c.endsWith('.SZ')) return `0.${c.slice(0,-3)}`;
         if (c.endsWith('.HK')) return `116.${c.slice(0,-3)}`;
-        // 如果代码本身包含 . 且前面是数字(市场ID)，则直接返回 (例如 106.TSM)
-        if (c.includes('.') && !isNaN(parseInt(c.split('.')[0]))) return c;
-        // 默认回退 (如果没有前缀，默认105纳斯达克)
-        return `105.${c}`; 
+        
+        // 2. 如果已经包含市场前缀 (如 106.TSM)，直接返回
+        if (raw.includes('.') && !isNaN(parseInt(raw.split('.')[0]))) return raw;
+
+        // 3. 默认回退 (美股默认为 105 Nasdaq, 但后续会重试)
+        return `105.${raw}`; 
     }
 
     function checkUnsavedStatus() {
@@ -710,7 +716,7 @@
     function getMarketDate(timestamp, stockCode) {
         const date = new Date(timestamp * 1000);
         let timeZone = 'Asia/Shanghai'; 
-        if (stockCode.includes('.US') || stockCode.startsWith('105.') || stockCode.startsWith('106.')) timeZone = 'America/New_York'; 
+        if (stockCode.includes('.US') || stockCode.startsWith('105.') || stockCode.startsWith('106.') || stockCode.startsWith('107.')) timeZone = 'America/New_York'; 
         
         const formatter = new Intl.DateTimeFormat('en-CA', {
             timeZone: timeZone, year: 'numeric', month: '2-digit', day: '2-digit'
@@ -718,15 +724,40 @@
         return formatter.format(date);
     }
 
+    // === 核心改进 2: K线获取重试机制 (修复美股无数据) ===
     async function fetchEmKline(secId) {
-        // K线数据依然需要单独获取，因为每个股票历史不同
-        const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&fields1=f1&fields2=f51,f53&klt=101&fqt=1&end=20500101&lmt=500`;
-        const res = await fetch(PROXY + encodeURIComponent(url));
-        const json = await res.json();
-        return json?.data?.klines || [];
+        // 内部辅助函数
+        const doFetch = async (id) => {
+            const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${id}&fields1=f1&fields2=f51,f53&klt=101&fqt=1&end=20500101&lmt=500`;
+            const res = await fetch(PROXY + encodeURIComponent(url));
+            const json = await res.json();
+            return json?.data?.klines || [];
+        };
+
+        let data = await doFetch(secId);
+
+        // 如果获取到数据，直接返回
+        if (data.length > 0) return data;
+
+        // 如果没数据，且看起来像美股 (以105/106/107开头)，尝试轮询其他市场
+        // 典型场景：用户输入 TSM，默认转为 105.TSM，但实际上它在 106 (NYSE)。
+        if (secId.startsWith('105.') || secId.startsWith('106.') || secId.startsWith('107.')) {
+            const code = secId.split('.')[1];
+            const markets = ['105', '106', '107'];
+            const currentMkt = secId.split('.')[0];
+
+            for (const mkt of markets) {
+                if (mkt === currentMkt) continue; // 跳过已经试过的
+                const tryId = `${mkt}.${code}`;
+                data = await doFetch(tryId);
+                if (data.length > 0) return data; // 找到了！
+            }
+        }
+
+        return [];
     }
 
-    // === 核心改进 2: 批量极速获取实时快照 ===
+    // === 核心改进 3: 批量极速获取实时快照 ===
     // 返回一个 Map: { code: { price, mv, timestamp } }
     async function fetchBatchSnapshots(stockList) {
         if (!stockList || stockList.length === 0) return {};
@@ -791,7 +822,7 @@
         
         // 获取K线 (这个必须单独拿，因为数据量大)
         const klines = await fetchEmKline(secId);
-        if(!klines || klines.length === 0) throw new Error("无K线数据");
+        if(!klines || klines.length === 0) throw new Error("无K线数据 (请检查代码)");
 
         let rawData = [];
         const minCap = stock.minCap; const maxCap = stock.maxCap; const midCap = (minCap + maxCap) / 2.0;
@@ -1087,6 +1118,7 @@
                 progress.innerHTML = `正在计算 (${Math.min(i + BATCH_SIZE, total)}/${total})...`;
                 
                 // 从 Map 中提取该股票的实时数据
+                // 注意：snapshotMap 的 key 可能是 "TSM"，也可能是 "700"
                 const cleanCode = getSecid(s.code).split('.')[1];
                 const rtData = snapshotMap[cleanCode];
 
