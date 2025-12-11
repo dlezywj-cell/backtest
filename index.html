@@ -15,8 +15,7 @@
     .card { background: var(--card); border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 12px; overflow: hidden; transition: all 0.3s; }
     .card-header { padding: 12px 15px; background: #fff; border-bottom: 1px solid transparent; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 15px; user-select: none; cursor: pointer;}
     .header-title { flex: 1; display: flex; align-items: center; gap: 5px; }
-code
-Code
+
 .card-body { display: none; padding: 15px; }
 .card.open .card-body { display: block; }
 .card.open .card-header { border-bottom-color: var(--border); }
@@ -518,7 +517,7 @@ row.style.display = ''; visibleCount++;
 row.style.display = 'none';
 }
 });
-document.getElementById('list-count').innerText = (${visibleCount}/${stocks.length});
+document.getElementById('list-count').innerText = `(${visibleCount}/${stocks.length})`;
 }
 // === 卡片切换 ===
 function toggleCard(id) {
@@ -568,58 +567,59 @@ el.style.display = 'none';
 function safeB64ToUtf8(str) { return decodeURIComponent(escape(window.atob(str.replace(/\s/g, '')))); }
 function utf8ToB64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
 async function uploadToGithub() {
-let token = localStorage.getItem("github_token");
-if (!token) { document.getElementById('token-modal').style.display='flex'; return; }
-const btn = document.getElementById('btn-push'); const origin = btn.innerText; btn.innerText = "⏳"; btn.disabled = true;
-try {
-const url = https://api.github.com/repos/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path};
-const get = await fetch(url, { headers: { "Authorization": token ${token.trim()} } });
-let sha = null; if (get.ok) sha = (await get.json()).sha;
-await fetch(url, { method: "PUT", headers: { "Authorization": token ${token.trim()} }, body: JSON.stringify({ message: "Update", content: utf8ToB64(JSON.stringify(stocks, null, 2)), sha }) });
-alert("✅ 同步成功!");
-setLocalChanges(false);
-} catch (e) { alert("❌ " + e.message); if(e.message.includes("401")) localStorage.removeItem("github_token"); }
-finally { btn.innerText = origin; btn.disabled = false; checkUnsavedStatus(); }
+    let token = localStorage.getItem("github_token");
+    if (!token) { document.getElementById('token-modal').style.display='flex'; return; }
+    const btn = document.getElementById('btn-push'); const origin = btn.innerText; btn.innerText = "⏳"; btn.disabled = true;
+    try {
+        const url = `https://api.github.com/repos/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path}`;
+        const get = await fetch(url, { headers: { "Authorization": `token ${token.trim()}` } });
+        let sha = null; if (get.ok) sha = (await get.json()).sha;
+        await fetch(url, { method: "PUT", headers: { "Authorization": `token ${token.trim()}` }, body: JSON.stringify({ message: "Update", content: utf8ToB64(JSON.stringify(stocks, null, 2)), sha }) });
+        alert("✅ 同步成功!");
+        setLocalChanges(false);
+    } catch (e) { alert("❌ " + e.message); if(e.message.includes("401")) localStorage.removeItem("github_token"); }
+    finally { btn.innerText = origin; btn.disabled = false; checkUnsavedStatus(); }
 }
+
 async function syncFromGithub() {
-let token = localStorage.getItem("github_token");
-const btn = document.getElementById('btn-pull'); const origin = btn.innerText; btn.innerText = "⏳"; btn.disabled = true;
-try {
-const url = https://api.github.com/repos/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path};
-const h = { "Accept": "application/vnd.github.v3+json" };
-if(token) h["Authorization"] = token ${token.trim()};
-let res = await fetch(url, { headers: h });
-let data;
-if (res.ok) { data = JSON.parse(safeB64ToUtf8((await res.json()).content)); }
-else {
-const raw = await fetch(https://raw.githubusercontent.com/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${GITHUB_CONFIG.path}?t=${Date.now()});
-if(!raw.ok) throw new Error("云端无数据"); data = await raw.json();
+    let token = localStorage.getItem("github_token");
+    const btn = document.getElementById('btn-pull'); const origin = btn.innerText; btn.innerText = "⏳"; btn.disabled = true;
+    try {
+        const url = `https://api.github.com/repos/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path}`;
+        const h = { "Accept": "application/vnd.github.v3+json" };
+        if(token) h["Authorization"] = `token ${token.trim()}`;
+        let res = await fetch(url, { headers: h });
+        let data;
+        if (res.ok) { data = JSON.parse(safeB64ToUtf8((await res.json()).content)); }
+        else {
+            const raw = await fetch(`https://raw.githubusercontent.com/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${GITHUB_CONFIG.path}?t=${Date.now()}`);
+            if(!raw.ok) throw new Error("云端无数据"); data = await raw.json();
+        }
+        if(Array.isArray(data) && confirm(`覆盖本地 ${stocks.length} 条数据?`)) {
+            stocks = data;
+            localStorage.setItem('gridStocks', JSON.stringify(stocks));
+            renderTable();
+            setLocalChanges(false);
+        }
+    } catch (e) { alert("❌ " + e.message); } finally { btn.innerText = origin; btn.disabled = false; }
 }
-if(Array.isArray(data) && confirm(覆盖本地 ${stocks.length} 条数据?)) {
-stocks = data;
-localStorage.setItem('gridStocks', JSON.stringify(stocks));
-renderTable();
-setLocalChanges(false);
-}
-} catch (e) { alert("❌ " + e.message); } finally { btn.innerText = origin; btn.disabled = false; }
-}
+
 function saveToken() {
 const t = document.getElementById('gh-token-input').value.trim();
 if(t) { localStorage.setItem('github_token', t); document.getElementById('token-modal').style.display='none'; uploadToGithub(); }
 }
 function searchStock() {
-const val = document.getElementById('inName').value.trim(); if(!val) return;
-const s = document.createElement('script');
-s.src = https://searchapi.eastmoney.com/api/suggest/get?input=${encodeURIComponent(val)}&type=14&token=D43BF722C8E33BD5D50F639205545E43&cb=handleSearch;
-window.handleSearch = (d) => {
-if(d?.QuotationCodeTable?.Data?.[0]) {
-let r = d.QuotationCodeTable.Data[0]; let suffix = "";
-if (/^\d{5}
-/.test(r.Code)) suffix = r.Code.startsWith('6') ? ".SH" : ".SZ"; else if (!/^\d+$/.test(r.Code)) suffix = ".US"; else { if(r.MarketType == "1") suffix = ".SH"; else if(r.MarketType == "2") suffix = ".SZ"; else if(r.MarketType == "5") suffix = ".HK"; }
-document.getElementById('inCode').value = r.Code + suffix; document.getElementById('inName').value = r.Name;
-} else alert("未找到"); s.remove();
-}
-document.body.appendChild(s);
+    const val = document.getElementById('inName').value.trim(); if(!val) return;
+    const s = document.createElement('script');
+    s.src = `https://searchapi.eastmoney.com/api/suggest/get?input=${encodeURIComponent(val)}&type=14&token=D43BF722C8E33BD5D50F639205545E43&cb=handleSearch`;
+    window.handleSearch = (d) => {
+        if(d?.QuotationCodeTable?.Data?.[0]) {
+            let r = d.QuotationCodeTable.Data[0]; let suffix = "";
+            if (/^\d{5}$/.test(r.Code)) suffix = r.Code.startsWith('6') ? ".SH" : ".SZ"; else if (!/^\d+$/.test(r.Code)) suffix = ".US"; else { if(r.MarketType == "1") suffix = ".SH"; else if(r.MarketType == "2") suffix = ".SZ"; else if(r.MarketType == "5") suffix = ".HK"; }
+            document.getElementById('inCode').value = r.Code + suffix; document.getElementById('inName').value = r.Name;
+        } else alert("未找到"); s.remove();
+    }
+    document.body.appendChild(s);
 }
 function saveStock() {
 const code = document.getElementById('inCode').value;
@@ -640,9 +640,9 @@ setLocalChanges(true);
 alert("已保存");
 }
 function renderTable() {
-const tb = document.getElementById('stock-tbody');
-tb.innerHTML = stocks.map((s, i) => <tr> <td><b>${s.name}</b> <span style="color:#999;font-size:12px">${s.code}</span></td> <td> ${s.minCap}-${s.maxCap}亿 <div style="font-size:10px; color:#aaa; margin-top:2px;">${s.lastMod || ''}</div> </td> <td style="text-align:center;"><div class="op-btn-group"><button class="btn btn-edit-yellow btn-icon-square" onclick="editStock(${i})">✎</button><button class="btn btn-del-red btn-icon-square" onclick="delStock(${i})">✕</button></div></td> <td style="text-align:center;"><input type="checkbox" class="stock-chk" value="${i}" checked></td> </tr>).join('');
-filterStockList(); checkAllState();
+    const tb = document.getElementById('stock-tbody');
+    tb.innerHTML = stocks.map((s, i) => `<tr> <td><b>${s.name}</b> <span style="color:#999;font-size:12px">${s.code}</span></td> <td> ${s.minCap}-${s.maxCap}亿 <div style="font-size:10px; color:#aaa; margin-top:2px;">${s.lastMod || ''}</div> </td> <td style="text-align:center;"><div class="op-btn-group"><button class="btn btn-edit-yellow btn-icon-square" onclick="editStock(${i})">✎</button><button class="btn btn-del-red btn-icon-square" onclick="delStock(${i})">✕</button></div></td> <td style="text-align:center;"><input type="checkbox" class="stock-chk" value="${i}" checked></td> </tr>`).join('');
+    filterStockList(); checkAllState();
 }
 function toggleAllStocks(el) { document.querySelectorAll('.stock-chk').forEach(chk => chk.checked = el.checked); }
 function checkAllState() { const all = document.querySelectorAll('.stock-chk'); const checked = document.querySelectorAll('.stock-chk:checked'); document.getElementById('check-all').checked = (all.length > 0 && all.length === checked.length); }
@@ -656,8 +656,14 @@ renderTable();
 setLocalChanges(true);
 }
 // === 核心数据逻辑 (优化版) ===
-const getEmSecId = c => { let raw = c.replace(/.[A-Z]+
-/.test(raw)) return '116.' + raw.padStart(5, '0'); if (c.includes('.US')) return '105.' + raw; if (raw.startsWith('6')) return '1.' + raw; return '0.' + raw; };
+const getEmSecId = c => { 
+    let raw = c.replace(/\.[A-Z]+$/, '');
+    if (/^\d{5}$/.test(raw)) return '116.' + raw.padStart(5, '0');
+    if (c.includes('.US')) return '105.' + raw;
+    if (raw.startsWith('6')) return '1.' + raw;
+    return '0.' + raw; 
+};
+
 function getMarketDate(timestamp, stockCode) {
 const date = new Date(timestamp * 1000);
 let timeZone = 'Asia/Shanghai';
@@ -669,10 +675,10 @@ const formatter = new Intl.DateTimeFormat('en-CA', {
 return formatter.format(date);
 }
 async function fetchEmKline(secId) {
-const url = https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&fields1=f1&fields2=f51,f53&klt=101&fqt=1&end=20500101&lmt=500;
-const res = await fetch(PROXY + encodeURIComponent(url));
-const json = await res.json();
-return json?.data?.klines || [];
+    const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&fields1=f1&fields2=f51,f53&klt=101&fqt=1&end=20500101&lmt=500`;
+    const res = await fetch(PROXY + encodeURIComponent(url));
+    const json = await res.json();
+    return json?.data?.klines || [];
 }
 // 优化：预计算均线数组 (复杂度 O(N))
 function calculateMA_Array(data, dayCount) {
@@ -919,7 +925,7 @@ list.innerHTML = '';
 batchResults.forEach(res => {
 const div = document.createElement('div');
 div.className = 'combo-option';
-div.innerHTML = <span>${res.stockName}</span><span class="combo-code">${res.stockCode}</span>;
+div.innerHTML = `<span>${res.stockName}</span><span class="combo-code">${res.stockCode}</span>`;
 div.onclick = (e) => { e.stopPropagation(); selectDetailComboIndex(res.index); };
 div.dataset.index = res.index;
 div.dataset.searchText = (res.stockName + res.stockCode).toLowerCase();
@@ -1069,7 +1075,7 @@ if(batchResults.length > 0) {
 }
 function appendSummaryRow(res, index) {
 const tr = document.createElement('tr');
-tr.id = row-${index};
+tr.id = `row-${index}`;
 tr.onclick = () => showDetail(index);
 const cRet = res.stats.ret >= 0 ? 'val-pos' : 'val-neg';
 const lastLog = res.logs && res.logs.length > 0 ? res.logs[res.logs.length - 1] : { action: '-', val: '-', reason: '无数据' };
@@ -1093,7 +1099,7 @@ document.getElementById('summary-tbody').appendChild(tr);
 function showDetail(index) {
 const res = batchResults.find(r => r.index === index); if(!res) return;
 document.querySelectorAll('.summary-table tr').forEach(r => r.classList.remove('selected'));
-const row = document.getElementById(row-${index}); if(row) row.classList.add('selected');
+const row = document.getElementById(`row-${index}`); if(row) row.classList.add('selected');
 document.getElementById('detail-view').style.display = 'block';
 
 const input = document.getElementById('detail-combo-input');
@@ -1111,7 +1117,7 @@ document.getElementById('val-lev').innerText = s.avgLev.toFixed(2) + 'x';
 renderChart(res.history); renderLog(res.logs); if(myChart) myChart.resize();
 }
 function renderLog(logs) {
-const tbody = document.getElementById('log-tbody'); document.getElementById('log-count').innerText = (${logs.length});
+const tbody = document.getElementById('log-tbody'); document.getElementById('log-count').innerText = `(${logs.length})`;
 if(logs.length === 0) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">期间无操作</td></tr>'; return; }
 
 const thead = document.querySelector('.log-table thead tr');
@@ -1272,10 +1278,10 @@ trigger: 'axis', axisPointer: {type: 'cross', link: {xAxisIndex: 'all'}},
 formatter: function(params) {
 if(!params.length) return '';
 const index = params[0].dataIndex; const item = hist[index]; if(!item) return '';
-let h = <div style="font-size:12px;margin-bottom:5px;font-weight:bold">${item.date}</div>;
-h += <div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d32f2f;margin-right:5px;"></span>组合净值</span><b>${item.nav.toFixed(3)}</b></div>;
-h += <div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1976d2;margin-right:5px;"></span>实际总杠杆</span><b>${item.totalLev.toFixed(2)}x</b></div>;
-if(item.activeCount !== undefined) h += <div style="font-size:11px; display:flex; justify-content:space-between; gap:15px; color:#888;"><span>有效持仓数</span><b>${item.activeCount}只</b></div>;
+let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${item.date}</div>`;
+h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d32f2f;margin-right:5px;"></span>组合净值</span><b>${item.nav.toFixed(3)}</b></div>`;
+h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1976d2;margin-right:5px;"></span>实际总杠杆</span><b>${item.totalLev.toFixed(2)}x</b></div>`;
+if(item.activeCount !== undefined) h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px; color:#888;"><span>有效持仓数</span><b>${item.activeCount}只</b></div>`;
 return h;
 }, backgroundColor: 'rgba(255,255,255,0.95)'
 },
@@ -1438,7 +1444,7 @@ statusChart.setOption({
             params.forEach(p => {
                 if (p.value > 0) {
                     let pct = total > 0 ? (p.value / total * 100).toFixed(1) : 0;
-                    h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#p.color;margin-right:5px;"></span>${p.seriesName}</span><b>${p.value}只 (${pct}%)</b></div>`;
+                    h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span><b>${p.value}只 (${pct}%)</b></div>`;
                 }
             });
             return h;
