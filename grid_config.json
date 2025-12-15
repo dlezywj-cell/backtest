@@ -52,7 +52,8 @@
     "code": "605117.SH",
     "name": "德业股份",
     "minCap": 500,
-    "maxCap": 750
+    "maxCap": 1000,
+    "lastMod": "2025-12-15"
   },
   {
     "code": "689009.SH",
