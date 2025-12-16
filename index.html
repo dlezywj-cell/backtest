@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (批量极速版)</title>
+    <title>估值杠杆策略 (美股修复+统计优化版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -478,8 +478,8 @@
     let batchResults = [];
     let portfolioChart = null, holdingsChart = null, statusChart = null, contributionChart = null; 
 
-    // IndexedDB: 浏览器本地数据库
-    const DB_NAME = 'StockHistoryDB_BatchV1'; // 新库名，确保干净环境
+    // IndexedDB: 浏览器本地数据库 (DB V2)
+    const DB_NAME = 'StockHistoryDB_BatchV2'; 
     const STORE_NAME = 'klines_store';
     const dbPromise = new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, 1);
@@ -551,7 +551,7 @@
     function toggleDailyLog(headerEl) { headerEl.classList.toggle('open'); headerEl.nextElementSibling.classList.toggle('open'); }
     function toggleAdvSettings() { const el = document.getElementById('adv-settings'); el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none'; }
 
-    // === 2. 核心数据工具 ===
+    // === 2. 核心数据工具 (美股修复核心) ===
     function safeB64ToUtf8(str) { return decodeURIComponent(escape(window.atob(str.replace(/\s/g, '')))); }
     function utf8ToB64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
     const getEmSecId = c => { 
@@ -562,65 +562,73 @@
         return '0.' + raw; 
     };
 
-    // 历史数据获取（单只，走缓存）
+    // 历史数据获取 (含美股双通道探测)
     async function fetchHistoryKline(secId) {
         const todayStr = new Date().toISOString().split('T')[0];
         const cacheKey = `kline_${secId}`;
         const cached = await getCache(cacheKey);
-        // 如果有缓存且日期是今天，直接用
+        
         if (cached && cached.date === todayStr) return cached.data;
-        // 否则拉取网络
-        const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&fields1=f1&fields2=f51,f53&klt=101&fqt=1&end=20500101&lmt=600`;
+        
+        // 第一次尝试 (默认 105. for US)
+        let url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&fields1=f1&fields2=f51,f53&klt=101&fqt=1&end=20500101&lmt=600`;
         try {
-            const res = await fetch(PROXY + encodeURIComponent(url));
-            const json = await res.json();
-            const data = json?.data?.klines || [];
+            let res = await fetch(PROXY + encodeURIComponent(url));
+            let json = await res.json();
+            let data = json?.data?.klines || [];
+            
+            // 【美股修复】：如果默认 105 没数据，且代码是 US，尝试 106
+            if (data.length === 0 && secId.startsWith('105.')) {
+                const altId = secId.replace('105.', '106.');
+                const altUrl = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${altId}&fields1=f1&fields2=f51,f53&klt=101&fqt=1&end=20500101&lmt=600`;
+                const r2 = await fetch(PROXY + encodeURIComponent(altUrl));
+                const j2 = await r2.json();
+                const d2 = j2?.data?.klines || [];
+                if(d2.length > 0) data = d2;
+            }
+
             if (data.length > 0) await setCache(cacheKey, { date: todayStr, data: data });
             return data;
         } catch (e) { return cached ? cached.data : []; }
     }
 
-    // === 【关键优化】批量获取实时数据 ===
-    // 一次性把所有选中股票的 secId 发过去，拿到一个大 Map
+    // 批量实时数据 (含美股双通道请求)
     async function fetchBatchRealtimeData(secIds) {
         if(secIds.length === 0) return {};
-        // 东财接口用逗号分隔，URL长度有限制，这里简单起见假设不超过浏览器限制(通常2000字符)
-        // 如果股票非常多(>100)，建议分批，这里一次请求30个比较稳
         const BATCH_SIZE = 30;
-        let resultMap = {}; // { 'code': { price: 100, totalShares: 1234 } }
+        let resultMap = {};
         
         for (let i = 0; i < secIds.length; i += BATCH_SIZE) {
             const chunk = secIds.slice(i, i + BATCH_SIZE);
-            const joined = chunk.join(',');
+            // 【美股修复】：对于 105. 开头的美股，同时请求 106.，确保覆盖纽交所
+            let expandedChunk = [];
+            chunk.forEach(id => {
+                expandedChunk.push(id);
+                if(id.startsWith('105.')) expandedChunk.push(id.replace('105.', '106.'));
+            });
+
+            const joined = expandedChunk.join(',');
             const ts = Date.now();
-            // fields: f12=code, f2=price, f20=totalMoney, f124=timestamp
             const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${joined}&fields=f12,f2,f20,f124&invt=2&fltt=2&_=${ts}`;
             try {
                 const res = await fetch(PROXY + encodeURIComponent(url));
                 const json = await res.json();
-                const diff = json?.data?.diff; // 可能是数组也可能是对象
+                const diff = json?.data?.diff;
                 if (diff) {
-                    // 如果是对象转数组
                     const list = Array.isArray(diff) ? diff : Object.values(diff);
                     list.forEach(item => {
-                        // item.f12 是 600519 这种纯代码
+                        // 无论来自 105 还是 106，key 都是代码本身 (f12)
                         if (item && item.f2 > 0) {
-                            resultMap[item.f12] = {
-                                price: item.f2,
-                                totalShares: (item.f20 / item.f2) / 100000000,
-                                timestamp: item.f124
-                            };
+                            resultMap[item.f12] = { price: item.f2, totalShares: (item.f20 / item.f2) / 100000000, timestamp: item.f124 };
                         }
                     });
                 }
-            } catch (e) {
-                console.error("Batch fetch failed", e);
-            }
+            } catch (e) { console.error("Batch fetch failed", e); }
         }
         return resultMap;
     }
 
-    // === 3. 单股计算逻辑 (接收预取的实时数据) ===
+    // === 3. 单股计算逻辑 ===
     function calculateMA_Array(data, dayCount) {
         let result = new Array(data.length).fill(null);
         let sum = 0;
@@ -637,7 +645,6 @@
         const userEndDate = document.getElementById('inEndDate').value;
         const todayStr = new Date().toISOString().split('T')[0];
         
-        // 参数
         const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
         const lowSens = parseFloat(document.getElementById('pLowSens').value) || 12;
         const lowRed = parseFloat(document.getElementById('pLowRed').value) || 0.3;
@@ -645,39 +652,23 @@
         const normRed = parseFloat(document.getElementById('pNormRed').value) || 0.8;
 
         let emSecId = getEmSecId(stock.code); 
-        let rawCode = emSecId.split('.')[1]; // 比如 600519
+        let rawCode = emSecId.split('.')[1];
 
-        // 1. 拿历史 (本地秒读)
+        // 1. 拿历史 (自动适配 105/106)
         const klines = await fetchHistoryKline(emSecId);
         if(!klines || klines.length === 0) throw new Error("无K线数据");
 
-        // 2. 拿实时 (从预取Map里拿，不请求网络)
+        // 2. 拿实时 (从批量Map里拿)
         let rtPrice = 0, totalShares = 0;
         const needRealtime = userEndDate >= todayStr;
         
-        // 优先用批量接口回来的数据
         if (realtimeData && realtimeData[rawCode]) {
             rtPrice = realtimeData[rawCode].price;
             totalShares = realtimeData[rawCode].totalShares;
-        } else {
-             // 只有当批量接口没拿到数据时(极少情况)，才去单独请求兜底(为了股本)
-             // 一般如果是回测历史，这里没有rtPrice也无所谓，只要有股本就行
-             // 这里简化：如果没有股本数据，就报错跳过
-             // 实际上东财ulist接口非常稳，除非停牌
-             if(needRealtime) {
-                 // 实在不行就只报错
-                 // throw new Error("无法获取实时数据"); 
-             }
         }
         
-        // 如果实在没有totalShares (比如停牌导致没价格导致没算出来)，尝试用最后收盘价估算(不太准但能跑)
-        // 为了严谨，这里如果不满足就不跑
         if (!totalShares) {
-             // 尝试从历史K线倒推? 不，太麻烦，直接抛错
-             // 或者给个默认值防止崩坏?
              if(needRealtime) throw new Error("实时数据获取失败(可能停牌)");
-             // 如果是回测过去，也许可以暂时不知道股本(不可行，市值策略依赖股本)
-             // 这是一个潜在边缘case，但为了极速版逻辑清晰，暂且认为批量获取成功
              throw new Error("无股本数据");
         }
 
@@ -697,7 +688,6 @@
             }
         });
 
-        // 拼接实时
         if (needRealtime && rtPrice > 0) {
             const rtMv = rtPrice * totalShares;
             const rtItem = {
@@ -715,7 +705,7 @@
 
         if (rawData.length === 0) throw new Error("区间无数据");
 
-        // 4. 策略回测 (纯内存计算，极快)
+        // 4. 策略回测
         const ma5Arr = calculateMA_Array(rawData, 5);
         const ma10Arr = calculateMA_Array(rawData, 10);
         const ma20Arr = calculateMA_Array(rawData, 20);
@@ -780,7 +770,7 @@
         return { stockName: stock.name, stockCode: stock.code, history, logs: changeLogs, stats: { ret: (last.nav-1)*100, stockRet: (last.close/history[0].close-1)*100, maxDD: 0, avgLev: history.reduce((a,b)=>a+b.leverage,0)/history.length } };
     }
 
-    // === 4. 运行控制 (改造版: 先批量取实时，再并发算历史) ===
+    // === 4. 运行控制 ===
     async function runBatchBacktest() {
         const checkedBoxes = document.querySelectorAll('.stock-chk:checked');
         if(checkedBoxes.length === 0) return alert("请至少勾选一只股票");
@@ -795,22 +785,17 @@
         sumTbody.innerHTML = ''; resultsContainer.style.display = 'none'; progress.style.display = 'block';
         batchResults = [];
 
-        // 1. 收集所有 secId
+        // 1. 收集 secId
         const allSecIds = selectedIndices.map(idx => getEmSecId(stocks[idx].code));
         
-        // 2. 一次性批量获取实时数据 (最耗时的网络步骤，现在只做一次!)
+        // 2. 批量获取实时 (网络瓶颈一网打尽)
         progress.innerHTML = `正在获取实时行情 (${allSecIds.length}只)...`;
         let realtimeMap = {};
-        try {
-            realtimeMap = await fetchBatchRealtimeData(allSecIds);
-        } catch(e) {
-            console.error("批量行情失败，将回退", e);
-        }
+        try { realtimeMap = await fetchBatchRealtimeData(allSecIds); } catch(e) { console.error("批量行情失败", e); }
 
         btn.innerText = "🚀 极速计算中...";
         
-        // 3. 并发计算 (现在全是本地IO操作，非常快)
-        // 即使是单线程循环也很快，但为了UI不卡顿，还是用 Promise Pool
+        // 3. 并发计算
         let activeCount = 0, finishedCount = 0, total = selectedIndices.length;
         const MAX_CONCURRENT = 10; 
 
@@ -819,11 +804,7 @@
                 if (finishedCount === total) { if(activeCount === 0) resolve(); return; }
                 while (selectedIndices.length > 0 && activeCount < MAX_CONCURRENT) {
                     const idx = selectedIndices.shift(); activeCount++;
-                    
-                    // 只有当任务比较多时才频繁刷新UI，否则会拖慢速度
                     if(total > 20) progress.innerHTML = `正在计算 (${finishedCount + 1}/${total})...`;
-                    
-                    // 传入刚刚拿到的 realtimeMap
                     calculateStock(stocks[idx], realtimeMap).then(res => {
                         res.index = idx; batchResults.push(res); appendSummaryRow(res, idx);
                     }).catch(e => {
@@ -837,7 +818,8 @@
         });
 
         await runPool;
-        progress.innerHTML = `✅ 运行完成! 耗时优化成功`; btn.innerText = "🚀 运行选中"; btn.disabled = false;
+        progress.innerHTML = `✅ 运行完成! 成功 ${batchResults.length} / 总数 ${total}`; 
+        btn.innerText = "🚀 运行选中"; btn.disabled = false;
         
         if(batchResults.length > 0) {
             resultsContainer.style.display = 'block';
@@ -1132,4 +1114,4 @@
     echarts.connect('stockGroup');
 </script>
 </body>
-</html>
+</html>```
