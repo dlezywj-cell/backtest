@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (极速缓存版)</title>
+    <title>估值杠杆策略 (历史缓存+实时刷新版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -479,13 +479,16 @@
     let portfolioChart = null, holdingsChart = null, statusChart = null, contributionChart = null; 
 
     // IndexedDB: 浏览器本地数据库
-    const DB_NAME = 'StockSmartCache';
-    const STORE_NAME = 'daily_data';
+    // 强制使用新库名，确保环境干净
+    const DB_NAME = 'StockHistoryDB_v3';
+    const STORE_NAME = 'klines_store';
     const dbPromise = new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, 1);
         request.onupgradeneeded = e => {
             const db = e.target.result;
-            if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME);
+            }
         };
         request.onsuccess = e => resolve(e.target.result);
         request.onerror = e => reject(e);
@@ -505,6 +508,10 @@
         const db = await dbPromise;
         const tx = db.transaction(STORE_NAME, 'readwrite');
         tx.objectStore(STORE_NAME).put(val, key);
+        return new Promise(r => {
+            tx.oncomplete = () => r();
+            tx.onerror = () => r();
+        });
     }
 
     // === UI 工具 ===
@@ -550,7 +557,7 @@
     function toggleDailyLog(headerEl) { headerEl.classList.toggle('open'); headerEl.nextElementSibling.classList.toggle('open'); }
     function toggleAdvSettings() { const el = document.getElementById('adv-settings'); el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none'; }
 
-    // === 2. 智能数据获取 ===
+    // === 2. 智能数据获取 (修复: 历史缓存 + 实时强制刷新) ===
     function safeB64ToUtf8(str) { return decodeURIComponent(escape(window.atob(str.replace(/\s/g, '')))); }
     function utf8ToB64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
 
@@ -559,16 +566,24 @@
         const cacheKey = `kline_${secId}`;
         const cached = await getCache(cacheKey);
 
-        // 如果缓存存在且日期是今天，直接用
-        if (cached && cached.date === todayStr) return cached.data;
+        // 【关键】只缓存“历史数据”。
+        // 如果缓存里有且日期标记为今天，说明今天已经拉取过历史K线（历史部分不会变），直接用。
+        if (cached && cached.date === todayStr) {
+            // console.log('Hit history cache', secId); // Debug: 命中缓存
+            return cached.data;
+        }
 
-        // 否则重新拉取
+        // 没缓存或缓存过期，拉取完整历史K线
+        // console.log('Fetching history net', secId); // Debug: 网络请求
         const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&fields1=f1&fields2=f51,f53&klt=101&fqt=1&end=20500101&lmt=600`;
         try {
             const res = await fetch(PROXY + encodeURIComponent(url));
             const json = await res.json();
             const data = json?.data?.klines || [];
-            if (data.length > 0) await setCache(cacheKey, { date: todayStr, data: data });
+            if (data.length > 0) {
+                // 存入缓存，标记为“今天已更新”
+                await setCache(cacheKey, { date: todayStr, data: data });
+            }
             return data;
         } catch (e) { return cached ? cached.data : []; }
     }
@@ -606,31 +621,41 @@
         let emSecId = getEmSecId(stock.code); 
         let emCode = emSecId.split('.')[1];
 
-        // 1. 获取历史数据
+        // 1. 获取历史数据 (走缓存)
         const klines = await fetchEmKline(emSecId);
         if(!klines || klines.length === 0) throw new Error("无K线数据");
 
-        // 2. 获取实时/股本数据 (需要实时价格拼接时，必拉快照)
+        // 2. 【关键修正】强制获取实时数据 (不走缓存，且不用内存缓存)
         let rtPrice = 0, totalShares = 0;
         const needRealtime = userEndDate >= todayStr;
-        const metaKey = `meta_${stock.code}`;
-        let metaCache = await getCache(metaKey);
-
-        if (!metaCache || needRealtime) {
-            const snapUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emSecId}&fields=f2,f20,f124&invt=2&fltt=2&_=${Date.now()}`;
+        
+        // 虽然实时价格不缓存，但股本(Total Shares)是不怎么变的，可以尝试复用以减少计算，
+        // 不过为了确保万无一失，我们这里还是统一从Snapshot接口取
+        if (needRealtime) {
+            // 加个时间戳参数，防止浏览器自作聪明缓存了GET请求
+            const ts = Date.now();
+            const snapUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emSecId}&fields=f2,f20,f124&invt=2&fltt=2&_=${ts}`;
             const snapRes = await fetch(PROXY + encodeURIComponent(snapUrl));
             const snapJson = await snapRes.json();
             let d = Array.isArray(snapJson.data?.diff) ? snapJson.data.diff[0] : snapJson.data?.diff?.[emCode];
             
             if (d && d.f2 > 0) {
                 totalShares = (d.f20 / d.f2) / 100000000;
-                rtPrice = d.f2;
-                await setCache(metaKey, { date: todayStr, shares: totalShares });
-            } else if (metaCache) {
-                totalShares = metaCache.shares;
+                rtPrice = d.f2; // 这是一个这一秒最新的价格
+            } else {
+                 // 兜底：如果实时接口挂了，尝试用股本缓存(如果有的话)
+                 // 但这里我们主要依赖实时接口
+                 throw new Error("无法获取实时价格");
             }
         } else {
-            totalShares = metaCache.shares;
+             // 如果回测的是过去，我们只需要股本。这里为了简单，也可以请求一次Snapshot或者存股本缓存。
+             // 为了代码统一，我们还是请求一次，反正回测过去的情况比较少。
+             // 也可以这里只取缓存股本。
+             const snapUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${emSecId}&fields=f2,f20&invt=2&fltt=2`;
+             const snapRes = await fetch(PROXY + encodeURIComponent(snapUrl));
+             const snapJson = await snapRes.json();
+             let d = Array.isArray(snapJson.data?.diff) ? snapJson.data.diff[0] : snapJson.data?.diff?.[emCode];
+             if (d && d.f2 > 0) totalShares = (d.f20 / d.f2) / 100000000;
         }
 
         if(!totalShares) throw new Error("无法获取股本");
@@ -651,22 +676,31 @@
             }
         });
 
+        // 4. 【关键修正】将实时数据无缝拼接到历史数据末尾
         if (needRealtime && rtPrice > 0) {
             const rtMv = rtPrice * totalShares;
             const rtItem = {
                 date: todayStr, close: rtPrice, mv: rtMv,
                 valScore: (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap))
             };
-            if (rawData.length > 0 && rawData[rawData.length - 1].date === todayStr) {
-                rawData[rawData.length - 1] = rtItem; // 覆盖今日收盘(如果有)
+            
+            if (rawData.length > 0) {
+                const lastIdx = rawData.length - 1;
+                // 如果历史数据的最后一天已经是今天（例如收盘后东财已经归档了今天的数据）
+                // 我们依然强制用实时接口的数据覆盖它，因为实时接口通常更准（含盘后交易等微调）
+                if (rawData[lastIdx].date === todayStr) {
+                    rawData[lastIdx] = rtItem; 
+                } else {
+                    rawData.push(rtItem); // 历史还没到今天，追加
+                }
             } else {
-                rawData.push(rtItem); // 追加今日实时
+                rawData.push(rtItem); // 数据只有今天
             }
         }
 
         if (rawData.length === 0) throw new Error("该日期范围内无数据");
 
-        // 4. 计算均线与策略
+        // 5. 计算均线与策略 (此时 rawData 包含了最新的实时点，所以均线是基于最新的)
         const ma5Arr = calculateMA_Array(rawData, 5);
         const ma10Arr = calculateMA_Array(rawData, 10);
         const ma20Arr = calculateMA_Array(rawData, 20);
