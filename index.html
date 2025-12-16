@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (美股修复+统计优化版)</title>
+    <title>估值杠杆策略 (最终完美版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -551,7 +551,7 @@
     function toggleDailyLog(headerEl) { headerEl.classList.toggle('open'); headerEl.nextElementSibling.classList.toggle('open'); }
     function toggleAdvSettings() { const el = document.getElementById('adv-settings'); el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none'; }
 
-    // === 2. 核心数据工具 (美股修复核心) ===
+    // === 2. 核心数据工具 ===
     function safeB64ToUtf8(str) { return decodeURIComponent(escape(window.atob(str.replace(/\s/g, '')))); }
     function utf8ToB64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
     const getEmSecId = c => { 
@@ -562,7 +562,7 @@
         return '0.' + raw; 
     };
 
-    // 历史数据获取 (含美股双通道探测)
+    // 历史数据获取
     async function fetchHistoryKline(secId) {
         const todayStr = new Date().toISOString().split('T')[0];
         const cacheKey = `kline_${secId}`;
@@ -577,7 +577,7 @@
             let json = await res.json();
             let data = json?.data?.klines || [];
             
-            // 【美股修复】：如果默认 105 没数据，且代码是 US，尝试 106
+            // 美股修复
             if (data.length === 0 && secId.startsWith('105.')) {
                 const altId = secId.replace('105.', '106.');
                 const altUrl = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${altId}&fields1=f1&fields2=f51,f53&klt=101&fqt=1&end=20500101&lmt=600`;
@@ -592,7 +592,7 @@
         } catch (e) { return cached ? cached.data : []; }
     }
 
-    // 批量实时数据 (含美股双通道请求)
+    // 批量实时数据
     async function fetchBatchRealtimeData(secIds) {
         if(secIds.length === 0) return {};
         const BATCH_SIZE = 30;
@@ -600,7 +600,6 @@
         
         for (let i = 0; i < secIds.length; i += BATCH_SIZE) {
             const chunk = secIds.slice(i, i + BATCH_SIZE);
-            // 【美股修复】：对于 105. 开头的美股，同时请求 106.，确保覆盖纽交所
             let expandedChunk = [];
             chunk.forEach(id => {
                 expandedChunk.push(id);
@@ -617,7 +616,6 @@
                 if (diff) {
                     const list = Array.isArray(diff) ? diff : Object.values(diff);
                     list.forEach(item => {
-                        // 无论来自 105 还是 106，key 都是代码本身 (f12)
                         if (item && item.f2 > 0) {
                             resultMap[item.f12] = { price: item.f2, totalShares: (item.f20 / item.f2) / 100000000, timestamp: item.f124 };
                         }
@@ -628,7 +626,7 @@
         return resultMap;
     }
 
-    // === 3. 单股计算逻辑 ===
+    // === 3. 单股计算逻辑 (修复MaxDD和MA显示) ===
     function calculateMA_Array(data, dayCount) {
         let result = new Array(data.length).fill(null);
         let sum = 0;
@@ -654,11 +652,9 @@
         let emSecId = getEmSecId(stock.code); 
         let rawCode = emSecId.split('.')[1];
 
-        // 1. 拿历史 (自动适配 105/106)
         const klines = await fetchHistoryKline(emSecId);
         if(!klines || klines.length === 0) throw new Error("无K线数据");
 
-        // 2. 拿实时 (从批量Map里拿)
         let rtPrice = 0, totalShares = 0;
         const needRealtime = userEndDate >= todayStr;
         
@@ -672,7 +668,6 @@
              throw new Error("无股本数据");
         }
 
-        // 3. 数据清洗与拼接
         let rawData = [];
         const minCap = stock.minCap, maxCap = stock.maxCap, midCap = (minCap + maxCap) / 2.0;
 
@@ -705,7 +700,6 @@
 
         if (rawData.length === 0) throw new Error("区间无数据");
 
-        // 4. 策略回测
         const ma5Arr = calculateMA_Array(rawData, 5);
         const ma10Arr = calculateMA_Array(rawData, 10);
         const ma20Arr = calculateMA_Array(rawData, 20);
@@ -718,6 +712,8 @@
         };
 
         let nav = 1.0, peakNav = 1.0, prevL = getTargetLeverage(rawData[0].mv), inProtect = false, history = [], changeLogs = [];
+        let maxDrawdown = 0; // 【修正】：初始化回撤变量
+
         history.push({date: rawData[0].date, nav:1.0, close:rawData[0].close, leverage:prevL, status: "震荡整理", reason: "初始建仓"});
 
         for(let i=1; i<rawData.length; i++) {
@@ -731,10 +727,15 @@
             const isUp = isTechUp && (r > 0.0);
             const isDown = isTechDown && (r < 0.0);
 
-            let winNav = peakNav; if(nav > winNav) winNav = nav;
-            let curDrawdown = (winNav > 0) ? (winNav - nav) / winNav : 0;
+            // 净值更新
+            nav *= (1 + prevL * r); 
+            if(nav > peakNav) peakNav = nav;
+            
+            // 【修正】：实时计算回撤
+            let currentDD = (peakNav > 0) ? (peakNav - nav) / peakNav : 0;
+            if(currentDD > maxDrawdown) maxDrawdown = currentDD;
 
-            if(curDrawdown > 0.15 && !inProtect) {
+            if(currentDD > 0.15 && !inProtect) {
                 if(curMv <= minCap * 1.05) reason = "市值低估跳过止损"; 
                 else { inProtect = true; newL = prevL * 0.4; reason = `回撤止损`; peakNav = nav; }
             }
@@ -760,14 +761,17 @@
             
             const diff = newL - prevL;
             let actionHtml = diff > 0.005 ? `<span class="badge bg-red">加仓</span>` : diff < -0.005 ? `<span class="badge bg-green">减仓</span>` : `<span class="badge bg-gray">持仓</span>`;
-            changeLogs.push({ date: d.date, action: actionHtml, val: `${prevL.toFixed(2)}→${newL.toFixed(2)}`, reason, mas: `M5:${m5?.toFixed(2)}<br>M20:${m20?.toFixed(2)}` }); 
-            nav *= (1 + prevL * r); if(nav > peakNav) peakNav = nav; 
+            
+            // 【修正】：日志中补全 M10 显示，方便排查趋势判断原因
+            changeLogs.push({ date: d.date, action: actionHtml, val: `${prevL.toFixed(2)}→${newL.toFixed(2)}`, reason, mas: `M5:${m5?.toFixed(2)}<br>M10:${m10?.toFixed(2)}<br>M20:${m20?.toFixed(2)}` }); 
+            
             history.push({date: d.date, nav, close: d.close, leverage: newL, status: statusTag, reason}); 
             prevL = newL;
         }
 
         const last = history[history.length-1];
-        return { stockName: stock.name, stockCode: stock.code, history, logs: changeLogs, stats: { ret: (last.nav-1)*100, stockRet: (last.close/history[0].close-1)*100, maxDD: 0, avgLev: history.reduce((a,b)=>a+b.leverage,0)/history.length } };
+        // 【修正】：返回 maxDrawdown * 100
+        return { stockName: stock.name, stockCode: stock.code, history, logs: changeLogs, stats: { ret: (last.nav-1)*100, stockRet: (last.close/history[0].close-1)*100, maxDD: maxDrawdown * 100, avgLev: history.reduce((a,b)=>a+b.leverage,0)/history.length } };
     }
 
     // === 4. 运行控制 ===
@@ -788,7 +792,7 @@
         // 1. 收集 secId
         const allSecIds = selectedIndices.map(idx => getEmSecId(stocks[idx].code));
         
-        // 2. 批量获取实时 (网络瓶颈一网打尽)
+        // 2. 批量获取实时
         progress.innerHTML = `正在获取实时行情 (${allSecIds.length}只)...`;
         let realtimeMap = {};
         try { realtimeMap = await fetchBatchRealtimeData(allSecIds); } catch(e) { console.error("批量行情失败", e); }
@@ -1114,4 +1118,4 @@
     echarts.connect('stockGroup');
 </script>
 </body>
-</html>```
+</html>
