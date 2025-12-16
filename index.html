@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (最终完美版)</title>
+    <title>估值杠杆策略 (名单透视版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -626,7 +626,7 @@
         return resultMap;
     }
 
-    // === 3. 单股计算逻辑 (修复MaxDD和MA显示) ===
+    // === 3. 单股计算逻辑 ===
     function calculateMA_Array(data, dayCount) {
         let result = new Array(data.length).fill(null);
         let sum = 0;
@@ -712,7 +712,7 @@
         };
 
         let nav = 1.0, peakNav = 1.0, prevL = getTargetLeverage(rawData[0].mv), inProtect = false, history = [], changeLogs = [];
-        let maxDrawdown = 0; // 【修正】：初始化回撤变量
+        let maxDrawdown = 0;
 
         history.push({date: rawData[0].date, nav:1.0, close:rawData[0].close, leverage:prevL, status: "震荡整理", reason: "初始建仓"});
 
@@ -727,11 +727,9 @@
             const isUp = isTechUp && (r > 0.0);
             const isDown = isTechDown && (r < 0.0);
 
-            // 净值更新
             nav *= (1 + prevL * r); 
             if(nav > peakNav) peakNav = nav;
             
-            // 【修正】：实时计算回撤
             let currentDD = (peakNav > 0) ? (peakNav - nav) / peakNav : 0;
             if(currentDD > maxDrawdown) maxDrawdown = currentDD;
 
@@ -762,7 +760,6 @@
             const diff = newL - prevL;
             let actionHtml = diff > 0.005 ? `<span class="badge bg-red">加仓</span>` : diff < -0.005 ? `<span class="badge bg-green">减仓</span>` : `<span class="badge bg-gray">持仓</span>`;
             
-            // 【修正】：日志中补全 M10 显示，方便排查趋势判断原因
             changeLogs.push({ date: d.date, action: actionHtml, val: `${prevL.toFixed(2)}→${newL.toFixed(2)}`, reason, mas: `M5:${m5?.toFixed(2)}<br>M10:${m10?.toFixed(2)}<br>M20:${m20?.toFixed(2)}` }); 
             
             history.push({date: d.date, nav, close: d.close, leverage: newL, status: statusTag, reason}); 
@@ -770,7 +767,6 @@
         }
 
         const last = history[history.length-1];
-        // 【修正】：返回 maxDrawdown * 100
         return { stockName: stock.name, stockCode: stock.code, history, logs: changeLogs, stats: { ret: (last.nav-1)*100, stockRet: (last.close/history[0].close-1)*100, maxDD: maxDrawdown * 100, avgLev: history.reduce((a,b)=>a+b.leverage,0)/history.length } };
     }
 
@@ -789,17 +785,13 @@
         sumTbody.innerHTML = ''; resultsContainer.style.display = 'none'; progress.style.display = 'block';
         batchResults = [];
 
-        // 1. 收集 secId
         const allSecIds = selectedIndices.map(idx => getEmSecId(stocks[idx].code));
-        
-        // 2. 批量获取实时
         progress.innerHTML = `正在获取实时行情 (${allSecIds.length}只)...`;
         let realtimeMap = {};
         try { realtimeMap = await fetchBatchRealtimeData(allSecIds); } catch(e) { console.error("批量行情失败", e); }
 
         btn.innerText = "🚀 极速计算中...";
         
-        // 3. 并发计算
         let activeCount = 0, finishedCount = 0, total = selectedIndices.length;
         const MAX_CONCURRENT = 10; 
 
@@ -832,12 +824,104 @@
             document.getElementById('summary-content').classList.remove('collapsed');
             document.querySelector('#portfolio-section .section-header').classList.add('expanded');
             document.getElementById('portfolio-content').classList.remove('collapsed'); 
-            runPortfolioStrategy(); renderStatusDistribution(); renderTrendLog(); renderDetailCombo();
+            runPortfolioStrategy(); 
+            // 【修正】：调用新的 renderStatusDistribution
+            renderStatusDistribution(); 
+            renderTrendLog(); renderDetailCombo();
             showDetail(batchResults[0].index);
         }
     }
 
-    // === 5. 辅助与渲染逻辑 ===
+    // === 【核心修改】：renderStatusDistribution (名单透视逻辑) ===
+    function renderStatusDistribution() {
+        if (!batchResults || batchResults.length === 0) return;
+        
+        // 1. 准备数据结构：detailMap[日期][状态] = [股票名列表]
+        let detailMap = {}; 
+        let dates = []; 
+        
+        batchResults.forEach(res => {
+            res.history.forEach(day => {
+                if (!detailMap[day.date]) detailMap[day.date] = { '上涨趋势':[], '下跌趋势':[], '震荡整理':[], '触发风控':[], 'Total':0 };
+                let s = day.status || '震荡整理';
+                if(detailMap[day.date][s]) {
+                    detailMap[day.date][s].push(res.stockName);
+                    detailMap[day.date]['Total']++;
+                }
+                dates.push(day.date);
+            });
+        });
+        
+        dates.sort(); 
+        dates = [...new Set(dates)];
+
+        const seriesNames = ['上涨趋势', '震荡整理', '触发风控', '下跌趋势'];
+        const colors = ['#d32f2f', '#1976d2', '#616161', '#2e7d32']; 
+
+        // 2. 构造 Series Data（这里依然传数量，具体的名单在 Tooltip 里取）
+        const seriesData = seriesNames.map((name, i) => {
+            return { 
+                name: name, 
+                type: 'bar', 
+                stack: 'total', 
+                emphasis: { focus: 'series' }, 
+                itemStyle: { color: colors[i] }, 
+                data: dates.map(d => detailMap[d][name] ? detailMap[d][name].length : 0) 
+            };
+        });
+
+        const dom = document.getElementById('status-chart'); 
+        if (statusChart) statusChart.dispose(); 
+        statusChart = echarts.init(dom); 
+        statusChart.group = 'stockGroup'; 
+
+        statusChart.setOption({
+            tooltip: {
+                trigger: 'axis', 
+                axisPointer: { type: 'shadow' },
+                formatter: function (params) {
+                    let date = params[0].axisValue; 
+                    let total = detailMap[date] ? detailMap[date]['Total'] : 0;
+                    let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${date} (Total: ${total})</div>`;
+                    
+                    params.forEach(p => {
+                        if (p.value > 0) {
+                            let pct = total > 0 ? (p.value / total * 100).toFixed(1) : 0;
+                            // 获取名单列表
+                            let nameList = detailMap[date][p.seriesName] || [];
+                            // 截取前10个，避免Tooltip太长
+                            let displayNames = nameList.slice(0, 10).join('、');
+                            if (nameList.length > 10) displayNames += ` 等${nameList.length}只`;
+                            
+                            h += `
+                            <div style="margin-bottom:6px;">
+                                <div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;">
+                                    <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span>
+                                    <b>${p.value}只 (${pct}%)</b>
+                                </div>
+                                <div style="font-size:10px; color:#ccc; margin-left:14px; max-width:260px; white-space:normal; line-height:1.3; opacity:0.8;">
+                                    ${displayNames}
+                                </div>
+                            </div>`;
+                        }
+                    });
+                    return h;
+                }, 
+                backgroundColor: 'rgba(50,50,50,0.9)', // 深色背景让文字更清晰
+                borderColor: '#333', 
+                textStyle: { color: '#fff' },
+                extraCssText: 'max-height:300px; overflow-y:auto;' // 防止超出屏幕
+            },
+            legend: { data: seriesNames, top: 0, selectedMode: true, textStyle: { fontSize: 11 } },
+            grid: { left: '12%', right: '8%', bottom: '30px', top: '30px', containLabel: true },
+            xAxis: { type: 'category', data: dates, axisTick: { show: false }, axisLine: { lineStyle: { color: '#ccc' } } },
+            yAxis: { type: 'value', minInterval: 1, splitLine: { show: true, lineStyle: { type: 'dashed' } } },
+            dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 0, height: 20 }],
+            series: seriesData
+        });
+    }
+
+    // === 5. 辅助与渲染逻辑 (其余部分保持不变) ===
     async function uploadToGithub() {
         let token = localStorage.getItem("github_token");
         if (!token) { document.getElementById('token-modal').style.display='flex'; return; }
@@ -983,98 +1067,6 @@
         });
     }
 
-    function runPortfolioStrategy() {
-        if (!batchResults || batchResults.length === 0) return alert("请先运行回测");
-        let rawThres = parseFloat(document.getElementById('pMinPos').value); const minPosThreshold = isNaN(rawThres) ? 0.4 : rawThres;
-        let dateMap = {}; batchResults.forEach((res) => { res.history.forEach(day => { if (!dateMap[day.date]) { dateMap[day.date] = { date: day.date, stocks: {} }; } dateMap[day.date].stocks[res.stockName] = { close: day.close, idealLev: day.leverage, reason: day.reason }; }); });
-        const sortedDates = Object.keys(dateMap).sort(); if (sortedDates.length < 2) return alert("有效日期数据不足");
-        let portNav = 1.0, portHistory = [], maxDD = 0, peak = 1.0; let lastValidData = {}, prevAllocatedLevs = {}, accContribution = {}; 
-        batchResults.forEach((res) => { accContribution[res.stockName] = 0; });
-
-        for (let i = 0; i < sortedDates.length; i++) {
-            const currDate = sortedDates[i]; const rawDayData = dateMap[currDate]; const prevValidData = { ...lastValidData };
-            batchResults.forEach((res) => { if (rawDayData.stocks[res.stockName]) lastValidData[res.stockName] = rawDayData.stocks[res.stockName]; });
-            let dailyContribBreakdown = {}; 
-            if (i > 0) {
-                let dayPnLComponent = 0;
-                batchResults.forEach((res) => {
-                    const sCurr = lastValidData[res.stockName]; const sPrev = prevValidData[res.stockName]; const allocatedL = prevAllocatedLevs[res.stockName] || 0; 
-                    if (sCurr && sPrev && sPrev.close > 0) { const contribution = ((sCurr.close - sPrev.close) / sPrev.close) * allocatedL; dayPnLComponent += contribution; accContribution[res.stockName] += contribution; }
-                });
-                portNav = portNav * (1 + dayPnLComponent); if (portNav > peak) peak = portNav; const dd = (peak - portNav) / peak; if (dd > maxDD) maxDD = dd;
-            }
-            batchResults.forEach((res) => { dailyContribBreakdown[res.stockName] = accContribution[res.stockName]; });
-            let currentValidStocks = {}, activeCount = 0;
-            batchResults.forEach((res) => { const sData = lastValidData[res.stockName]; if (sData && sData.idealLev >= minPosThreshold) { currentValidStocks[res.stockName] = sData.idealLev; activeCount++; } });
-            let dailyBreakdown = {}, currentCalculatedSumAlloc = 0; 
-            batchResults.forEach((res) => {
-                if (currentValidStocks[res.stockName] !== undefined && activeCount > 0) { const alloc = currentValidStocks[res.stockName] / activeCount; prevAllocatedLevs[res.stockName] = alloc; dailyBreakdown[res.stockName] = alloc; currentCalculatedSumAlloc += alloc; } else { prevAllocatedLevs[res.stockName] = 0; }
-            });
-            portHistory.push({ date: currDate, nav: portNav, totalLev: currentCalculatedSumAlloc, breakdown: dailyBreakdown, contribBreakdown: dailyContribBreakdown, activeCount: activeCount });
-        }
-        renderPortfolioStats(portHistory, maxDD); renderHoldingsChart(portHistory); renderTradeLog(portHistory, dateMap); renderContributionChart(portHistory);
-    }
-    function renderPortfolioStats(hist, maxDD) {
-        const last = hist[hist.length - 1]; const ret = (last.nav - 1) * 100; const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
-        document.getElementById('port-ret').innerText = ret.toFixed(2) + '%'; document.getElementById('port-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
-        document.getElementById('port-lev').innerText = avgLev.toFixed(2) + 'x';
-        document.getElementById('port-dd').innerText = (maxDD * 100).toFixed(2) + '%'; document.getElementById('port-dd').className = 'stat-val loss';
-        const dom = document.getElementById('portfolio-chart'); if (portfolioChart) portfolioChart.dispose(); portfolioChart = echarts.init(dom);
-        portfolioChart.group = 'stockGroup'; const dates = hist.map(h => h.date);
-        portfolioChart.setOption({
-            tooltip: { trigger: 'axis', axisPointer: {type: 'cross', link: {xAxisIndex: 'all'}}, formatter: function(params) { if(!params.length) return ''; const index = params[0].dataIndex; const item = hist[index]; if(!item) return ''; let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${item.date}</div>`; h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d32f2f;margin-right:5px;"></span>组合净值</span><b>${item.nav.toFixed(3)}</b></div>`; h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1976d2;margin-right:5px;"></span>实际总杠杆</span><b>${item.totalLev.toFixed(2)}x</b></div>`; if(item.activeCount !== undefined) h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px; color:#888;"><span>有效持仓数</span><b>${item.activeCount}只</b></div>`; return h; }, backgroundColor: 'rgba(255,255,255,0.95)' },
-            legend: { top: 0, data: ['组合净值', '实际总杠杆'] },
-            grid: [{ left: '12%', right: '8%', top: '15%', height: '55%' }, { left: '12%', right: '8%', top: '75%', height: '15%' }],
-            xAxis: [{type:'category', data:dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}}, {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}],
-            yAxis: [{type:'value', gridIndex:0, scale:true, splitLine:{show:false}}, {type:'value', gridIndex:1, splitLine:{show:false}, min:0}],
-            dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
-            series: [ {name: '组合净值', type: 'line', data: hist.map(h=>h.nav), itemStyle: {color: '#d32f2f'}, lineStyle: {width: 2}, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0}, {name: '实际总杠杆', type: 'line', data: hist.map(h=>h.totalLev), itemStyle: {color: '#1976d2'}, lineStyle: {width: 1}, showSymbol: false, xAxisIndex: 1, yAxisIndex: 1, areaStyle: {opacity: 0.2}} ]
-        });
-    }
-    function renderHoldingsChart(hist) {
-        const dom = document.getElementById('holdings-chart'); if (holdingsChart) holdingsChart.dispose(); holdingsChart = echarts.init(dom);
-        holdingsChart.group = 'stockGroup'; const dates = hist.map(h => h.date); const allStockNames = batchResults.map(r => r.stockName);
-        const seriesData = allStockNames.map(name => { return { name: name, type: 'line', stack: 'Total', areaStyle: {}, emphasis: { focus: 'series' }, showSymbol: false, lineStyle: { width: 0 }, data: hist.map(h => h.breakdown[name] || 0) }; });
-        holdingsChart.setOption({
-            tooltip: { trigger: 'axis', axisPointer: { type: 'cross', label: { backgroundColor: '#6a7985' } }, formatter: function (params) { const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0; let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${params[0].name}</div>`; let sum = 0; const sortedParams = params.sort((a, b) => parseFloat(b.value) - parseFloat(a.value)); sortedParams.forEach(p => { const val = parseFloat(p.value); if(val > 0.001) { const posPct = (val / maxLev * 100).toFixed(2) + '%'; h += `<div style="font-size:11px; display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:2px;"><span style="min-width:70px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span><div style="text-align:right"><b>${val.toFixed(3)}x</b> <span style="color:#888; margin-left:6px; font-size:10px;">(仓位:${posPct})</span></div></div>`; sum += val; } }); const totalPos = (sum / maxLev * 100).toFixed(2) + '%'; h += `<div style="border-top:1px solid #eee; margin-top:5px; padding-top:4px; font-weight:bold; text-align:right;">总杠杆: ${sum.toFixed(2)}x <span style="color:#d32f2f; margin-left:6px;">(总仓位:${totalPos})</span></div>`; return h; } },
-            legend: { data: allStockNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, grid: { left: '12%', right: '8%', bottom: '25px', containLabel: false }, xAxis: { type: 'category', boundaryGap: false, data: dates }, yAxis: { type: 'value', min: 0 }, dataZoom: [{type:'inside'}, {type:'slider', bottom:0, height:20}], series: seriesData
-        });
-    }
-    function renderTradeLog(hist, dateMap) {
-        const container = document.getElementById('trade-log-list'); container.innerHTML = ''; const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
-        for (let i = hist.length - 1; i > 0; i--) {
-            const today = hist[i]; const yesterday = hist[i-1]; let changes = []; let dailyNetChange = 0; 
-            const allStocks = new Set([...Object.keys(today.breakdown), ...Object.keys(yesterday.breakdown)]);
-            allStocks.forEach(name => {
-                const nowPos = (today.breakdown[name] || 0) / maxLev * 100; const prevPos = (yesterday.breakdown[name] || 0) / maxLev * 100; const diffPos = nowPos - prevPos;
-                if (Math.abs(diffPos) > 0.1) { 
-                    let levStr = "", isPassive = false, reasonStr = "";
-                    if(dateMap) { const dNow = dateMap[today.date] ? dateMap[today.date].stocks[name] : null; const dPrev = dateMap[yesterday.date] ? dateMap[yesterday.date].stocks[name] : null; const lNow = dNow ? dNow.idealLev : 0; const lPrev = dPrev ? dPrev.idealLev : 0; reasonStr = dNow ? dNow.reason : ""; if (Math.abs(lNow - lPrev) < 0.01) { levStr = `<span style="color:#bbb; font-family:monospace;">${lNow.toFixed(1)}x → ${lNow.toFixed(1)}x</span>`; isPassive = true; } else { const color = lNow > lPrev ? '#d32f2f' : '#2e7d32'; levStr = `<span style="color:${color}; font-weight:bold; font-family:monospace;">${lPrev.toFixed(1)}x → ${lNow.toFixed(1)}x</span>`; } }
-                    changes.push({name, diffPos, nowPos, prevPos, levStr, isPassive, reasonStr}); dailyNetChange += diffPos; 
-                }
-            });
-            const totalPosPct = (today.totalLev / maxLev) * 100; const isLatest = (i === hist.length - 1); if (changes.length === 0 && !isLatest) continue;
-            changes.sort((a,b) => { if(a.isPassive !== b.isPassive) return a.isPassive ? 1 : -1; return Math.abs(b.diffPos) - Math.abs(a.diffPos) });
-            const netColor = dailyNetChange > 0 ? '#d32f2f' : (dailyNetChange < 0 ? '#2e7d32' : '#999');
-            const header = document.createElement('div'); header.className = 'daily-log-header' + (isLatest ? ' open' : ''); header.onclick = function() { toggleDailyLog(this); }; header.innerHTML = `<div style="font-weight:bold; color:#555; display:flex; align-items:center; gap:8px;">${today.date} <span style="font-size:11px; color:#fff; background:${netColor}; padding:2px 6px; border-radius:4px;">合计: ${dailyNetChange > 0 ? '+' : ''}${dailyNetChange.toFixed(1)}%</span><span style="font-size:11px; color:#333; background:#e3f2fd; padding:2px 6px; border-radius:4px;">总仓: ${totalPosPct.toFixed(1)}%</span><span style="font-weight:normal; font-size:11px; color:#999;">(${changes.length})</span>${isLatest ? '<span style="font-size:10px; color:#fff; background:#fd7e14; padding:1px 4px; border-radius:3px; margin-left:auto;">最新(含盘中)</span>' : ''}</div><span class="arrow-daily">▶</span>`;
-            const body = document.createElement('div'); body.className = 'daily-log-body' + (isLatest ? ' open' : '');
-            if (changes.length === 0) body.innerHTML = `<div class="daily-item" style="justify-content:center; color:#999; font-style:italic; padding:10px 0;">本日仓位保持稳定，无建议调仓</div>`; 
-            else body.innerHTML = changes.map(c => `<div class="daily-item"><div style="display:flex; align-items:center; gap:8px; overflow:hidden;"><span style="font-weight:500; min-width:60px;">${c.name}</span><span style="font-size:11px; background:#f5f5f5; padding:1px 5px; border-radius:3px; white-space:nowrap;">${c.levStr}</span><span style="font-size:10px; color:#aaa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width: 130px;" title="${c.reasonStr}">${c.reasonStr}</span></div><span style="white-space:nowrap;"><span style="color:${c.diffPos > 0 ? '#d32f2f' : '#2e7d32'}; font-weight:bold; margin-right:8px;">${c.diffPos > 0 ? '+' : ''}${c.diffPos.toFixed(1)}%</span><span style="color:#999; font-size:11px;">(${c.prevPos.toFixed(1)}% → ${c.nowPos.toFixed(1)}%)</span></span></div>`).join('');
-            container.appendChild(header); container.appendChild(body);
-        }
-        if (container.innerHTML === '') container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无调仓记录</div>';
-    }
-    function renderStatusDistribution() {
-        if (!batchResults || batchResults.length === 0) return;
-        let statsMap = {}; let dates = []; batchResults.forEach(res => { res.history.forEach(day => { if (!statsMap[day.date]) { statsMap[day.date] = { '上涨趋势':0, '下跌趋势':0, '震荡整理':0, '触发风控':0, 'Total':0 }; dates.push(day.date); } let s = day.status || '震荡整理'; if(statsMap[day.date][s] !== undefined) { statsMap[day.date][s]++; statsMap[day.date]['Total']++; } }); }); dates.sort(); dates = [...new Set(dates)];
-        const seriesNames = ['上涨趋势', '震荡整理', '触发风控', '下跌趋势']; const colors = ['#d32f2f', '#1976d2', '#616161', '#2e7d32']; 
-        const seriesData = seriesNames.map((name, i) => { return { name: name, type: 'bar', stack: 'total', emphasis: { focus: 'series' }, itemStyle: { color: colors[i] }, data: dates.map(d => statsMap[d][name] || 0) }; });
-        const dom = document.getElementById('status-chart'); if (statusChart) statusChart.dispose(); statusChart = echarts.init(dom); statusChart.group = 'stockGroup'; 
-        statusChart.setOption({
-            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: function (params) { let date = params[0].axisValue; let total = statsMap[date] ? statsMap[date]['Total'] : 0; let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${date} (Total: ${total})</div>`; params.forEach(p => { if (p.value > 0) { let pct = total > 0 ? (p.value / total * 100).toFixed(1) : 0; h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span><b>${p.value}只 (${pct}%)</b></div>`; } }); return h; }, backgroundColor: 'rgba(255,255,255,0.95)' },
-            legend: { data: seriesNames, top: 0, selectedMode: true, textStyle: { fontSize: 11 } }, grid: { left: '12%', right: '8%', bottom: '30px', top: '30px', containLabel: true }, xAxis: { type: 'category', data: dates, axisTick: { show: false }, axisLine: { lineStyle: { color: '#ccc' } } }, yAxis: { type: 'value', minInterval: 1, splitLine: { show: true, lineStyle: { type: 'dashed' } } }, dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 0, height: 20 }], series: seriesData
-        });
-    }
     function renderTrendLog() {
         const container = document.getElementById('trend-log-list'); if (!container || !batchResults || batchResults.length === 0) return; container.innerHTML = '';
         let dateMap = {}; let allDates = new Set(); batchResults.forEach(res => { res.history.forEach(day => { if (!dateMap[day.date]) dateMap[day.date] = {}; dateMap[day.date][res.stockName] = day.status; allDates.add(day.date); }); });
