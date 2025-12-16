@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (存算分离完美版)</title>
+    <title>估值杠杆策略 (存算分离修复版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -44,6 +44,7 @@
 
         .run-bar { display: flex; gap: 10px; align-items: flex-end; background:#f8f9fa; padding:10px; border-radius:6px; margin-top:0; flex-wrap: wrap; }
         .run-bar .form-group { min-width: 120px; }
+        /* 按钮样式微调以适应新增按钮 */
         .run-bar button { flex: 1; white-space: nowrap; }
 
         #adv-settings { background: #fff; border: 1px dashed #ddd; padding: 10px; border-radius: 6px; margin-top: 5px; display: none; }
@@ -257,12 +258,11 @@
         <div class="run-bar">
             <div class="form-group"><label>开始日期</label><input type="date" id="inStartDate"></div>
             <div class="form-group"><label>结束日期</label><input type="date" id="inEndDate"></div>
-            
-            <!-- 新增：更新数据按钮 -->
-            <button class="btn btn-purple" id="btn-update-data" onclick="updateHistoryData()" style="flex:1; max-width: 120px;">📥 更新数据</button>
+            <!-- 新增：存算分离更新按钮 -->
+            <button class="btn btn-purple" id="btn-update-data" onclick="updateAllHistoryData()">📥 更新数据</button>
             <button class="btn btn-blue" id="btn-run-all" onclick="runBatchBacktest()">🚀 运行选中</button>
         </div>
-        <div style="font-size:11px;color:#888;margin-top:5px;">💡 先点击 [更新数据] 缓存最近60天K线，再点击 [运行选中] (支持秒级回测)。</div>
+        <div style="font-size:11px; color:#888; margin-top:5px;">💡 先点击 [更新数据] 缓存最近60天K线，再点击 [运行选中] (存算分离极速版)。</div>
 
 <div class="toggle-link" onclick="toggleAdvSettings()">🛠 高级参数设置 ▼</div>
 
@@ -473,28 +473,26 @@
 <script>
     // === 配置与工具 ===
     const GITHUB_CONFIG = { username: "dlezywj-cell", repo: "backtest", path: "grid_config.json", branch: "main" };
-    // 定义多代理，防止单点故障
+    // 定义多重代理
     const PROXIES = ['https://corsproxy.io/?', 'https://api.allorigins.win/raw?url='];
-    
-    // === 存算分离核心：内存缓存 ===
-    // 格式: { "116.00700": [KLines...] }
-    const HISTORY_CACHE_KEY = 'grid_stock_history_v2';
-    let g_historyCache = {}; 
-    
     let stocks = JSON.parse(localStorage.getItem('gridStocks')) || [];
+    
+    // === 存算分离：内存缓存 ===
+    // Key: "105.TSM", Value: [KLines...]
+    const HISTORY_CACHE_KEY = 'grid_stock_history_v4';
+    let g_historyCache = {}; 
+    try {
+        const saved = localStorage.getItem(HISTORY_CACHE_KEY);
+        if(saved) g_historyCache = JSON.parse(saved);
+    } catch(e) { console.log('History load error'); }
+
     let myChart = null;
     let batchResults = [];
     let portfolioChart = null; 
     let holdingsChart = null; 
     let statusChart = null; 
     let contributionChart = null; 
-
-    // 尝试从本地加载历史数据
-    try {
-        const saved = localStorage.getItem(HISTORY_CACHE_KEY);
-        if(saved) g_historyCache = JSON.parse(saved);
-    } catch(e) { console.log('History cache load fail'); }
-
+    
 function checkUnsavedStatus() {
     const dirty = localStorage.getItem('gridHasUnsavedChanges') === 'true';
     const btn = document.getElementById('btn-push');
@@ -670,9 +668,21 @@ renderTable();
 setLocalChanges(true);
 }
 
-// === 核心数据逻辑 (带重试的Fetch) ===
+// === 核心数据逻辑 (优化版：存算分离) ===
+
+// 1. 获取东财 SecId (修复TSM/美股问题)
+const getEmSecId = c => { 
+    let raw = c.replace(/\.[A-Z]+$/, '').toUpperCase(); // 去后缀转大写 TSM.US -> TSM
+    if (/^\d{5}$/.test(raw)) return '116.' + raw.padStart(5, '0');
+    // 美股判断：包含US或纯字母
+    if (c.includes('.US') || /^[A-Z]+$/.test(raw)) return '105.' + raw;
+    if (raw.startsWith('6') || raw.startsWith('9')) return '1.' + raw;
+    return '0.' + raw; 
+};
+
+// 2. 带重试的Fetch代理
 async function fetchProxy(url, attempt = 0) {
-    if (attempt >= PROXIES.length) throw new Error("所有代理尝试失败");
+    if (attempt >= PROXIES.length) throw new Error("代理超时");
     const target = PROXIES[attempt] + encodeURIComponent(url);
     try {
         const res = await fetch(target);
@@ -684,14 +694,61 @@ async function fetchProxy(url, attempt = 0) {
     }
 }
 
-const getEmSecId = c => { 
-    let raw = c.replace(/\.[A-Z]+$/, '');
-    if (/^\d{5}$/.test(raw)) return '116.' + raw.padStart(5, '0');
-    // 美股修复：东财 TSM 是 105.TSM，不是 105.TSM.US
-    if (c.includes('.US')) return '105.' + raw; 
-    if (raw.startsWith('6')) return '1.' + raw;
-    return '0.' + raw; 
-};
+// 3. 批量更新历史 (lmt=60, 存入Cache)
+async function updateAllHistoryData() {
+    const btn = document.getElementById('btn-update-data');
+    const origin = btn.innerText; btn.innerText = "⏳ 0%"; btn.disabled = true;
+    let count = 0;
+    
+    // 5并发下载
+    for(let i=0; i<stocks.length; i+=5) {
+        const batch = stocks.slice(i, i+5);
+        await Promise.all(batch.map(async (s) => {
+            try {
+                const secId = getEmSecId(s.code);
+                // 强制 lmt=60
+                const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&fields1=f1&fields2=f51,f53&klt=101&fqt=1&end=20500101&lmt=60`;
+                const json = await fetchProxy(url);
+                if(json?.data?.klines) {
+                    g_historyCache[secId] = json.data.klines;
+                }
+            } catch(e) { console.error(s.name, e); }
+        }));
+        count += batch.length;
+        btn.innerText = `⏳ ${Math.round(count/stocks.length*100)}%`;
+    }
+    try {
+        localStorage.setItem(HISTORY_CACHE_KEY, JSON.stringify(g_historyCache));
+        alert("✅ 数据已更新 (最近60天)");
+    } catch(e) { alert("⚠️ 缓存失败(数据过多)"); }
+    btn.innerText = origin; btn.disabled = false;
+}
+
+// 4. 批量获取实时 (修复TSM匹配)
+async function fetchBatchRealtime(selectedStocks) {
+    let rtMap = {};
+    const BATCH = 20; 
+    for(let i=0; i<selectedStocks.length; i+=BATCH) {
+        const batch = selectedStocks.slice(i, i+BATCH);
+        const secIds = batch.map(s => getEmSecId(s.code)).join(',');
+        
+        const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${secIds}&fields=f12,f13,f2,f20,f124&invt=2&fltt=2&_=${Date.now()}`;
+        try {
+            const json = await fetchProxy(url);
+            const list = Array.isArray(json?.data?.diff) ? json.data.diff : (json?.data?.diff ? Object.values(json.data.diff) : []);
+            list.forEach(d => {
+                // 存入多种Key以适配 TSM vs TSM.US
+                rtMap[d.f12] = d; 
+                rtMap[d.f12.toUpperCase()] = d;
+                let suffix = d.f13==1?".SH":".SZ";
+                if(d.f13==105) suffix = ".US";
+                if(d.f12.length==5) suffix = ".HK";
+                rtMap[d.f12 + suffix] = d;
+            });
+        } catch(e) { console.error("Realtime fail", e); }
+    }
+    return rtMap;
+}
 
 function getMarketDate(timestamp, stockCode) {
     const date = new Date(timestamp * 1000);
@@ -703,339 +760,182 @@ function getMarketDate(timestamp, stockCode) {
     return formatter.format(date);
 }
 
-// === 1. 存算分离：批量更新历史数据 ===
-async function updateHistoryData() {
-    const btn = document.getElementById('btn-update-data');
-    const originText = btn.innerText;
-    btn.innerText = "⏳ 0%"; btn.disabled = true;
-    
-    let finished = 0;
-    // 5并发
-    for(let i=0; i<stocks.length; i+=5) {
-        const batch = stocks.slice(i, i+5);
-        await Promise.all(batch.map(async (s) => {
-            try {
-                const secId = getEmSecId(s.code);
-                // 限制 lmt=60 (只取最近60天，减少数据量)
-                // 强制 fields2 包含 f51(日期,开,收,高,低,量,额,振幅)
-                const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&fields1=f1&fields2=f51,f53&klt=101&fqt=1&end=20500101&lmt=60`;
-                const json = await fetchProxy(url);
-                if(json && json.data && json.data.klines) {
-                    g_historyCache[secId] = json.data.klines;
-                }
-            } catch(e) { console.error(s.name, e); }
-        }));
-        finished += batch.length;
-        btn.innerText = `⏳ ${Math.round(finished/stocks.length*100)}%`;
-    }
-    
-    // 存入LocalStorage
-    try {
-        localStorage.setItem(HISTORY_CACHE_KEY, JSON.stringify(g_historyCache));
-        alert("✅ 数据更新完成！已缓存最近60天K线。");
-    } catch(e) {
-        alert("⚠️ 缓存失败：数据量过大，请减少股票数量。");
-    }
-    btn.innerText = originText; btn.disabled = false;
-}
-
-// === 2. 存算分离：批量获取实时数据 ===
-async function fetchBatchRealtime(selectedStocks) {
-    let rtMap = {};
-    const BATCH = 20; // 批次大小
-    
-    for(let i=0; i<selectedStocks.length; i+=BATCH) {
-        const batch = selectedStocks.slice(i, i+BATCH);
-        const secIds = batch.map(s => getEmSecId(s.code)).join(',');
-        
-        // fields: f12=Code, f2=Price, f20=TotalMV(元), f124=Timestamp
-        const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${secIds}&fields=f12,f13,f2,f20,f124&invt=2&fltt=2&_=${Date.now()}`;
-        
-        try {
-            const json = await fetchProxy(url);
-            const list = Array.isArray(json?.data?.diff) ? json.data.diff : (json?.data?.diff ? Object.values(json.data.diff) : []);
-            
-            list.forEach(d => {
-                // 存多种key以支持美股模糊匹配
-                // 1. 纯代码 (TSM)
-                rtMap[d.f12] = d; 
-                // 2. 纯代码转大写
-                rtMap[d.f12.toUpperCase()] = d;
-                
-                // 3. 构造带后缀 (TSM.US)
-                let suffix = "";
-                if(d.f13 == 1) suffix = ".SH";
-                else if(d.f13 == 0) suffix = ".SZ"; // 简略
-                else if(d.f13 == 105) suffix = ".US";
-                if(d.f12.length == 5) suffix = ".HK";
-                
-                rtMap[d.f12 + suffix] = d;
-            });
-        } catch(e) { console.error("Realtime fetch fail", e); }
-    }
-    return rtMap;
-}
-
-// 优化：预计算均线数组 (复杂度 O(N))
+// 优化：预计算均线数组
 function calculateMA_Array(data, dayCount) {
-let result = new Array(data.length).fill(null);
-let sum = 0;
-for (let i = 0; i < data.length; i++) {
-sum += data[i].close;
-if (i >= dayCount) {
-sum -= data[i - dayCount].close;
-}
-if (i >= dayCount - 1) {
-result[i] = sum / dayCount;
-}
-}
-return result;
-}
-
-// === 3. 存算分离：纯计算函数 (移除fetch) ===
-function calculateStock_Pure(stock, historyKlines, realtimeData) {
-const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
-const lowSens = parseFloat(document.getElementById('pLowSens').value) || 12;
-const lowRed = parseFloat(document.getElementById('pLowRed').value) || 0.3;
-const normSens = parseFloat(document.getElementById('pNormSens').value) || 25;
-const normRed = parseFloat(document.getElementById('pNormRed').value) || 0.8;
-
-// 数据准备
-if(!historyKlines || historyKlines.length === 0) throw new Error("无历史数据(请先更新)");
-
-let totalShares = 0;
-let rtPrice = 0; 
-let rtTimestamp = 0;
-let rtMv = 0;
-
-// 从传入的 realtimeData 解析
-if(realtimeData && realtimeData.f2 > 0) {
-    rtPrice = realtimeData.f2;
-    rtTimestamp = realtimeData.f124;
-    // f20是总市值(元)，转亿需除以1亿; f2是股价
-    // 股本(亿) = 总市值(元) / 股价 / 100000000
-    if(realtimeData.f20 > 0) {
-        totalShares = (realtimeData.f20 / rtPrice) / 100000000;
-        rtMv = realtimeData.f20 / 100000000; // 亿
+    let result = new Array(data.length).fill(null);
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) {
+        sum += data[i].close;
+        if (i >= dayCount) sum -= data[i - dayCount].close;
+        if (i >= dayCount - 1) result[i] = sum / dayCount;
     }
+    return result;
 }
 
-// 兜底逻辑：如果实时取不到股本，尝试用历史最后一天收盘价估算
-// 假设最后一天市值在中位 (midCap)，这只是为了让回测不报错
-const minCap = stock.minCap; const maxCap = stock.maxCap; const midCap = (minCap + maxCap) / 2.0;
-if(totalShares === 0) {
-    const lastK = historyKlines[historyKlines.length-1];
-    const lastClose = parseFloat(lastK.split(',')[1]);
-    if(lastClose > 0) {
-        totalShares = midCap / lastClose; 
-        // 标记为估算
-        // console.warn(stock.name + " 使用估算股本");
-    } else {
-        throw new Error("无法计算股本");
-    }
-}
+// === 5. 存算分离：纯计算核心 (无 fetch) ===
+function calculateStock_Pure(stock, klines, rt) {
+    const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
+    const lowSens = parseFloat(document.getElementById('pLowSens').value) || 12;
+    const lowRed = parseFloat(document.getElementById('pLowRed').value) || 0.3;
+    const normSens = parseFloat(document.getElementById('pNormSens').value) || 25;
+    const normRed = parseFloat(document.getElementById('pNormRed').value) || 0.8;
+    const minCap = stock.minCap; const maxCap = stock.maxCap; const midCap = (minCap + maxCap) / 2.0;
 
-let rawData = [];
+    if(!klines || klines.length===0) throw new Error("无历史数据(请先更新)");
 
-const getTargetLeverage = (mv) => { 
-    if(mv <= minCap) return maxLev; 
-    if(mv >= maxCap) return 0.0; 
-    let r = (mv - minCap) / (maxCap - minCap); 
-    return 0.0 + (maxLev - 0.0) * Math.exp(-2.5 * r); 
-};
+    // 1. 估算总股本 (实时MV优先，防止NaN)
+    let totalShares = 0;
+    let rtPrice = 0; let rtTimestamp = 0; let rtMv = 0;
 
-const userStartDate = document.getElementById('inStartDate').value;
-const userEndDate = document.getElementById('inEndDate').value;
-const now = new Date();
-const todayStr = getMarketDate(now.getTime() / 1000, stock.code); 
-
-// 构建基础数据
-historyKlines.forEach(k => {
-    const parts = k.split(',');
-    const dateStr = parts[0];
-    const close = parseFloat(parts[1]);
-    
-    if (dateStr >= userStartDate && dateStr <= userEndDate) {
-        let mv = close * totalShares;
-        rawData.push({
-            date: dateStr,
-            close: close,
-            mv: mv,
-            valScore: (mv<=minCap)?1:(mv>=maxCap)?-1:((mv<=midCap)?(midCap-mv)/(midCap-minCap):-(mv-midCap)/(maxCap-midCap))
-        });
-    }
-});
-
-if (rawData.length === 0) throw new Error("所选日期范围内无数据");
-
-// 实时更新逻辑：覆盖/追加最后一个点
-if (rtPrice > 0 && rtTimestamp > 0 && userEndDate >= todayStr) {
-    const lastData = rawData[rawData.length - 1];
-    
-    const secondsSinceTrade = (Date.now() / 1000) - rtTimestamp;
-    // 粗略判断休市
-    const isMarketClosedToday = secondsSinceTrade > 72000;
-
-    if (!isMarketClosedToday) {
-        // 如果前面没算出rtMv，这里补算
-        if(rtMv === 0) rtMv = rtPrice * totalShares;
-        
-        const rtScore = (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap));
-        
-        const rtDateStr = getMarketDate(rtTimestamp, stock.code);
-        const rtItem = { date: rtDateStr + " (盘中)", close: rtPrice, mv: rtMv, valScore: rtScore };
-
-        // 如果缓存里的最后一条是旧的今天数据，这里会直接用实时数据覆盖它
-        // 简单字符串比对
-        if (lastData.date.substring(0,10) !== rtDateStr) {
-            rawData.push(rtItem);
-        } else {
-            rawData[rawData.length - 1] = rtItem;
+    if(rt && rt.f2 > 0) {
+        rtPrice = rt.f2; rtTimestamp = rt.f124;
+        if(rt.f20 > 0) {
+            totalShares = (rt.f20 / rtPrice) / 100000000; // 亿
+            rtMv = rt.f20 / 100000000; 
         }
     }
-}
-
-const ma5Arr = calculateMA_Array(rawData, 5);
-const ma10Arr = calculateMA_Array(rawData, 10);
-const ma20Arr = calculateMA_Array(rawData, 20);
-
-let nav = 1.0, peakNav = 1.0, prevL = getTargetLeverage(rawData[0].mv), inProtect = false, history = [], changeLogs = [];
-history.push({date: rawData[0].date, nav:1.0, close:rawData[0].close, leverage:prevL, status: "震荡整理", reason: "初始建仓"});
-
-for(let i=1; i<rawData.length; i++) {
-    const d = rawData[i]; const prevD = rawData[i-1]; const r = d.close / prevD.close - 1; const curMv = d.mv;
-    const targetL = getTargetLeverage(curMv); let newL = targetL; let reason = "估值驱动";
     
-    let statusTag = "震荡整理"; 
-    
-    let m5 = ma5Arr[i];
-    let m10 = ma10Arr[i];
-    let m20 = ma20Arr[i];
-
-    // 1. 定义纯技术趋势 (仅均线，不看当天涨跌) -> 用于状态显示
-    // 优化：只要5日线同时高于10日和20日线，且股价在20日线上方，即视为趋势确立（比等待10>20更及时）
-    const isTechUp = (m5 && m10 && m20 && m5 > m10 && m5 > m20 && d.close > m20);
-    
-    // 优化：只要5日线同时低于10日和20日线，且股价在20日线下方，即视为趋势破坏
-    const isTechDown = (m5 && m10 && m20 && m5 < m10 && m5 < m20 && d.close < m20);
-
-    // 2. 定义操作信号 (结合当天涨跌) -> 用于交易加减仓
-    const isUp = isTechUp && (r > 0.0);
-    const isDown = isTechDown && (r < 0.0);
-
-    const nearLowMv = (curMv <= minCap * 1.05);
-    let winStart = Math.max(0, i - 20); let winNav = 0; for(let k=winStart; k<history.length; k++) if(history[k].nav > winNav) winNav = history[k].nav; if(i < 20) winNav = peakNav; if(nav > winNav) winNav = nav;
-    let curDrawdown = (winNav > 0) ? (winNav - nav) / winNav : 0;
-
-    if(curDrawdown > 0.15 && !inProtect) {
-        if(nearLowMv) reason = "市值低估跳过止损"; else { inProtect = true; newL = prevL * 0.4; reason = `回撤止损(DD:${(curDrawdown*100).toFixed(1)}%)`; peakNav = nav; }
+    // 兜底：如果实时没取到，用历史最后一日close倒推虚拟股本 (假设处于midCap)
+    // 这样保证回测能跑，只是当天估值不准
+    if(totalShares === 0) {
+        const lastC = parseFloat(klines[klines.length-1].split(',')[1]);
+        if(lastC > 0) totalShares = midCap / lastC;
     }
-    
-    if(inProtect) {
-        statusTag = "触发风控"; 
-        if(isUp && d.valScore > 0) { inProtect = false; newL = targetL; reason = "趋势恢复且估值改善"; } 
-        else {
-            if(isDown) { 
-                let slope = (m10 - m20)/m20; 
-                let reduce = Math.min(1.0, Math.abs(slope)*25); 
-                let trendL = Math.max(0.00, prevL * (1 - reduce * 0.8)); 
-                if(trendL < newL) { newL = trendL; reason = "保护中极速减仓"; } 
-            } else { 
-                newL = 0; 
-                if(prevL > 0.001) reason = "保护中(空仓)"; 
+
+    const getTargetLeverage = (mv) => { 
+        if(mv <= minCap) return maxLev; 
+        if(mv >= maxCap) return 0.0; 
+        let r = (mv - minCap) / (maxCap - minCap); 
+        return 0.0 + (maxLev - 0.0) * Math.exp(-2.5 * r); 
+    };
+
+    const userStartDate = document.getElementById('inStartDate').value;
+    const userEndDate = document.getElementById('inEndDate').value;
+    const now = new Date();
+    const todayStr = getMarketDate(now.getTime() / 1000, stock.code); 
+
+    let rawData = [];
+    klines.forEach(k => {
+        const parts = k.split(',');
+        const dateStr = parts[0];
+        const close = parseFloat(parts[1]);
+        if (dateStr >= userStartDate && dateStr <= userEndDate) {
+            let mv = close * totalShares;
+            rawData.push({
+                date: dateStr, close: close, mv: mv,
+                valScore: (mv<=minCap)?1:(mv>=maxCap)?-1:((mv<=midCap)?(midCap-mv)/(midCap-minCap):-(mv-midCap)/(maxCap-midCap))
+            });
+        }
+    });
+
+    if (rawData.length === 0) throw new Error("日期范围内无数据");
+
+    // 2. 拼接实时
+    if (rtPrice > 0 && rtTimestamp > 0 && userEndDate >= todayStr) {
+        const lastData = rawData[rawData.length - 1];
+        const secondsSinceTrade = (Date.now() / 1000) - rtTimestamp;
+        const isMarketClosedToday = secondsSinceTrade > 72000;
+
+        if (!isMarketClosedToday) {
+            if(rtMv === 0) rtMv = rtPrice * totalShares;
+            const rtScore = (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap));
+            const rtDateStr = getMarketDate(rtTimestamp, stock.code);
+            const rtItem = { date: rtDateStr+"(盘中)", close: rtPrice, mv: rtMv, valScore: rtScore };
+
+            if (lastData.date.substring(0,10) !== rtDateStr) rawData.push(rtItem);
+            else rawData[rawData.length - 1] = rtItem;
+        }
+    }
+
+    const ma5Arr = calculateMA_Array(rawData, 5);
+    const ma10Arr = calculateMA_Array(rawData, 10);
+    const ma20Arr = calculateMA_Array(rawData, 20);
+
+    let nav = 1.0, peakNav = 1.0, prevL = getTargetLeverage(rawData[0].mv), inProtect = false, history = [], changeLogs = [];
+    history.push({date: rawData[0].date, nav:1.0, close:rawData[0].close, leverage:prevL, status: "震荡整理", reason: "初始建仓"});
+
+    // 3. 策略循环 (保留原逻辑)
+    for(let i=1; i<rawData.length; i++) {
+        const d = rawData[i]; const prevD = rawData[i-1]; const r = d.close / prevD.close - 1; const curMv = d.mv;
+        const targetL = getTargetLeverage(curMv); let newL = targetL; let reason = "估值驱动";
+        let statusTag = "震荡整理"; 
+        
+        let m5 = ma5Arr[i], m10 = ma10Arr[i], m20 = ma20Arr[i];
+        const isTechUp = (m5 && m10 && m20 && m5 > m10 && m5 > m20 && d.close > m20);
+        const isTechDown = (m5 && m10 && m20 && m5 < m10 && m5 < m20 && d.close < m20);
+        const isUp = isTechUp && (r > 0.0);
+        const isDown = isTechDown && (r < 0.0);
+        const nearLowMv = (curMv <= minCap * 1.05);
+
+        let winStart = Math.max(0, i - 20); let winNav = 0; 
+        for(let k=winStart; k<history.length; k++) if(history[k].nav > winNav) winNav = history[k].nav; 
+        if(i < 20) winNav = peakNav; if(nav > winNav) winNav = nav;
+        let curDrawdown = (winNav > 0) ? (winNav - nav) / winNav : 0;
+
+        if(curDrawdown > 0.15 && !inProtect) {
+            if(nearLowMv) reason = "市值低估跳过止损"; else { inProtect = true; newL = prevL * 0.4; reason = `回撤止损(DD:${(curDrawdown*100).toFixed(1)}%)`; peakNav = nav; }
+        }
+        
+        if(inProtect) {
+            statusTag = "触发风控"; 
+            if(isUp && d.valScore > 0) { inProtect = false; newL = targetL; reason = "趋势恢复且估值改善"; } 
+            else {
+                if(isDown) { 
+                    let slope = (m10 - m20)/m20; 
+                    let reduce = Math.min(1.0, Math.abs(slope)*25); 
+                    let trendL = Math.max(0.00, prevL * (1 - reduce * 0.8)); 
+                    if(trendL < newL) { newL = trendL; reason = "保护中极速减仓"; } 
+                } else { newL = 0; if(prevL > 0.001) reason = "保护中(空仓)"; }
             }
         }
-    }
-    
-    if(!inProtect) {
-        // 使用纯技术形态标记状态，避免因当天微涨微跌导致状态反复跳变
-        if(isTechUp) statusTag = "上涨趋势";
-        else if(isTechDown) statusTag = "下跌趋势";
-        else statusTag = "震荡整理";
-
-        // 下面的减仓逻辑仍然使用 isDown (带 r < 0 限制)，保持交易逻辑不变
-        if(isDown) {
-            if (d.valScore > 0.6 && d.close > m5) {
-                if (newL < prevL) {
-                    newL = prevL;
-                    reason = "低估且站上MA5(暂停减仓)";
+        if(!inProtect) {
+            if(isTechUp) statusTag = "上涨趋势"; else if(isTechDown) statusTag = "下跌趋势"; else statusTag = "震荡整理";
+            if(isDown) {
+                if (d.valScore > 0.6 && d.close > m5) {
+                    if (newL < prevL) { newL = prevL; reason = "低估且站上MA5(暂停减仓)"; }
+                } else {
+                    let slope = (m10 - m20)/m20; 
+                    let reduceSpeed, reduceMsg;
+                    if (curMv <= minCap) { reduceSpeed = Math.min(1.0, Math.abs(slope) * lowSens) * lowRed; reduceMsg = "低估区趋势转弱(慢减仓)"; } 
+                    else { reduceSpeed = Math.min(1.0, Math.abs(slope) * normSens) * normRed; reduceMsg = "趋势转弱极速减仓"; }
+                    let trendL = Math.max(0.00, prevL * (1 - reduceSpeed)); 
+                    if(trendL < newL) { newL = trendL; reason = reduceMsg; }
                 }
-            } else {
-                let slope = (m10 - m20)/m20; 
-                let reduceSpeed, reduceMsg;
-                if (curMv <= minCap) { 
-                    let reduce = Math.min(1.0, Math.abs(slope) * lowSens); 
-                    reduceSpeed = reduce * lowRed; 
-                    reduceMsg = "低估区趋势转弱(慢减仓)"; 
-                } else { 
-                    let reduce = Math.min(1.0, Math.abs(slope) * normSens); 
-                    reduceSpeed = reduce * normRed; 
-                    reduceMsg = "趋势转弱极速减仓"; 
-                }
-                let trendL = Math.max(0.00, prevL * (1 - reduceSpeed)); 
-                if(trendL < newL) { newL = trendL; reason = reduceMsg; }
             }
         }
-    }
-    
-    if(!inProtect && isUp) { if(r < -0.02) { newL = Math.min(maxLev, prevL * 1.05); reason = "上涨中急跌加仓"; } else { newL = Math.max(prevL, targetL); } }
-    
-    let dateDisplay = d.date;
-    
-    let maStr = "-";
-    if (m5 !== null && m10 !== null && m20 !== null) {
-        maStr = `M5:${m5.toFixed(2)}<br>M10:${m10.toFixed(2)}<br>M20:${m20.toFixed(2)}`;
+        if(!inProtect && isUp) { if(r < -0.02) { newL = Math.min(maxLev, prevL * 1.05); reason = "上涨中急跌加仓"; } else { newL = Math.max(prevL, targetL); } }
+        
+        let maStr = (m5) ? `M5:${m5.toFixed(2)}<br>M10:${m10.toFixed(2)}<br>M20:${m20.toFixed(2)}` : "-";
+        const diff = newL - prevL;
+        let actionHtml = '';
+        if (diff > 0.005) actionHtml = `<span class="badge bg-red">加仓</span>`;
+        else if (diff < -0.005) actionHtml = `<span class="badge bg-green">减仓</span>`;
+        else { actionHtml = `<span class="badge bg-gray">持仓</span>`; if (!reason.includes('保护') && !reason.includes('止损') && !reason.includes('低估')) reason = statusTag + " (策略维持)"; }
+
+        changeLogs.push({ date: d.date, action: actionHtml, val: `${prevL.toFixed(2)} → ${newL.toFixed(2)}`, reason: reason, mas: maStr }); 
+        nav = nav * (1 + prevL * r); if(nav > peakNav) peakNav = nav; 
+        history.push({date: d.date, nav, close: d.close, leverage: newL, status: statusTag, reason: reason}); 
+        prevL = newL;
     }
 
-    const diff = newL - prevL;
-    let actionHtml = '';
-    
-    if (diff > 0.005) {
-        actionHtml = `<span class="badge bg-red">加仓</span>`;
-    } else if (diff < -0.005) {
-        actionHtml = `<span class="badge bg-green">减仓</span>`;
-    } else {
-        actionHtml = `<span class="badge bg-gray">持仓</span>`;
-        if (!reason.includes('保护中') && !reason.includes('止损') && !reason.includes('低估')) {
-           reason = statusTag + " (策略维持)";
-        }
-    }
-
-    changeLogs.push({ 
-        date: dateDisplay, 
-        action: actionHtml, 
-        val: `${prevL.toFixed(2)} → ${newL.toFixed(2)}`, 
-        reason: reason,
-        mas: maStr 
-    }); 
-    
-    nav = nav * (1 + prevL * r); if(nav > peakNav) peakNav = nav; 
-    
-    history.push({date: d.date, nav, close: d.close, leverage: newL, status: statusTag, reason: reason}); 
-    prevL = newL;
+    const last = history[history.length-1]; const ret = (last.nav - 1)*100; const sRet = (last.close / history[0].close - 1)*100; 
+    let maxDD = 0, p = -999; history.forEach(h => { if(h.nav > p) p = h.nav; let dd = (p - h.nav) / p; if(dd > maxDD) maxDD = dd; });
+    return { stockName: stock.name, stockCode: stock.code, history: history, logs: changeLogs, stats: { ret: ret, stockRet: sRet, alpha: ret - sRet, maxDD: maxDD * 100, avgLev: history.reduce((a,b)=>a+b.leverage,0)/history.length } };
 }
 
-const last = history[history.length-1]; const ret = (last.nav - 1)*100; const sRet = (last.close / history[0].close - 1)*100; let maxDD = 0, p = -999; history.forEach(h => { if(h.nav > p) p = h.nav; let dd = (p - h.nav) / p; if(dd > maxDD) maxDD = dd; });
-return { stockName: stock.name, stockCode: stock.code, history: history, logs: changeLogs, stats: { ret: ret, stockRet: sRet, alpha: ret - sRet, maxDD: maxDD * 100, avgLev: history.reduce((a,b)=>a+b.leverage,0)/history.length } };
-}
-
-// === 4. 存算分离：运行主逻辑 (同步执行，极快) ===
+// === 6. 存算分离：运行入口 ===
 async function runBatchBacktest() {
 const checkedBoxes = document.querySelectorAll('.stock-chk:checked');
 if(checkedBoxes.length === 0) return alert("请至少勾选一只股票");
 
-// 检查缓存
+// 缓存检查
 if(Object.keys(g_historyCache).length === 0) {
-    if(confirm("⚠️ 检测到本地无K线缓存，是否立即下载更新？")) {
-        await updateHistoryData();
-    } else {
-        return; 
-    }
+    if(confirm("⚠️ 本地无K线缓存，是否立即更新？")) await updateAllHistoryData();
+    else return;
 }
 
 const selectedIndices = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
 const selectedStocks = selectedIndices.map(i => stocks[i]);
-
 const btn = document.getElementById('btn-run-all');
 const progress = document.getElementById('batch-progress');
 const resultsContainer = document.getElementById('results-container');
@@ -1049,30 +949,29 @@ sumTbody.innerHTML = ''; progress.style.display = 'block';
 
 batchResults = []; let successCount = 0; const total = selectedIndices.length;
 
-// A. 批量获取实时行情
+// A. 批量获取实时 (核心修复：美股 TSM 匹配)
 const rtMap = await fetchBatchRealtime(selectedStocks);
 
 btn.innerText = "⚙️ 计算中...";
 
-// B. 纯内存循环计算 (无需 await)
+// B. 纯内存计算
 selectedStocks.forEach((s, i) => {
     try {
         const secId = getEmSecId(s.code);
-        // 获取历史
         const hist = g_historyCache[secId];
-        // 获取实时 (尝试不同匹配Key)
+        
+        // 匹配实时数据 (多重尝试)
         const rawCode = s.code.replace(/\.[A-Z]+$/, '');
         let rt = rtMap[s.code] || rtMap[rawCode] || rtMap[rawCode.toUpperCase()];
         
-        // 即使没有实时数据，尝试只跑历史回测 (calculateStock_Pure内部已做兜底)
         const res = calculateStock_Pure(s, hist, rt);
         res.index = selectedIndices[i];
         
         batchResults.push(res);
         appendSummaryRow(res, res.index);
         successCount++;
-    } catch(e) {
-        console.warn(s.name, e);
+    } catch (e) {
+        console.error(s.name, e);
         sumTbody.innerHTML += `<tr><td style="text-align:left">${s.name}<br><span style="font-size:10px;color:#999">${s.code}</span></td><td colspan="3" style="text-align:center; color:orange; font-size:12px">❌ ${e.message}</td></tr>`;
     }
 });
@@ -1082,9 +981,9 @@ btn.innerText = "🚀 运行选中"; btn.disabled = false;
 
 if(batchResults.length > 0) {
     updateSummaryFilterOptions();
-
     resultsContainer.style.display = 'block';
     
+    // UI 展开状态恢复
     document.querySelector('#batch-summary-box .section-header').classList.add('expanded');
     document.getElementById('summary-content').classList.remove('collapsed');
     document.querySelector('#portfolio-section .section-header').classList.add('expanded');
@@ -1093,13 +992,10 @@ if(batchResults.length > 0) {
     document.getElementById('holdings-content').classList.add('collapsed');  
     document.querySelector('#trade-log-section .section-header').classList.remove('expanded');
     document.getElementById('trade-log-content').classList.add('collapsed');
-
     document.querySelector('#status-dist-section .section-header').classList.remove('expanded');
     document.getElementById('status-dist-content').classList.add('collapsed');
-    
     document.querySelector('#trend-log-section .section-header').classList.remove('expanded');
     document.getElementById('trend-log-content').classList.add('collapsed');
-
     document.querySelector('#contribution-section .section-header').classList.remove('expanded');
     document.getElementById('contribution-content').classList.add('collapsed');
 
@@ -1108,7 +1004,6 @@ if(batchResults.length > 0) {
     renderTrendLog();
     renderDetailCombo(); 
     showDetail(batchResults[0].index);
-    
     setTimeout(() => { if(portfolioChart) portfolioChart.resize(); }, 100);
 }
 }
@@ -1135,9 +1030,589 @@ tr.innerHTML = `
 `;
 document.getElementById('summary-tbody').appendChild(tr);
 }
-// ... (后续图表渲染逻辑保持原样，未修改)
-// 为节省篇幅，这里复用了你原来的逻辑，因为UI部分未做改动
-// ... 
+function showDetail(index) {
+const res = batchResults.find(r => r.index === index); if(!res) return;
+document.querySelectorAll('.summary-table tr').forEach(r => r.classList.remove('selected'));
+const row = document.getElementById(`row-${index}`); if(row) row.classList.add('selected');
+document.getElementById('detail-view').style.display = 'block';
+
+const input = document.getElementById('detail-combo-input');
+if(input) {
+    input.value = `${res.stockName} (${res.stockCode})`;
+    document.querySelectorAll('.combo-option').forEach(opt => opt.classList.remove('active'));
+    const activeOpt = document.querySelector(`.combo-option[data-index="${index}"]`);
+    if(activeOpt) activeOpt.classList.add('active');
+}
+
+const s = res.stats;
+document.getElementById('val-ret').innerText = s.ret.toFixed(2) + '%'; document.getElementById('val-ret').className = 'stat-val ' + (s.ret>=0?'win':'loss');
+document.getElementById('val-stock').innerText = s.stockRet.toFixed(2) + '%'; document.getElementById('val-stock').className = 'stat-val ' + (s.stockRet>=0?'win':'loss');
+document.getElementById('val-lev').innerText = s.avgLev.toFixed(2) + 'x';
+renderChart(res.history); renderLog(res.logs); if(myChart) myChart.resize();
+}
+function renderLog(logs) {
+const tbody = document.getElementById('log-tbody'); document.getElementById('log-count').innerText = `(${logs.length})`;
+if(logs.length === 0) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">期间无操作</td></tr>'; return; }
+
+const thead = document.querySelector('.log-table thead tr');
+if(thead) {
+    thead.innerHTML = `
+        <th class="log-col-date">日期</th>
+        <th class="log-col-action">动作</th>
+        <th class="log-col-val">变动</th>
+        <th class="log-col-mas">均线(5/10/20)</th>
+        <th class="log-col-reason">原因</th>
+    `;
+}
+
+tbody.innerHTML = logs.slice().reverse().map(l => `
+    <tr>
+        <td class="log-col-date" style="color:#666;">${l.date}</td>
+        <td class="log-col-action">${l.action}</td>
+        <td class="log-col-val" style="font-family:monospace;">${l.val}</td>
+        <td class="log-col-mas">${l.mas}</td>
+        <td class="log-col-reason" style="color:#555;" title="${l.reason}">${l.reason}</td>
+    </tr>
+`).join('');
+}
+// === 图表渲染：单股详情 ===
+function renderChart(hist) {
+const dom = document.getElementById('chart-box'); if(myChart) myChart.clear(); else myChart = echarts.init(dom);
+myChart.group = 'stockGroup';
+const dates = hist.map(h=>h.date);
+myChart.setOption({
+tooltip: {
+trigger: 'axis',
+axisPointer: { type: 'cross', link: { xAxisIndex: 'all' } },
+formatter: function(params) {
+if(!params.length) return '';
+const index = params[0].dataIndex;
+const item = hist[index];
+if(!item) return '';
+
+let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${item.date}</div>`;
+            h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#999;margin-right:5px;"></span>股价</span><b>${item.close.toFixed(2)}</b></div>`;
+            h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d32f2f;margin-right:5px;"></span>净值</span><b>${item.nav.toFixed(2)}</b></div>`;
+            h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#28a745;margin-right:5px;"></span>杠杆</span><b>${item.leverage.toFixed(2)}x</b></div>`;
+            if(item.status) h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px; margin-top:3px; color:#555;"><span>状态</span><b>${item.status}</b></div>`;
+            return h;
+        }, 
+        backgroundColor: 'rgba(255,255,255,0.95)', borderColor: '#eee', borderWidth: 1, textStyle: {color:'#333'} 
+    },
+    legend: { top: 0, data: ['股价','净值','杠杆'], itemWidth:12, itemHeight:8, textStyle:{fontSize:11} },
+    grid: [{ left: '12%', right: '8%', top: '12%', height: '58%' }, { left: '12%', right: '8%', top: '78%', height: '15%' }],
+    xAxis: [{type:'category', data: dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}, axisLine:{lineStyle:{color:'#eee'}}}, {type:'category', data: dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}],
+    yAxis: [{type:'value', position:'left', splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#999'}}, {type:'value', position:'right', splitLine:{show:false}, axisLine:{show:false}, axisLabel:{fontSize:10, color:'#d32f2f'}}, {type:'value', gridIndex:1, splitLine:{show:true, lineStyle:{type:'dashed', color:'#eee'}}, min:0, max:2.1, axisLabel:{fontSize:10, color:'#28a745'}}],
+    dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
+    series: [{name:'股价', type:'line', yAxisIndex:0, data:hist.map(h=>h.close), itemStyle:{color:'#999'}, showSymbol:false, lineStyle: {width: 1}}, {name:'净值', type:'line', yAxisIndex:1, data:hist.map(h=>h.nav), itemStyle:{color:'#d32f2f'}, showSymbol:false, lineStyle: {width: 2}}, {name:'杠杆', type:'line', xAxisIndex:1, yAxisIndex:2, data:hist.map(h=>h.leverage), itemStyle:{color:'#28a745'}, step:'end', showSymbol:false, areaStyle:{opacity:0.1}, lineStyle: {width: 1}}]
+});
+}
+// === 组合策略 (Portfolio) ===
+function runPortfolioStrategy() {
+if (!batchResults || batchResults.length === 0) return alert("请先运行【批量回测】生成数据");
+
+let rawThres = parseFloat(document.getElementById('pMinPos').value);
+const minPosThreshold = isNaN(rawThres) ? 0.4 : rawThres;
+
+let dateMap = {}; 
+batchResults.forEach((res) => { 
+    res.history.forEach(day => { 
+        if (!dateMap[day.date]) { dateMap[day.date] = { date: day.date, stocks: {} }; } 
+        dateMap[day.date].stocks[res.stockName] = { close: day.close, idealLev: day.leverage, reason: day.reason }; 
+    }); 
+});
+const sortedDates = Object.keys(dateMap).sort(); 
+if (sortedDates.length < 2) return alert("有效日期数据不足");
+
+let portNav = 1.0, portHistory = [], maxDD = 0, peak = 1.0;
+let lastValidData = {}; 
+let prevAllocatedLevs = {}; 
+let accContribution = {}; 
+batchResults.forEach((res) => { accContribution[res.stockName] = 0; });
+
+for (let i = 0; i < sortedDates.length; i++) {
+    const currDate = sortedDates[i];
+    const rawDayData = dateMap[currDate];
+    const prevValidData = { ...lastValidData };
+    
+    batchResults.forEach((res) => { 
+        if (rawDayData.stocks[res.stockName]) {
+            lastValidData[res.stockName] = rawDayData.stocks[res.stockName]; 
+        }
+    });
+
+    let dailyContribBreakdown = {}; 
+
+    if (i > 0) {
+        let dayPnLComponent = 0;
+        batchResults.forEach((res) => {
+            const sCurr = lastValidData[res.stockName]; 
+            const sPrev = prevValidData[res.stockName]; 
+            const allocatedL = prevAllocatedLevs[res.stockName] || 0; 
+            
+            if (sCurr && sPrev && sPrev.close > 0) { 
+                const stockRet = (sCurr.close - sPrev.close) / sPrev.close;
+                const contribution = stockRet * allocatedL;
+                dayPnLComponent += contribution; 
+                
+                accContribution[res.stockName] += contribution;
+            }
+        });
+        portNav = portNav * (1 + dayPnLComponent); 
+        if (portNav > peak) peak = portNav;
+        const dd = (peak - portNav) / peak; if (dd > maxDD) maxDD = dd;
+    }
+
+    batchResults.forEach((res) => {
+        dailyContribBreakdown[res.stockName] = accContribution[res.stockName];
+    });
+
+    let currentValidStocks = {}; let activeCount = 0;
+    batchResults.forEach((res) => {
+        const sData = lastValidData[res.stockName]; 
+        if (sData) {
+            if(sData.idealLev >= minPosThreshold) { currentValidStocks[res.stockName] = sData.idealLev; activeCount++; }
+        }
+    });
+
+    let dailyBreakdown = {}; let currentCalculatedSumAlloc = 0; 
+    batchResults.forEach((res) => {
+        if (currentValidStocks[res.stockName] !== undefined && activeCount > 0) {
+            const rawL = currentValidStocks[res.stockName]; const alloc = rawL / activeCount; 
+            prevAllocatedLevs[res.stockName] = alloc; dailyBreakdown[res.stockName] = alloc; currentCalculatedSumAlloc += alloc;
+        } else { prevAllocatedLevs[res.stockName] = 0; }
+    });
+
+    portHistory.push({ 
+        date: currDate, 
+        nav: portNav, 
+        totalLev: currentCalculatedSumAlloc, 
+        breakdown: dailyBreakdown, 
+        contribBreakdown: dailyContribBreakdown,
+        activeCount: activeCount 
+    });
+}
+
+renderPortfolioStats(portHistory, maxDD); 
+renderHoldingsChart(portHistory);
+renderTradeLog(portHistory, dateMap); 
+renderContributionChart(portHistory);
+}
+function renderPortfolioStats(hist, maxDD) {
+const last = hist[hist.length - 1]; const ret = (last.nav - 1) * 100; const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
+document.getElementById('port-ret').innerText = ret.toFixed(2) + '%'; document.getElementById('port-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
+document.getElementById('port-lev').innerText = avgLev.toFixed(2) + 'x';
+const ddEl = document.getElementById('port-dd'); ddEl.innerText = (maxDD * 100).toFixed(2) + '%'; ddEl.className = 'stat-val loss';
+const dom = document.getElementById('portfolio-chart'); if (portfolioChart) portfolioChart.dispose(); portfolioChart = echarts.init(dom);
+portfolioChart.group = 'stockGroup';
+const dates = hist.map(h => h.date);
+portfolioChart.setOption({
+tooltip: {
+trigger: 'axis', axisPointer: {type: 'cross', link: {xAxisIndex: 'all'}},
+formatter: function(params) {
+if(!params.length) return '';
+const index = params[0].dataIndex; const item = hist[index]; if(!item) return '';
+let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${item.date}</div>`;
+h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d32f2f;margin-right:5px;"></span>组合净值</span><b>${item.nav.toFixed(3)}</b></div>`;
+h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1976d2;margin-right:5px;"></span>实际总杠杆</span><b>${item.totalLev.toFixed(2)}x</b></div>`;
+if(item.activeCount !== undefined) h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px; color:#888;"><span>有效持仓数</span><b>${item.activeCount}只</b></div>`;
+return h;
+}, backgroundColor: 'rgba(255,255,255,0.95)'
+},
+legend: { top: 0, data: ['组合净值', '实际总杠杆'] },
+grid: [{ left: '12%', right: '8%', top: '15%', height: '55%' }, { left: '12%', right: '8%', top: '75%', height: '15%' }],
+xAxis: [{type:'category', data:dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}}, {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}],
+yAxis: [{type:'value', gridIndex:0, scale:true, splitLine:{show:false}}, {type:'value', gridIndex:1, splitLine:{show:false}, min:0}],
+dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
+series: [
+{name: '组合净值', type: 'line', data: hist.map(h=>h.nav), itemStyle: {color: '#d32f2f'}, lineStyle: {width: 2}, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0},
+{name: '实际总杠杆', type: 'line', data: hist.map(h=>h.totalLev), itemStyle: {color: '#1976d2'}, lineStyle: {width: 1}, showSymbol: false, xAxisIndex: 1, yAxisIndex: 1, areaStyle: {opacity: 0.2}}
+]
+});
+}
+function renderHoldingsChart(hist) {
+const dom = document.getElementById('holdings-chart'); if (holdingsChart) holdingsChart.dispose(); holdingsChart = echarts.init(dom);
+holdingsChart.group = 'stockGroup';
+const dates = hist.map(h => h.date); const allStockNames = batchResults.map(r => r.stockName);
+const seriesData = allStockNames.map(name => { return { name: name, type: 'line', stack: 'Total', areaStyle: {}, emphasis: { focus: 'series' }, showSymbol: false, lineStyle: { width: 0 }, data: hist.map(h => h.breakdown[name] || 0) }; });
+
+holdingsChart.setOption({
+    tooltip: { 
+        trigger: 'axis', axisPointer: { type: 'cross', label: { backgroundColor: '#6a7985' } }, 
+        formatter: function (params) { 
+            const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
+            let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${params[0].name}</div>`; 
+            let sum = 0; const sortedParams = params.sort((a, b) => parseFloat(b.value) - parseFloat(a.value));
+            sortedParams.forEach(p => { 
+                const val = parseFloat(p.value); 
+                if(val > 0.001) { 
+                    const posPct = (val / maxLev * 100).toFixed(2) + '%';
+                    h += `<div style="font-size:11px; display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:2px;"><span style="min-width:70px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span><div style="text-align:right"><b>${val.toFixed(3)}x</b> <span style="color:#888; margin-left:6px; font-size:10px;">(仓位:${posPct})</span></div></div>`; 
+                    sum += val; 
+                } 
+            }); 
+            const totalPos = (sum / maxLev * 100).toFixed(2) + '%';
+            h += `<div style="border-top:1px solid #eee; margin-top:5px; padding-top:4px; font-weight:bold; text-align:right;">总杠杆: ${sum.toFixed(2)}x <span style="color:#d32f2f; margin-left:6px;">(总仓位:${totalPos})</span></div>`; 
+            return h; 
+        } 
+    },
+    legend: { data: allStockNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, 
+    grid: { left: '12%', right: '8%', bottom: '25px', containLabel: false }, 
+    xAxis: { type: 'category', boundaryGap: false, data: dates }, 
+    yAxis: { type: 'value', min: 0 },
+    dataZoom: [{type:'inside'}, {type:'slider', bottom:0, height:20}], 
+    series: seriesData
+});
+}
+function renderTradeLog(hist, dateMap) {
+const container = document.getElementById('trade-log-list');
+container.innerHTML = '';
+const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
+
+for (let i = hist.length - 1; i > 0; i--) {
+    const today = hist[i]; const yesterday = hist[i-1];
+    let changes = []; let dailyNetChange = 0; 
+    const allStocks = new Set([...Object.keys(today.breakdown), ...Object.keys(yesterday.breakdown)]);
+    
+    allStocks.forEach(name => {
+        const nowPos = (today.breakdown[name] || 0) / maxLev * 100;
+        const prevPos = (yesterday.breakdown[name] || 0) / maxLev * 100;
+        const diffPos = nowPos - prevPos;
+        
+        if (Math.abs(diffPos) > 0.1) { 
+            let levStr = "";
+            let isPassive = false;
+            let reasonStr = "";
+
+            if(dateMap) {
+                const dNow = dateMap[today.date] ? dateMap[today.date].stocks[name] : null;
+                const dPrev = dateMap[yesterday.date] ? dateMap[yesterday.date].stocks[name] : null;
+                const lNow = dNow ? dNow.idealLev : 0;
+                const lPrev = dPrev ? dPrev.idealLev : 0;
+                reasonStr = dNow ? dNow.reason : "";
+                
+                if (Math.abs(lNow - lPrev) < 0.01) {
+                    levStr = `<span style="color:#bbb; font-family:monospace;">${lNow.toFixed(1)}x → ${lNow.toFixed(1)}x</span>`;
+                    isPassive = true;
+                } else {
+                    const color = lNow > lPrev ? '#d32f2f' : '#2e7d32';
+                    levStr = `<span style="color:${color}; font-weight:bold; font-family:monospace;">${lPrev.toFixed(1)}x → ${lNow.toFixed(1)}x</span>`;
+                }
+            }
+            
+            changes.push({name, diffPos, nowPos, prevPos, levStr, isPassive, reasonStr}); 
+            dailyNetChange += diffPos; 
+        }
+    });
+
+    const totalPosPct = (today.totalLev / maxLev) * 100;
+    const isLatest = (i === hist.length - 1);
+    if (changes.length === 0 && !isLatest) continue;
+    
+    changes.sort((a,b) => {
+        if(a.isPassive !== b.isPassive) return a.isPassive ? 1 : -1;
+        return Math.abs(b.diffPos) - Math.abs(a.diffPos)
+    });
+
+    const netSign = dailyNetChange > 0 ? '+' : '';
+    const netColor = dailyNetChange > 0 ? '#d32f2f' : (dailyNetChange < 0 ? '#2e7d32' : '#999');
+    
+    const header = document.createElement('div');
+    header.className = 'daily-log-header' + (isLatest ? ' open' : '');
+    header.onclick = function() { toggleDailyLog(this); };
+    header.innerHTML = `<div style="font-weight:bold; color:#555; display:flex; align-items:center; gap:8px;">${today.date} <span style="font-size:11px; color:#fff; background:${netColor}; padding:2px 6px; border-radius:4px;">合计: ${netSign}${dailyNetChange.toFixed(1)}%</span><span style="font-size:11px; color:#333; background:#e3f2fd; padding:2px 6px; border-radius:4px;">总仓: ${totalPosPct.toFixed(1)}%</span><span style="font-weight:normal; font-size:11px; color:#999;">(${changes.length})</span>${isLatest ? '<span style="font-size:10px; color:#fff; background:#fd7e14; padding:1px 4px; border-radius:3px; margin-left:auto;">最新(含盘中)</span>' : ''}</div><span class="arrow-daily">▶</span>`;
+
+    const body = document.createElement('div');
+    body.className = 'daily-log-body' + (isLatest ? ' open' : '');
+    if (changes.length === 0) { 
+        body.innerHTML = `<div class="daily-item" style="justify-content:center; color:#999; font-style:italic; padding:10px 0;">本日仓位保持稳定，无建议调仓</div>`; 
+    } else {
+        body.innerHTML = changes.map(c => {
+            const isBuy = c.diffPos > 0; const color = isBuy ? '#d32f2f' : '#2e7d32'; const sign = isBuy ? '+' : '';
+            return `
+            <div class="daily-item">
+                <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                    <span style="font-weight:500; min-width:60px;">${c.name}</span>
+                    <span style="font-size:11px; background:#f5f5f5; padding:1px 5px; border-radius:3px; white-space:nowrap;">${c.levStr}</span>
+                    <span style="font-size:10px; color:#aaa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width: 130px;" title="${c.reasonStr}">${c.reasonStr}</span>
+                </div>
+                <span style="white-space:nowrap;">
+                    <span style="color:${color}; font-weight:bold; margin-right:8px;">${sign}${c.diffPos.toFixed(1)}%</span>
+                    <span style="color:#999; font-size:11px;">(${c.prevPos.toFixed(1)}% → ${c.nowPos.toFixed(1)}%)</span>
+                </span>
+            </div>`;
+        }).join('');
+    }
+    container.appendChild(header); container.appendChild(body);
+}
+if (container.innerHTML === '') container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无调仓记录</div>';
+}
+function renderStatusDistribution() {
+if (!batchResults || batchResults.length === 0) return;
+
+let statsMap = {}; let dates = [];
+batchResults.forEach(res => {
+    res.history.forEach(day => {
+        if (!statsMap[day.date]) { statsMap[day.date] = { '上涨趋势':0, '下跌趋势':0, '震荡整理':0, '触发风控':0, 'Total':0 }; dates.push(day.date); }
+        let s = day.status || '震荡整理';
+        if(statsMap[day.date][s] !== undefined) { statsMap[day.date][s]++; statsMap[day.date]['Total']++; }
+    });
+});
+dates.sort(); dates = [...new Set(dates)];
+
+const seriesNames = ['上涨趋势', '震荡整理', '触发风控', '下跌趋势'];
+const colors = ['#d32f2f', '#1976d2', '#616161', '#2e7d32']; 
+
+const seriesData = seriesNames.map((name, i) => {
+    return { name: name, type: 'bar', stack: 'total', emphasis: { focus: 'series' }, itemStyle: { color: colors[i] }, data: dates.map(d => statsMap[d][name] || 0) };
+});
+
+const dom = document.getElementById('status-chart'); if (statusChart) statusChart.dispose(); statusChart = echarts.init(dom);
+statusChart.group = 'stockGroup'; 
+statusChart.setOption({
+    tooltip: {
+        trigger: 'axis', axisPointer: { type: 'shadow' },
+        formatter: function (params) {
+            let date = params[0].axisValue; let total = statsMap[date] ? statsMap[date]['Total'] : 0;
+            let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${date} (Total: ${total})</div>`;
+            params.forEach(p => {
+                if (p.value > 0) {
+                    let pct = total > 0 ? (p.value / total * 100).toFixed(1) : 0;
+                    h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span><b>${p.value}只 (${pct}%)</b></div>`;
+                }
+            });
+            return h;
+        }, backgroundColor: 'rgba(255,255,255,0.95)'
+    },
+    legend: { data: seriesNames, top: 0, selectedMode: true, textStyle: { fontSize: 11 } },
+    grid: { left: '12%', right: '8%', bottom: '30px', top: '30px', containLabel: true },
+    xAxis: { type: 'category', data: dates, axisTick: { show: false }, axisLine: { lineStyle: { color: '#ccc' } } },
+    yAxis: { type: 'value', minInterval: 1, splitLine: { show: true, lineStyle: { type: 'dashed' } } },
+    dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 0, height: 20 }],
+    series: seriesData
+});
+}
+function renderTrendLog() {
+const container = document.getElementById('trend-log-list');
+if (!container) return;
+container.innerHTML = '';
+
+if (!batchResults || batchResults.length === 0) return;
+
+// 1. 准备数据映射
+let dateMap = {};
+let allDates = new Set();
+
+batchResults.forEach(res => {
+    res.history.forEach(day => {
+        if (!dateMap[day.date]) dateMap[day.date] = {};
+        dateMap[day.date][res.stockName] = day.status;
+        allDates.add(day.date);
+    });
+});
+
+const sortedDates = Array.from(allDates).sort().reverse();
+let hasContent = false;
+
+// 定义四种状态的显示配置
+const statusConfig = {
+    '上涨趋势': { color: '#d32f2f', icon: '🔥', label: '入上涨' },
+    '下跌趋势': { color: '#2e7d32', icon: '❄️', label: '入下跌' },
+    '震荡整理': { color: '#1976d2', icon: '〰️', label: '入震荡' },
+    '触发风控': { color: '#616161', icon: '🛡️', label: '触风控' }
+};
+
+// 2. 遍历日期对比差异
+for (let i = 0; i < sortedDates.length - 1; i++) {
+    const today = sortedDates[i];
+    const yesterday = sortedDates[i+1];
+    
+    // 初始化当日变更列表
+    let changes = {
+        '上涨趋势': [],
+        '下跌趋势': [],
+        '震荡整理': [],
+        '触发风控': []
+    };
+    let totalChanges = 0;
+    
+    batchResults.forEach(res => {
+        const name = res.stockName;
+        const statusNow = dateMap[today][name];
+        const statusPrev = dateMap[yesterday][name]; 
+
+        // 只有状态存在且发生了变化，才记录
+        if (statusNow && statusPrev && statusNow !== statusPrev) {
+            if (changes[statusNow]) {
+                changes[statusNow].push(name);
+                totalChanges++;
+            }
+        }
+    });
+
+    if (totalChanges === 0) continue;
+    hasContent = true;
+    const isLatest = (i === 0);
+
+    // 3. 构建 HTML
+    const header = document.createElement('div');
+    header.className = 'daily-log-header' + (isLatest ? ' open' : '');
+    header.onclick = function() { toggleDailyLog(this); };
+    
+    // 生成 Header 上的摘要 (小徽章)
+    let summaryHtml = '';
+    // 按照特定顺序显示摘要
+    const order = ['上涨趋势', '震荡整理', '下跌趋势', '触发风控'];
+    
+    order.forEach(key => {
+        if (changes[key].length > 0) {
+            const cfg = statusConfig[key];
+            summaryHtml += `<span style="font-size:11px; color:#fff; background:${cfg.color}; padding:2px 6px; border-radius:4px; margin-right:4px;">${cfg.icon}+${changes[key].length}</span>`;
+        }
+    });
+    
+    header.innerHTML = `
+        <div style="font-weight:bold; color:#555; display:flex; align-items:center; gap:8px;">
+            ${today} 
+            <div style="display:flex; flex-wrap:wrap; gap:2px;">${summaryHtml}</div>
+            ${isLatest ? '<span style="font-size:10px; color:#fff; background:#fd7e14; padding:1px 4px; border-radius:3px; margin-left:auto;">最新</span>' : ''}
+        </div>
+        <span class="arrow-daily">▶</span>
+    `;
+
+    const body = document.createElement('div');
+    body.className = 'daily-log-body' + (isLatest ? ' open' : '');
+    
+    let contentHtml = '';
+    
+    // 生成 Body 里的详细列表
+    order.forEach(key => {
+        if (changes[key].length > 0) {
+            const cfg = statusConfig[key];
+            contentHtml += `
+                <div class="daily-item" style="align-items:flex-start; margin-bottom:6px; border-bottom:1px dashed #eee; padding-bottom:6px;">
+                    <span style="font-size:11px; color:#fff; background:${cfg.color}; padding:2px 6px; border-radius:3px; margin-right:8px; white-space:nowrap; min-width:50px; text-align:center;">${cfg.label}</span>
+                    <div style="color:#333; line-height:1.4; font-size:12px;">${changes[key].join('、')}</div>
+                </div>
+            `;
+        }
+    });
+
+    body.innerHTML = contentHtml;
+    container.appendChild(header);
+    container.appendChild(body);
+}
+
+if (!hasContent) {
+    container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无趋势变更记录</div>';
+}
+}
+function renderContributionChart(hist) {
+const dom = document.getElementById('contribution-chart');
+if (contributionChart) contributionChart.dispose();
+contributionChart = echarts.init(dom);
+contributionChart.group = 'stockGroup';
+
+const dates = hist.map(h => h.date); 
+const allStockNames = batchResults.map(r => r.stockName);
+
+const seriesData = allStockNames.map(name => { 
+    return { 
+        name: name, 
+        type: 'line', 
+        stack: 'Total', 
+        areaStyle: {}, 
+        emphasis: { focus: 'series' }, 
+        showSymbol: false, 
+        lineStyle: { width: 0 }, 
+        data: hist.map(h => h.contribBreakdown[name] || 0) 
+    }; 
+});
+
+contributionChart.setOption({
+    tooltip: { 
+        trigger: 'axis', 
+        axisPointer: { type: 'cross', label: { backgroundColor: '#6a7985' } }, 
+        formatter: function (params) { 
+            let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${params[0].name}</div>`; 
+            let sum = 0; 
+            const sortedParams = params.sort((a, b) => Math.abs(parseFloat(b.value)) - Math.abs(parseFloat(a.value)));
+            
+            sortedParams.forEach(p => { 
+                const val = parseFloat(p.value); 
+                if(Math.abs(val) > 0.001) { 
+                    const valPct = (val * 100).toFixed(2) + '%';
+                    const color = val >= 0 ? '#d32f2f' : '#2e7d32';
+                    h += `<div style="font-size:11px; display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:2px;">
+                            <span style="min-width:70px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span>
+                            <div style="text-align:right"><b style="color:${color}">${valPct}</b></div>
+                          </div>`; 
+                    sum += val; 
+                } 
+            }); 
+            const totalPct = (sum * 100).toFixed(2) + '%';
+            const totalColor = sum >= 0 ? '#d32f2f' : '#2e7d32';
+            h += `<div style="border-top:1px solid #eee; margin-top:5px; padding-top:4px; font-weight:bold; text-align:right;">
+                    总累计盈亏: <span style="color:${totalColor}">${totalPct}</span>
+                  </div>`; 
+            return h; 
+        } 
+    },
+    legend: { data: allStockNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, 
+    grid: { left: '12%', right: '8%', bottom: '25px', containLabel: false }, 
+    xAxis: { type: 'category', boundaryGap: false, data: dates }, 
+    yAxis: { 
+        type: 'value', 
+        axisLabel: { formatter: (val) => (val*100).toFixed(0)+'%' } 
+    },
+    dataZoom: [{type:'inside'}, {type:'slider', bottom:0, height:20}], 
+    series: seriesData
+});
+}
+window.addEventListener('beforeunload', (e) => {
+if (localStorage.getItem('gridHasUnsavedChanges') === 'true') {
+e.preventDefault();
+e.returnValue = '';
+}
+});
+(async function autoSyncFromGithub() {
+const token = localStorage.getItem("github_token");
+if (!token) return;
+
+const btnPull = document.getElementById('btn-pull');
+const originText = btnPull.innerText;
+btnPull.innerText = "☁️...";
+
+try {
+    const url = `https://api.github.com/repos/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path}`;
+    const headers = { "Accept": "application/vnd.github.v3+json", "Authorization": `token ${token}` };
+    let res = await fetch(url, { headers, cache: "no-store" });
+    
+    let data;
+    if (res.ok) data = JSON.parse(safeB64ToUtf8((await res.json()).content));
+    else {
+        const raw = await fetch(`https://raw.githubusercontent.com/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${GITHUB_CONFIG.path}?t=${Date.now()}`); 
+        if(!raw.ok) throw new Error("Fetch failed"); 
+        data = await raw.json();
+    }
+
+    if (Array.isArray(data)) {
+        stocks = data;
+        localStorage.setItem('gridStocks', JSON.stringify(stocks)); 
+        renderTable(); 
+        setLocalChanges(false); 
+        btnPull.innerText = "✅";
+        setTimeout(() => btnPull.innerText = originText, 2000);
+    } else {
+        btnPull.innerText = originText;
+    }
+} catch (e) {
+    console.log("Auto sync failed:", e);
+    btnPull.innerText = "⚠️";
+    setTimeout(() => btnPull.innerText = originText, 3000);
+}
+})();
+echarts.connect('stockGroup');
 </script>
 </body>
 </html>
