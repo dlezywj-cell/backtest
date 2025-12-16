@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (名单透视版)</title>
+    <title>估值杠杆策略 (状态明细增强版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -196,6 +196,14 @@
         .summary-filter-bar input:focus, .summary-filter-bar select:focus { border-color: #007bff; background: #fff; }
         .summary-filter-bar input { flex: 1; }
         .summary-filter-bar select { max-width: 140px; color: #555; }
+
+        /* 新增：状态明细样式 */
+        .status-group-box { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        @media (max-width: 600px) { .status-group-box { grid-template-columns: 1fr; } }
+        .status-col { background: #fff; border: 1px solid #eee; border-radius: 6px; padding: 10px; }
+        .status-col-header { font-weight: bold; font-size: 13px; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        .st-pill { display: inline-block; padding: 3px 8px; border-radius: 4px; background: #f1f3f5; color: #333; font-size: 12px; margin: 0 4px 4px 0; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; }
+        .st-pill:hover { border-color: #ccc; background: #e9ecef; }
     </style>
 </head>
 <body>
@@ -385,6 +393,17 @@
             <div style="text-align:center; font-size:11px; color:#999; margin-top:5px;">
                 统计每日处于不同技术形态的股票数量。红色=上涨趋势，绿色=下跌趋势，灰色=风控/止损，蓝色=震荡。
             </div>
+        </div>
+    </div>
+
+    <!-- 5.6 新增：各状态明细 -->
+    <div id="status-detail-section" style="margin-bottom:15px;">
+        <div class="section-header" onclick="toggleSection('status-detail-content', this)">
+            <span>📋 最新状态明细 (Status Breakdown)</span>
+            <span class="arrow header-arrow">▼</span>
+        </div>
+        <div id="status-detail-content" class="section-body collapsed">
+            <div id="status-detail-grid" class="status-group-box"></div>
         </div>
     </div>
 
@@ -626,7 +645,7 @@
         return resultMap;
     }
 
-    // === 3. 单股计算逻辑 ===
+    // === 3. 单股计算逻辑 (修复MaxDD和MA显示) ===
     function calculateMA_Array(data, dayCount) {
         let result = new Array(data.length).fill(null);
         let sum = 0;
@@ -824,101 +843,49 @@
             document.getElementById('summary-content').classList.remove('collapsed');
             document.querySelector('#portfolio-section .section-header').classList.add('expanded');
             document.getElementById('portfolio-content').classList.remove('collapsed'); 
+            
+            // 新增：展开状态明细
+            document.querySelector('#status-detail-section .section-header').classList.add('expanded');
+            document.getElementById('status-detail-content').classList.remove('collapsed');
+
             runPortfolioStrategy(); 
-            // 【修正】：调用新的 renderStatusDistribution
             renderStatusDistribution(); 
+            renderStatusDetails(); // 调用新函数
             renderTrendLog(); renderDetailCombo();
             showDetail(batchResults[0].index);
         }
     }
 
-    // === 【核心修改】：renderStatusDistribution (名单透视逻辑) ===
-    function renderStatusDistribution() {
-        if (!batchResults || batchResults.length === 0) return;
+    // === 新增：各状态明细渲染 ===
+    function renderStatusDetails() {
+        const container = document.getElementById('status-detail-grid');
+        if(!container || !batchResults.length) return;
         
-        // 1. 准备数据结构：detailMap[日期][状态] = [股票名列表]
-        let detailMap = {}; 
-        let dates = []; 
-        
+        // 1. 归类
+        let groups = { '上涨趋势': [], '下跌趋势': [], '震荡整理': [], '触发风控': [] };
         batchResults.forEach(res => {
-            res.history.forEach(day => {
-                if (!detailMap[day.date]) detailMap[day.date] = { '上涨趋势':[], '下跌趋势':[], '震荡整理':[], '触发风控':[], 'Total':0 };
-                let s = day.status || '震荡整理';
-                if(detailMap[day.date][s]) {
-                    detailMap[day.date][s].push(res.stockName);
-                    detailMap[day.date]['Total']++;
-                }
-                dates.push(day.date);
-            });
-        });
-        
-        dates.sort(); 
-        dates = [...new Set(dates)];
-
-        const seriesNames = ['上涨趋势', '震荡整理', '触发风控', '下跌趋势'];
-        const colors = ['#d32f2f', '#1976d2', '#616161', '#2e7d32']; 
-
-        // 2. 构造 Series Data（这里依然传数量，具体的名单在 Tooltip 里取）
-        const seriesData = seriesNames.map((name, i) => {
-            return { 
-                name: name, 
-                type: 'bar', 
-                stack: 'total', 
-                emphasis: { focus: 'series' }, 
-                itemStyle: { color: colors[i] }, 
-                data: dates.map(d => detailMap[d][name] ? detailMap[d][name].length : 0) 
-            };
+            const lastDay = res.history[res.history.length - 1];
+            const st = lastDay.status || '震荡整理';
+            if(groups[st]) groups[st].push({ name: res.stockName, index: res.index });
         });
 
-        const dom = document.getElementById('status-chart'); 
-        if (statusChart) statusChart.dispose(); 
-        statusChart = echarts.init(dom); 
-        statusChart.group = 'stockGroup'; 
-
-        statusChart.setOption({
-            tooltip: {
-                trigger: 'axis', 
-                axisPointer: { type: 'shadow' },
-                formatter: function (params) {
-                    let date = params[0].axisValue; 
-                    let total = detailMap[date] ? detailMap[date]['Total'] : 0;
-                    let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${date} (Total: ${total})</div>`;
-                    
-                    params.forEach(p => {
-                        if (p.value > 0) {
-                            let pct = total > 0 ? (p.value / total * 100).toFixed(1) : 0;
-                            // 获取名单列表
-                            let nameList = detailMap[date][p.seriesName] || [];
-                            // 截取前10个，避免Tooltip太长
-                            let displayNames = nameList.slice(0, 10).join('、');
-                            if (nameList.length > 10) displayNames += ` 等${nameList.length}只`;
-                            
-                            h += `
-                            <div style="margin-bottom:6px;">
-                                <div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;">
-                                    <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span>
-                                    <b>${p.value}只 (${pct}%)</b>
-                                </div>
-                                <div style="font-size:10px; color:#ccc; margin-left:14px; max-width:260px; white-space:normal; line-height:1.3; opacity:0.8;">
-                                    ${displayNames}
-                                </div>
-                            </div>`;
-                        }
-                    });
-                    return h;
-                }, 
-                backgroundColor: 'rgba(50,50,50,0.9)', // 深色背景让文字更清晰
-                borderColor: '#333', 
-                textStyle: { color: '#fff' },
-                extraCssText: 'max-height:300px; overflow-y:auto;' // 防止超出屏幕
-            },
-            legend: { data: seriesNames, top: 0, selectedMode: true, textStyle: { fontSize: 11 } },
-            grid: { left: '12%', right: '8%', bottom: '30px', top: '30px', containLabel: true },
-            xAxis: { type: 'category', data: dates, axisTick: { show: false }, axisLine: { lineStyle: { color: '#ccc' } } },
-            yAxis: { type: 'value', minInterval: 1, splitLine: { show: true, lineStyle: { type: 'dashed' } } },
-            dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 0, height: 20 }],
-            series: seriesData
+        // 2. 渲染
+        const colorMap = { '上涨趋势':'#d32f2f', '下跌趋势':'#2e7d32', '震荡整理':'#1976d2', '触发风控':'#616161' };
+        let html = '';
+        Object.keys(groups).forEach(key => {
+            const list = groups[key];
+            if(list.length === 0) return;
+            let pills = list.map(item => `<span class="st-pill" onclick="showDetail(${item.index})">${item.name}</span>`).join('');
+            html += `
+                <div class="status-col">
+                    <div class="status-col-header" style="color:${colorMap[key]}">
+                        <span>${key}</span> <span>${list.length}只</span>
+                    </div>
+                    <div style="display:flex; flex-wrap:wrap;">${pills}</div>
+                </div>
+            `;
         });
+        container.innerHTML = html;
     }
 
     // === 5. 辅助与渲染逻辑 (其余部分保持不变) ===
@@ -1067,31 +1034,18 @@
         });
     }
 
-    function renderTrendLog() {
-        const container = document.getElementById('trend-log-list'); if (!container || !batchResults || batchResults.length === 0) return; container.innerHTML = '';
-        let dateMap = {}; let allDates = new Set(); batchResults.forEach(res => { res.history.forEach(day => { if (!dateMap[day.date]) dateMap[day.date] = {}; dateMap[day.date][res.stockName] = day.status; allDates.add(day.date); }); });
-        const sortedDates = Array.from(allDates).sort().reverse(); let hasContent = false;
-        const statusConfig = { '上涨趋势': { color: '#d32f2f', icon: '🔥', label: '入上涨' }, '下跌趋势': { color: '#2e7d32', icon: '❄️', label: '入下跌' }, '震荡整理': { color: '#1976d2', icon: '〰️', label: '入震荡' }, '触发风控': { color: '#616161', icon: '🛡️', label: '触风控' } };
-        for (let i = 0; i < sortedDates.length - 1; i++) {
-            const today = sortedDates[i]; const yesterday = sortedDates[i+1]; let changes = { '上涨趋势': [], '下跌趋势': [], '震荡整理': [], '触发风控': [] }; let totalChanges = 0;
-            batchResults.forEach(res => { const name = res.stockName; const statusNow = dateMap[today][name]; const statusPrev = dateMap[yesterday][name]; if (statusNow && statusPrev && statusNow !== statusPrev) { if (changes[statusNow]) { changes[statusNow].push(name); totalChanges++; } } });
-            if (totalChanges === 0) continue; hasContent = true; const isLatest = (i === 0);
-            const header = document.createElement('div'); header.className = 'daily-log-header' + (isLatest ? ' open' : ''); header.onclick = function() { toggleDailyLog(this); };
-            let summaryHtml = ''; const order = ['上涨趋势', '震荡整理', '下跌趋势', '触发风控']; order.forEach(key => { if (changes[key].length > 0) { const cfg = statusConfig[key]; summaryHtml += `<span style="font-size:11px; color:#fff; background:${cfg.color}; padding:2px 6px; border-radius:4px; margin-right:4px;">${cfg.icon}+${changes[key].length}</span>`; } });
-            header.innerHTML = `<div style="font-weight:bold; color:#555; display:flex; align-items:center; gap:8px;">${today} <div style="display:flex; flex-wrap:wrap; gap:2px;">${summaryHtml}</div>${isLatest ? '<span style="font-size:10px; color:#fff; background:#fd7e14; padding:1px 4px; border-radius:3px; margin-left:auto;">最新</span>' : ''}</div><span class="arrow-daily">▶</span>`;
-            const body = document.createElement('div'); body.className = 'daily-log-body' + (isLatest ? ' open' : ''); let contentHtml = ''; order.forEach(key => { if (changes[key].length > 0) { const cfg = statusConfig[key]; contentHtml += `<div class="daily-item" style="align-items:flex-start; margin-bottom:6px; border-bottom:1px dashed #eee; padding-bottom:6px;"><span style="font-size:11px; color:#fff; background:${cfg.color}; padding:2px 6px; border-radius:3px; margin-right:8px; white-space:nowrap; min-width:50px; text-align:center;">${cfg.label}</span><div style="color:#333; line-height:1.4; font-size:12px;">${changes[key].join('、')}</div></div>`; } });
-            body.innerHTML = contentHtml; container.appendChild(header); container.appendChild(body);
-        }
-        if (!hasContent) container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无趋势变更记录</div>';
-    }
-    function renderContributionChart(hist) {
-        const dom = document.getElementById('contribution-chart'); if (contributionChart) contributionChart.dispose(); contributionChart = echarts.init(dom); contributionChart.group = 'stockGroup';
-        const dates = hist.map(h => h.date); const allStockNames = batchResults.map(r => r.stockName);
-        const seriesData = allStockNames.map(name => { return { name: name, type: 'line', stack: 'Total', areaStyle: {}, emphasis: { focus: 'series' }, showSymbol: false, lineStyle: { width: 0 }, data: hist.map(h => h.contribBreakdown[name] || 0) }; });
-        contributionChart.setOption({
-            tooltip: { trigger: 'axis', axisPointer: { type: 'cross', label: { backgroundColor: '#6a7985' } }, formatter: function (params) { let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${params[0].name}</div>`; let sum = 0; const sortedParams = params.sort((a, b) => Math.abs(parseFloat(b.value)) - Math.abs(parseFloat(a.value))); sortedParams.forEach(p => { const val = parseFloat(p.value); if(Math.abs(val) > 0.001) { const valPct = (val * 100).toFixed(2) + '%'; const color = val >= 0 ? '#d32f2f' : '#2e7d32'; h += `<div style="font-size:11px; display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:2px;"><span style="min-width:70px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span><div style="text-align:right"><b style="color:${color}">${valPct}</b></div></div>`; sum += val; } }); const totalPct = (sum * 100).toFixed(2) + '%'; const totalColor = sum >= 0 ? '#d32f2f' : '#2e7d32'; h += `<div style="border-top:1px solid #eee; margin-top:5px; padding-top:4px; font-weight:bold; text-align:right;">总累计盈亏: <span style="color:${totalColor}">${totalPct}</span></div>`; return h; } },
-            legend: { data: allStockNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, grid: { left: '12%', right: '8%', bottom: '25px', containLabel: false }, xAxis: { type: 'category', boundaryGap: false, data: dates }, yAxis: { type: 'value', axisLabel: { formatter: (val) => (val*100).toFixed(0)+'%' } }, dataZoom: [{type:'inside'}, {type:'slider', bottom:0, height:20}], series: seriesData
+    function renderStatusDetails() {
+        const container = document.getElementById('status-detail-grid'); if(!container || !batchResults.length) return;
+        let groups = { '上涨趋势': [], '下跌趋势': [], '震荡整理': [], '触发风控': [] };
+        batchResults.forEach(res => { const lastDay = res.history[res.history.length - 1]; const st = lastDay.status || '震荡整理'; if(groups[st]) groups[st].push({ name: res.stockName, index: res.index }); });
+        const colorMap = { '上涨趋势':'#d32f2f', '下跌趋势':'#2e7d32', '震荡整理':'#1976d2', '触发风控':'#616161' };
+        let html = '';
+        Object.keys(groups).forEach(key => {
+            const list = groups[key]; if(list.length === 0) return;
+            let pills = list.map(item => `<span class="st-pill" onclick="showDetail(${item.index})">${item.name}</span>`).join('');
+            html += `<div class="status-col"><div class="status-col-header" style="color:${colorMap[key]}"><span>${key}</span> <span>${list.length}只</span></div><div style="display:flex; flex-wrap:wrap;">${pills}</div></div>`;
         });
+        container.innerHTML = html;
     }
 
     // 自动同步启动
