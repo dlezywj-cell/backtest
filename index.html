@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (最终完美版)</title>
+    <title>估值杠杆策略 (经典高收益版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -721,88 +721,65 @@ async function calculateStock(stock, realtimeData) {
 
     history.push({date: rawData[0].date, nav:1.0, close:rawData[0].close, leverage:prevL, status: "震荡整理", reason: "初始建仓"});
 
-    // --- 修改开始：完整的循环逻辑修复 ---
+    // --- 修改：还原回您认可的高收益逻辑，并增加原因显示 ---
     for(let i=1; i<rawData.length; i++) {
         const d = rawData[i]; 
         const prevD = rawData[i-1]; 
         const r = d.close / prevD.close - 1; 
         const curMv = d.mv;
         
-        // 1. 基础估值目标
         const targetL = getTargetLeverage(curMv); 
-        let newL = targetL; 
+        let newL = targetL; // 默认按估值走
         let reason = "估值驱动";
         let statusTag = "震荡整理"; 
         
-        // 2. 计算均线状态
         let m5 = ma5Arr[i], m10 = ma10Arr[i], m20 = ma20Arr[i];
-        const isTechUp = (m5 && m10 && m20 && m5 > m10 && m5 > m20 && d.close > m20); // 多头排列且站上均线
-        const isTechDown = (m5 && m10 && m20 && m5 < m10 && m5 < m20 && d.close < m20); // 空头排列且跌破均线
+        const isTechUp = (m5 && m10 && m20 && m5 > m10 && m5 > m20 && d.close > m20); 
+        const isTechDown = (m5 && m10 && m20 && m5 < m10 && m5 < m20 && d.close < m20);
         const isUp = isTechUp && (r > 0.0);
         const isDown = isTechDown && (r < 0.0);
 
-        // ---【核心修复逻辑】趋势过滤器 ---
-        // 逻辑A: 下跌趋势中，即使估值便宜(targetL > prevL)，也暂停加仓 (防止接飞刀)
-        if (isTechDown && targetL > prevL) {
-            newL = prevL;
-            reason = "下跌趋势暂停加仓";
-        }
-
-        // 逻辑B: 上涨趋势中，即使估值贵了(targetL < prevL)，也暂停减仓 (让利润奔跑)
-        if (isTechUp && targetL < prevL) {
-            newL = prevL;
-            reason = "上涨趋势暂停减仓";
-        }
-        // ---------------------------------
-
-        // 3. 净值更新
         nav *= (1 + prevL * r); 
         if(nav > peakNav) peakNav = nav;
         
         let currentDD = (peakNav > 0) ? (peakNav - nav) / peakNav : 0;
         if(currentDD > maxDrawdown) maxDrawdown = currentDD;
 
-        // 4. 硬性回撤止损 (优先级最高)
         if(currentDD > 0.15 && !inProtect) {
-            if(curMv <= minCap * 1.05) reason = "市值低估跳过止损"; // 极度低估时不止损
+            if(curMv <= minCap * 1.05) reason = "市值低估跳过止损"; 
             else { inProtect = true; newL = prevL * 0.4; reason = `回撤止损`; peakNav = nav; }
         }
         
-        // 5. 状态机逻辑
         if(inProtect) {
             statusTag = "触发风控"; 
             if(isUp && d.valScore > 0) { inProtect = false; newL = targetL; reason = "趋势恢复"; } 
             else { newL = isDown ? Math.max(0, prevL * 0.5) : 0; reason = "保护中"; }
         } else {
-            if(isTechUp) statusTag = "上涨趋势"; 
-            else if(isTechDown) statusTag = "下跌趋势";
-
-            // 特殊趋势处理 (覆盖上面的基础逻辑)
+            if(isTechUp) statusTag = "上涨趋势"; else if(isTechDown) statusTag = "下跌趋势";
+            
+            // 下跌趋势：减仓逻辑 (保持不变)
             if(isDown) {
-                // 左侧抄底尝试：虽然下跌，但如果极度低估(valScore>0.6)且今日站上MA5，尝试保持仓位或按估值买入
                 if (d.valScore > 0.6 && d.close > m5) {
                     if (newL < prevL) { newL = prevL; reason = "低估且站上MA5"; }
                 } else {
-                    // 右侧趋势止损：如果均线乖离过大，强制减仓 (即使上面逻辑A已经限制了买入，这里可能进一步要求卖出)
                     let slope = (m10 - m20)/m20;
-                    // 动态调整减仓力度
                     let red = (curMv <= minCap) ? (Math.min(1, Math.abs(slope)*lowSens)*lowRed) : (Math.min(1, Math.abs(slope)*normSens)*normRed);
                     let trendL = Math.max(0, prevL * (1 - red));
-                    
-                    // 只有当趋势计算出的仓位 比 当前计划的仓位 更低时，才执行趋势减仓
                     if(trendL < newL) { newL = trendL; reason = "趋势减仓"; }
                 }
             }
             
-            // 上涨时的动量修正
+            // 上涨趋势：还原回旧逻辑 (Math.max 保护)，但增加日志说明
             if(isUp) {
-                // 如果今日大跌(假突破)，稍微限制加仓幅度；否则允许按计划执行 (已被逻辑B保护，不会因估值而卖出)
-                if(r < -0.02) {
-                     newL = Math.min(maxLev, prevL * 1.05); // 限制加仓速度
-                } else {
-                     // 确保上涨时至少保持之前仓位，或者是估值目标(如果估值目标更高)
-                     newL = Math.max(prevL, newL); 
+                // 原逻辑：上涨时不减仓，取 (上次仓位, 估值仓位) 的最大值
+                let upLogicL = (r < -0.02) ? Math.min(maxLev, prevL * 1.05) : Math.max(prevL, targetL);
+                
+                // 【原因侦探】：如果 估值建议卖出(targetL < prevL) 但 策略强行持仓(upLogicL == prevL)
+                if (targetL < prevL && Math.abs(upLogicL - prevL) < 0.001) {
+                    reason = "上涨趋势暂停减仓";
                 }
+                
+                newL = upLogicL;
             }
         }
         
