@@ -783,6 +783,10 @@ async function calculateStock(stock, realtimeData) {
             }
         }
         
+        if (reason === "估值驱动" && statusTag === "上涨趋势") {
+            reason = "估值驱动-上涨趋势";
+        }
+        
         const diff = newL - prevL;
         let actionHtml = diff > 0.005 ? `<span class="badge bg-red">加仓</span>` : diff < -0.005 ? `<span class="badge bg-green">减仓</span>` : `<span class="badge bg-gray">持仓</span>`;
         
