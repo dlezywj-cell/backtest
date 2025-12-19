@@ -196,6 +196,12 @@
     .summary-filter-bar input:focus, .summary-filter-bar select:focus { border-color: #007bff; background: #fff; }
     .summary-filter-bar input { flex: 1; }
     .summary-filter-bar select { max-width: 140px; color: #555; }
+    
+    /* 设置弹窗表单样式 */
+    .settings-form .form-group { margin-bottom: 15px; }
+    .settings-form label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
+    .settings-form input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+    .settings-tip { font-size: 12px; color: #888; margin-top: 3px; }
 </style>
 </head>
 <body>
@@ -220,6 +226,8 @@
             <button class="btn btn-purple" style="flex:1" id="btn-pull" onclick="syncFromGithub()">☁️ 拉取</button>
             <button class="btn btn-orange" style="flex:1" id="btn-push" onclick="uploadToGithub()">🚀 保存配置</button>
             <button class="btn btn-green" style="flex:1" onclick="saveStock()">💾 存本地</button>
+            <!-- 恢复设置按钮 -->
+            <button class="btn btn-settings" style="width:40px;" onclick="openSettingsModal()">⚙️</button>
         </div>
     </div>
 </div>
@@ -463,22 +471,59 @@
 </div>
 </div>
 </div>
-<!-- Token Modal -->
-<div id="token-modal" class="modal">
+
+<!-- 新增：标准的 Settings Modal -->
+<div id="settings-modal" class="modal">
     <div class="modal-box">
-        <h3>🔑 GitHub Token</h3>
-        <input type="text" id="gh-token-input" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; margin-bottom:15px;" placeholder="ghp_xxxx...">
-        <div style="display:flex; gap:10px;">
-            <button class="btn btn-gray" style="flex:1" onclick="document.getElementById('token-modal').style.display='none'">取消</button>
-            <button class="btn btn-blue" style="flex:1" onclick="saveToken()">确定</button>
+        <h3>⚙️ 策略配置 (隔离版)</h3>
+        <div class="settings-form">
+            <div class="form-group">
+                <label>用户名 (GitHub User)</label>
+                <input type="text" id="cfg-username" placeholder="GitHub 用户名">
+            </div>
+            <div class="form-group">
+                <label>仓库名 (Repository)</label>
+                <input type="text" id="cfg-repo" placeholder="仓库名">
+                <div class="settings-tip">数据将自动保存为: data.json (不与主页串台)</div>
+            </div>
+            <div class="form-group">
+                <label>分支 (Branch)</label>
+                <input type="text" id="cfg-branch" placeholder="main">
+            </div>
+            <div class="form-group">
+                <label>Token (密钥)</label>
+                <input type="password" id="cfg-token" placeholder="ghp_xxxx...">
+            </div>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:15px;">
+            <button class="btn btn-gray" style="flex:1" onclick="closeSettingsModal()">取消</button>
+            <button class="btn btn-blue" style="flex:1" onclick="saveSettings()">保存并同步</button>
         </div>
     </div>
 </div>
+
 <script>
-    // === 1. 基础配置与数据库工具 ===
-    const GITHUB_CONFIG = { username: "dlezywj-cell", repo: "backtest", path: "grid_config.json", branch: "main" };
+    // === 1. 基础配置与隔离策略 ===
+    /* 
+       重要修改：使用 sessionStorage + 'grid_sys_' 前缀 
+       确保本网页的配置绝对不会和 Life Manager 或 Stock System 串台
+    */
+    const APP_STORAGE = sessionStorage;
+    
+    function getGbConfig() {
+        return {
+            // 使用 grid_sys_ 前缀
+            username: APP_STORAGE.getItem('grid_sys_username') || "dlezywj-cell",
+            repo: APP_STORAGE.getItem('grid_sys_repo') || "backtest",
+            // ★ 强制文件名
+            path: "data.json", 
+            branch: APP_STORAGE.getItem('grid_sys_branch') || "main",
+            token: APP_STORAGE.getItem('grid_sys_token') || "" 
+        };
+    }
+
     const PROXY = 'https://corsproxy.io/?'; 
-    let stocks = JSON.parse(localStorage.getItem('gridStocks')) || [];
+    let stocks = JSON.parse(APP_STORAGE.getItem('gridStocks')) || [];
     let myChart = null;
     let batchResults = [];
     let portfolioChart = null, holdingsChart = null, statusChart = null, contributionChart = null; 
@@ -515,17 +560,44 @@ async function setCache(key, val) {
 
 // === UI 工具 ===
 function checkUnsavedStatus() {
-    const dirty = localStorage.getItem('gridHasUnsavedChanges') === 'true';
+    const dirty = APP_STORAGE.getItem('gridHasUnsavedChanges') === 'true';
     const btn = document.getElementById('btn-push');
     if (dirty) { btn.classList.add('unsaved'); btn.innerHTML = "🔴 待同步配置"; } 
     else { btn.classList.remove('unsaved'); btn.innerHTML = "🚀 保存配置"; }
 }
-function setLocalChanges(isDirty) { localStorage.setItem('gridHasUnsavedChanges', isDirty); checkUnsavedStatus(); }
+function setLocalChanges(isDirty) { APP_STORAGE.setItem('gridHasUnsavedChanges', isDirty); checkUnsavedStatus(); }
 function initDates() {
     const d = new Date(); document.getElementById('inEndDate').value = d.toISOString().split('T')[0];
     d.setFullYear(d.getFullYear() - 1); document.getElementById('inStartDate').value = d.toISOString().split('T')[0];
 }
 initDates(); checkUnsavedStatus(); renderTable();
+
+// === 设置面板逻辑 ===
+function openSettingsModal() {
+    const cfg = getGbConfig();
+    document.getElementById('cfg-username').value = cfg.username;
+    document.getElementById('cfg-repo').value = cfg.repo;
+    document.getElementById('cfg-branch').value = cfg.branch;
+    document.getElementById('cfg-token').value = cfg.token;
+    document.getElementById('settings-modal').style.display = 'flex';
+}
+function closeSettingsModal() { document.getElementById('settings-modal').style.display = 'none'; }
+function saveSettings() {
+    const u = document.getElementById('cfg-username').value.trim();
+    const r = document.getElementById('cfg-repo').value.trim();
+    const b = document.getElementById('cfg-branch').value.trim();
+    const t = document.getElementById('cfg-token').value.trim();
+    
+    if(!u || !r || !t) return alert("请填写完整");
+    
+    APP_STORAGE.setItem('grid_sys_username', u);
+    APP_STORAGE.setItem('grid_sys_repo', r);
+    APP_STORAGE.setItem('grid_sys_branch', b);
+    APP_STORAGE.setItem('grid_sys_token', t);
+    
+    closeSettingsModal();
+    syncFromGithub();
+}
 
 function filterStockList() {
     const term = document.getElementById('list-search-input').value.toLowerCase().trim();
@@ -867,34 +939,37 @@ async function runBatchBacktest() {
 
 // === 5. 辅助与渲染逻辑 ===
 async function uploadToGithub() {
-    let token = localStorage.getItem("github_token");
-    if (!token) { document.getElementById('token-modal').style.display='flex'; return; }
+    const cfg = getGbConfig();
+    let token = cfg.token;
+    if (!token) { openSettingsModal(); return; }
     const btn = document.getElementById('btn-push'); const origin = btn.innerText; btn.innerText = "⏳"; btn.disabled = true;
     try {
-        const url = `https://api.github.com/repos/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path}`;
+        const url = `https://api.github.com/repos/${cfg.username}/${cfg.repo}/contents/${cfg.path}`;
         const get = await fetch(url, { headers: { "Authorization": `token ${token.trim()}` } });
         let sha = null; if (get.ok) sha = (await get.json()).sha;
-        await fetch(url, { method: "PUT", headers: { "Authorization": `token ${token.trim()}` }, body: JSON.stringify({ message: "Update", content: utf8ToB64(JSON.stringify(stocks, null, 2)), sha }) });
+        await fetch(url, { method: "PUT", headers: { "Authorization": `token ${token.trim()}` }, body: JSON.stringify({ message: "Update", content: utf8ToB64(JSON.stringify(stocks, null, 2)), sha, branch: cfg.branch }) });
         alert("✅ 同步成功!"); setLocalChanges(false);
-    } catch (e) { alert("❌ " + e.message); if(e.message.includes("401")) localStorage.removeItem("github_token"); }
+    } catch (e) { alert("❌ " + e.message); if(e.message.includes("401")) alert("Token 无效"); }
     finally { btn.innerText = origin; btn.disabled = false; checkUnsavedStatus(); }
 }
 async function syncFromGithub() {
-    let token = localStorage.getItem("github_token");
+    const cfg = getGbConfig();
+    let token = cfg.token;
+    if (!token) { openSettingsModal(); return; }
     const btn = document.getElementById('btn-pull'); const origin = btn.innerText; btn.innerText = "⏳"; btn.disabled = true;
     try {
-        const url = `https://api.github.com/repos/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path}`;
+        const url = `https://api.github.com/repos/${cfg.username}/${cfg.repo}/contents/${cfg.path}`;
         const h = { "Accept": "application/vnd.github.v3+json" }; if(token) h["Authorization"] = `token ${token.trim()}`;
         let res = await fetch(url, { headers: h });
         let data;
         if (res.ok) { data = JSON.parse(safeB64ToUtf8((await res.json()).content)); }
-        else { const raw = await fetch(`https://raw.githubusercontent.com/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${GITHUB_CONFIG.path}?t=${Date.now()}`); if(!raw.ok) throw new Error("无数据"); data = await raw.json(); }
+        else { const raw = await fetch(`https://raw.githubusercontent.com/${cfg.username}/${cfg.repo}/${cfg.branch}/${cfg.path}?t=${Date.now()}`); if(!raw.ok) throw new Error("无数据"); data = await raw.json(); }
         if(Array.isArray(data) && confirm(`覆盖本地 ${stocks.length} 条数据?`)) {
-            stocks = data; localStorage.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(false);
+            stocks = data; APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(false);
         }
     } catch (e) { alert("❌ " + e.message); } finally { btn.innerText = origin; btn.disabled = false; }
 }
-function saveToken() { const t = document.getElementById('gh-token-input').value.trim(); if(t) { localStorage.setItem('github_token', t); document.getElementById('token-modal').style.display='none'; uploadToGithub(); } }
+
 function searchStock() {
     const val = document.getElementById('inName').value.trim(); if(!val) return;
     const s = document.createElement('script');
@@ -914,7 +989,7 @@ function saveStock() {
     if(!code || isNaN(min)) return alert("请填写完整");
     const item = { code, name, minCap: min, maxCap: max, lastMod: new Date().toISOString().split('T')[0] }; 
     const idx = stocks.findIndex(s => s.code === code); if(idx >= 0) stocks[idx] = item; else stocks.push(item); 
-    localStorage.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(true); alert("已保存");
+    APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(true); alert("已保存");
 }
 function renderTable() {
     const tb = document.getElementById('stock-tbody');
@@ -925,7 +1000,7 @@ function toggleAllStocks(el) { document.querySelectorAll('.stock-chk').forEach(c
 function checkAllState() { const all = document.querySelectorAll('.stock-chk'); const checked = document.querySelectorAll('.stock-chk:checked'); document.getElementById('check-all').checked = (all.length > 0 && all.length === checked.length); }
 document.addEventListener('change', function(e){ if(e.target.classList.contains('stock-chk')) checkAllState(); });
 function editStock(i) { const s = stocks[i]; document.getElementById('inName').value = s.name; document.getElementById('inCode').value = s.code; document.getElementById('inMin').value = s.minCap; document.getElementById('inMax').value = s.maxCap; document.getElementById('card-config').scrollIntoView({behavior: 'smooth'}); }
-function delStock(i) { if(confirm("确认删除？")) { stocks.splice(i, 1); localStorage.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(true); } }
+function delStock(i) { if(confirm("确认删除？")) { stocks.splice(i, 1); APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(true); } }
 
 function appendSummaryRow(res, index) {
     const tr = document.createElement('tr'); tr.id = `row-${index}`; tr.onclick = () => showDetail(index);
@@ -1157,7 +1232,6 @@ function renderStatusDetails() {
     // 渲染 DOM
     Object.keys(groups).forEach(key => {
         const g = groups[key];
-        // 即使为空也渲染，保持布局整齐，或者你可以选择 if(g.items.length === 0) return;
         
         let html = `<div style="flex:1; min-width:160px; background:${g.bg}; border:1px solid ${g.color}30; border-radius:6px; padding:10px;">`;
         html += `<div style="font-weight:bold; color:${g.color}; margin-bottom:8px; border-bottom:1px solid ${g.color}30; padding-bottom:5px;">${g.icon} ${key} <span style="font-size:11px; opacity:0.8">(${g.items.length})</span></div>`;
@@ -1177,16 +1251,16 @@ function renderStatusDetails() {
 }
 
 // 自动同步启动
-window.addEventListener('beforeunload', (e) => { if (localStorage.getItem('gridHasUnsavedChanges') === 'true') { e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('beforeunload', (e) => { if (APP_STORAGE.getItem('gridHasUnsavedChanges') === 'true') { e.preventDefault(); e.returnValue = ''; } });
 (async function autoSyncFromGithub() {
-    const token = localStorage.getItem("github_token"); if (!token) return;
+    const cfg = getGbConfig(); if (!cfg.token) return;
     const btnPull = document.getElementById('btn-pull'); const originText = btnPull.innerText; btnPull.innerText = "☁️...";
     try {
-        const url = `https://api.github.com/repos/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path}`;
-        const headers = { "Accept": "application/vnd.github.v3+json", "Authorization": `token ${token}` };
+        const url = `https://api.github.com/repos/${cfg.username}/${cfg.repo}/contents/${cfg.path}`;
+        const headers = { "Accept": "application/vnd.github.v3+json", "Authorization": `token ${cfg.token}` };
         let res = await fetch(url, { headers, cache: "no-store" });
-        let data; if (res.ok) data = JSON.parse(safeB64ToUtf8((await res.json()).content)); else { const raw = await fetch(`https://raw.githubusercontent.com/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${GITHUB_CONFIG.path}?t=${Date.now()}`); if(!raw.ok) throw new Error("Fetch failed"); data = await raw.json(); }
-        if (Array.isArray(data)) { stocks = data; localStorage.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(false); btnPull.innerText = "✅"; setTimeout(() => btnPull.innerText = originText, 2000); } else { btnPull.innerText = originText; }
+        let data; if (res.ok) data = JSON.parse(safeB64ToUtf8((await res.json()).content)); else { const raw = await fetch(`https://raw.githubusercontent.com/${cfg.username}/${cfg.repo}/${cfg.branch}/${cfg.path}?t=${Date.now()}`); if(!raw.ok) throw new Error("Fetch failed"); data = await raw.json(); }
+        if (Array.isArray(data)) { stocks = data; APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(false); btnPull.innerText = "✅"; setTimeout(() => btnPull.innerText = originText, 2000); } else { btnPull.innerText = originText; }
     } catch (e) { console.log("Auto sync failed:", e); btnPull.innerText = "⚠️"; setTimeout(() => btnPull.innerText = originText, 3000); }
 })();
 echarts.connect('stockGroup');
