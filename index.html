@@ -162,6 +162,7 @@
     .badge { padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #fff; font-weight: normal; }
     .bg-red { background: #d32f2f; } .bg-green { background: #2e7d32; } .bg-gray { background: #999; }
 
+    /* 弹窗样式 */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; }
     .modal-box { background: #fff; padding: 20px; border-radius: 12px; width: 85%; max-width: 320px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
 
@@ -196,7 +197,18 @@
     .summary-filter-bar input:focus, .summary-filter-bar select:focus { border-color: #007bff; background: #fff; }
     .summary-filter-bar input { flex: 1; }
     .summary-filter-bar select { max-width: 140px; color: #555; }
-    
+
+    /* 新增：右上角状态栏样式 (仿 Life Manager) */
+    .sync-info { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-left: 10px; padding-left: 10px; border-left: 1px solid #eee; }
+    .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; transition: background 0.3s; }
+    .sync-dot.online { background: #34c759; box-shadow: 0 0 6px rgba(52, 199, 89, 0.4); }
+    .sync-dot.syncing { background: #007bff; animation: pulse 1s infinite; }
+    .sync-dot.error { background: #dc3545; }
+    .status-txt { color: #666; cursor: pointer; }
+    .settings-icon { font-size: 16px; color: #555; cursor: pointer; opacity: 0.7; transition: opacity 0.2s; margin-left: 5px; }
+    .settings-icon:hover { opacity: 1; transform: rotate(30deg); transition: transform 0.3s; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
     /* 设置弹窗表单样式 */
     .settings-form .form-group { margin-bottom: 15px; }
     .settings-form label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
@@ -210,7 +222,15 @@
 <div class="card open" id="card-config">
     <div class="card-header" onclick="toggleCard('card-config')">
         <div class="header-title"><span>⚙️ 策略配置</span></div>
-        <span class="arrow">▼</span>
+        <div style="display:flex; align-items:center;">
+            <!-- 新增：右上角状态和设置 -->
+            <div class="sync-info">
+                <div id="syncDot" class="sync-dot"></div>
+                <span id="statusTxt" class="status-txt" onclick="syncFromGithub()">未连接</span>
+                <span class="settings-icon" onclick="openSettingsModal()">⚙️</span>
+            </div>
+            <span class="arrow" style="margin-left:10px;">▼</span>
+        </div>
     </div>
     <div class="card-body">
         <div class="form-row">
@@ -226,8 +246,6 @@
             <button class="btn btn-purple" style="flex:1" id="btn-pull" onclick="syncFromGithub()">☁️ 拉取</button>
             <button class="btn btn-orange" style="flex:1" id="btn-push" onclick="uploadToGithub()">🚀 保存配置</button>
             <button class="btn btn-green" style="flex:1" onclick="saveStock()">💾 存本地</button>
-            <!-- 恢复设置按钮 -->
-            <button class="btn btn-settings" style="width:40px;" onclick="openSettingsModal()">⚙️</button>
         </div>
     </div>
 </div>
@@ -472,7 +490,7 @@
 </div>
 </div>
 
-<!-- 新增：标准的 Settings Modal -->
+<!-- Settings Modal (New Standard) -->
 <div id="settings-modal" class="modal">
     <div class="modal-box">
         <h3>⚙️ 策略配置 (隔离版)</h3>
@@ -503,20 +521,19 @@
 </div>
 
 <script>
-    // === 1. 基础配置与隔离策略 ===
+    // === 1. 基础配置与隔离策略 (修改点) ===
     /* 
-       重要修改：使用 sessionStorage + 'grid_sys_' 前缀 
-       确保本网页的配置绝对不会和 Life Manager 或 Stock System 串台
+       使用 localStorage 确保持久化，
+       使用 grid_sys_ 前缀防止与其他网页冲突，
+       文件名强制为 data.json
     */
-    const APP_STORAGE = sessionStorage;
+    const APP_STORAGE = localStorage;
     
     function getGbConfig() {
         return {
-            // 使用 grid_sys_ 前缀
             username: APP_STORAGE.getItem('grid_sys_username') || "dlezywj-cell",
             repo: APP_STORAGE.getItem('grid_sys_repo') || "backtest",
-            // ★ 强制文件名
-            path: "data.json", 
+            path: "data.json", // 强制写死
             branch: APP_STORAGE.getItem('grid_sys_branch') || "main",
             token: APP_STORAGE.getItem('grid_sys_token') || "" 
         };
@@ -558,7 +575,7 @@ async function setCache(key, val) {
     return new Promise(r => { tx.oncomplete = () => r(); tx.onerror = () => r(); });
 }
 
-// === UI 工具 ===
+// === UI 工具 (修改点: 状态栏更新) ===
 function checkUnsavedStatus() {
     const dirty = APP_STORAGE.getItem('gridHasUnsavedChanges') === 'true';
     const btn = document.getElementById('btn-push');
@@ -572,7 +589,14 @@ function initDates() {
 }
 initDates(); checkUnsavedStatus(); renderTable();
 
-// === 设置面板逻辑 ===
+function updateStatus(state, text) {
+    const dot = document.getElementById('syncDot');
+    const txt = document.getElementById('statusTxt');
+    if(dot) dot.className = 'sync-dot ' + state;
+    if(txt) txt.innerText = text || (state === 'syncing' ? '同步中' : '在线');
+}
+
+// === 设置面板逻辑 (修改点) ===
 function openSettingsModal() {
     const cfg = getGbConfig();
     document.getElementById('cfg-username').value = cfg.username;
@@ -942,21 +966,34 @@ async function uploadToGithub() {
     const cfg = getGbConfig();
     let token = cfg.token;
     if (!token) { openSettingsModal(); return; }
+    
     const btn = document.getElementById('btn-push'); const origin = btn.innerText; btn.innerText = "⏳"; btn.disabled = true;
+    updateStatus('syncing', '上传中...');
+    
     try {
         const url = `https://api.github.com/repos/${cfg.username}/${cfg.repo}/contents/${cfg.path}`;
         const get = await fetch(url, { headers: { "Authorization": `token ${token.trim()}` } });
         let sha = null; if (get.ok) sha = (await get.json()).sha;
         await fetch(url, { method: "PUT", headers: { "Authorization": `token ${token.trim()}` }, body: JSON.stringify({ message: "Update", content: utf8ToB64(JSON.stringify(stocks, null, 2)), sha, branch: cfg.branch }) });
-        alert("✅ 同步成功!"); setLocalChanges(false);
-    } catch (e) { alert("❌ " + e.message); if(e.message.includes("401")) alert("Token 无效"); }
+        alert("✅ 同步成功!"); 
+        setLocalChanges(false);
+        updateStatus('online', '已同步');
+    } catch (e) { 
+        alert("❌ " + e.message); 
+        if(e.message.includes("401")) alert("Token 无效"); 
+        updateStatus('error', '上传失败');
+    }
     finally { btn.innerText = origin; btn.disabled = false; checkUnsavedStatus(); }
 }
+
 async function syncFromGithub() {
     const cfg = getGbConfig();
     let token = cfg.token;
     if (!token) { openSettingsModal(); return; }
+    
     const btn = document.getElementById('btn-pull'); const origin = btn.innerText; btn.innerText = "⏳"; btn.disabled = true;
+    updateStatus('syncing', '拉取中...');
+    
     try {
         const url = `https://api.github.com/repos/${cfg.username}/${cfg.repo}/contents/${cfg.path}`;
         const h = { "Accept": "application/vnd.github.v3+json" }; if(token) h["Authorization"] = `token ${token.trim()}`;
@@ -966,8 +1003,12 @@ async function syncFromGithub() {
         else { const raw = await fetch(`https://raw.githubusercontent.com/${cfg.username}/${cfg.repo}/${cfg.branch}/${cfg.path}?t=${Date.now()}`); if(!raw.ok) throw new Error("无数据"); data = await raw.json(); }
         if(Array.isArray(data) && confirm(`覆盖本地 ${stocks.length} 条数据?`)) {
             stocks = data; APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(false);
+            updateStatus('online', '已同步');
         }
-    } catch (e) { alert("❌ " + e.message); } finally { btn.innerText = origin; btn.disabled = false; }
+    } catch (e) { 
+        alert("❌ " + e.message); 
+        updateStatus('error', '拉取失败');
+    } finally { btn.innerText = origin; btn.disabled = false; }
 }
 
 function searchStock() {
@@ -1254,14 +1295,27 @@ function renderStatusDetails() {
 window.addEventListener('beforeunload', (e) => { if (APP_STORAGE.getItem('gridHasUnsavedChanges') === 'true') { e.preventDefault(); e.returnValue = ''; } });
 (async function autoSyncFromGithub() {
     const cfg = getGbConfig(); if (!cfg.token) return;
-    const btnPull = document.getElementById('btn-pull'); const originText = btnPull.innerText; btnPull.innerText = "☁️...";
+    const btnPull = document.getElementById('btn-pull'); 
+    
+    // 更新状态栏
+    updateStatus('syncing', '同步中...');
+    
     try {
         const url = `https://api.github.com/repos/${cfg.username}/${cfg.repo}/contents/${cfg.path}`;
         const headers = { "Accept": "application/vnd.github.v3+json", "Authorization": `token ${cfg.token}` };
         let res = await fetch(url, { headers, cache: "no-store" });
         let data; if (res.ok) data = JSON.parse(safeB64ToUtf8((await res.json()).content)); else { const raw = await fetch(`https://raw.githubusercontent.com/${cfg.username}/${cfg.repo}/${cfg.branch}/${cfg.path}?t=${Date.now()}`); if(!raw.ok) throw new Error("Fetch failed"); data = await raw.json(); }
-        if (Array.isArray(data)) { stocks = data; APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(false); btnPull.innerText = "✅"; setTimeout(() => btnPull.innerText = originText, 2000); } else { btnPull.innerText = originText; }
-    } catch (e) { console.log("Auto sync failed:", e); btnPull.innerText = "⚠️"; setTimeout(() => btnPull.innerText = originText, 3000); }
+        if (Array.isArray(data)) { 
+            stocks = data; 
+            APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); 
+            renderTable(); 
+            setLocalChanges(false); 
+            updateStatus('online', '已同步');
+        } 
+    } catch (e) { 
+        console.log("Auto sync failed:", e); 
+        updateStatus('error', '同步失败');
+    }
 })();
 echarts.connect('stockGroup');
 </script>
