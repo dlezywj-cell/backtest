@@ -727,14 +727,24 @@ async function fetchBatchRealtimeData(secIds) {
     return resultMap;
 }
 
-// === 3. 单股计算逻辑 (修复MaxDD和MA显示) ===
+// === 3. 单股计算逻辑 (修改点：MA 计算) ===
 function calculateMA_Array(data, dayCount) {
     let result = new Array(data.length).fill(null);
-    let sum = 0;
     for (let i = 0; i < data.length; i++) {
-        sum += data[i].close;
-        if (i >= dayCount) sum -= data[i - dayCount].close;
-        if (i >= dayCount - 1) result[i] = sum / dayCount;
+        // 确保有足够的前置数据。
+        // 我们需要前 n-2 天的数据，加上当天的 2 倍。
+        // 例如 dayCount=5, 需要 i-3, i-2, i-1 和 i (共4个索引位置，对应5份权重)
+        // 所以 i 必须 >= 3 (即 dayCount - 2)
+        if (i >= dayCount - 2) {
+            let sum = 0;
+            // 加总前 n-2 天的数据 (从 i-1 到 i-(n-2))
+            for (let k = 1; k <= dayCount - 2; k++) {
+                sum += data[i - k].close;
+            }
+            // 加上 2 倍的今天数据 (模拟明天涨跌幅为0)
+            sum += (data[i].close * 2);
+            result[i] = sum / dayCount;
+        }
     }
     return result;
 }
