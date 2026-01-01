@@ -693,7 +693,7 @@ async function fetchHistoryKline(secId) {
     } catch (e) { return cached ? cached.data : []; }
 }
 
-// 批量实时数据
+// 批量实时数据 (修复版：确保获取时间戳)
 async function fetchBatchRealtimeData(secIds) {
     if(secIds.length === 0) return {};
     const BATCH_SIZE = 30;
@@ -704,11 +704,13 @@ async function fetchBatchRealtimeData(secIds) {
         let expandedChunk = [];
         chunk.forEach(id => {
             expandedChunk.push(id);
+            // 顺便请求关联代码（防止美股主代码没数据）
             if(id.startsWith('105.')) expandedChunk.push(id.replace('105.', '106.'));
         });
 
         const joined = expandedChunk.join(',');
         const ts = Date.now();
+        // 请求 f124 (时间戳)
         const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${joined}&fields=f12,f2,f20,f124&invt=2&fltt=2&_=${ts}`;
         try {
             const res = await fetch(PROXY + encodeURIComponent(url));
@@ -717,8 +719,13 @@ async function fetchBatchRealtimeData(secIds) {
             if (diff) {
                 const list = Array.isArray(diff) ? diff : Object.values(diff);
                 list.forEach(item => {
-                    if (item && item.f2 > 0) {
-                        resultMap[item.f12] = { price: item.f2, totalShares: (item.f20 / item.f2) / 100000000, timestamp: item.f124 };
+                    // 必须有价格(f2)和时间戳(f124)才算有效
+                    if (item && item.f2 > 0 && item.f124 > 0) {
+                        resultMap[item.f12] = { 
+                            price: item.f2, 
+                            totalShares: (item.f20 / item.f2) / 100000000, 
+                            timestamp: item.f124 // 这是一个Unix时间戳(秒)
+                        };
                     }
                 });
             }
@@ -749,11 +756,12 @@ function calculateMA_Array(data, dayCount) {
     return result;
 }
 
+// 单股计算逻辑 (修复版：剔除非交易日)
 async function calculateStock(stock, realtimeData) {
     const userStartDate = document.getElementById('inStartDate').value;
     const userEndDate = document.getElementById('inEndDate').value;
-    const todayStr = new Date().toISOString().split('T')[0];
     
+    // 获取参数
     const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
     const lowSens = parseFloat(document.getElementById('pLowSens').value) || 12;
     const lowRed = parseFloat(document.getElementById('pLowRed').value) || 0.3;
@@ -763,53 +771,83 @@ async function calculateStock(stock, realtimeData) {
     let emSecId = getEmSecId(stock.code); 
     let rawCode = emSecId.split('.')[1];
 
+    // 1. 获取K线历史
     const klines = await fetchHistoryKline(emSecId);
     if(!klines || klines.length === 0) throw new Error("无K线数据");
 
-    let rtPrice = 0, totalShares = 0;
-    const needRealtime = userEndDate >= todayStr;
-    
-    if (realtimeData && realtimeData[rawCode]) {
-        rtPrice = realtimeData[rawCode].price;
-        totalShares = realtimeData[rawCode].totalShares;
-    }
-    
-    if (!totalShares) {
-         if(needRealtime) throw new Error("实时数据获取失败(可能停牌)");
-         throw new Error("无股本数据");
-    }
-
+    // 2. 准备基础数据容器
     let rawData = [];
     const minCap = stock.minCap, maxCap = stock.maxCap, midCap = (minCap + maxCap) / 2.0;
 
+    // 填充历史K线
+    // 注意：fetchHistoryKline 返回的数据通常是最新的，已经包含了当日(如果已开盘)
+    let totalShares = 0; // 暂存股本
+    
+    // 先检查是否有实时数据，用于获取最新股本(历史K线没有股本信息)
+    if (realtimeData && realtimeData[rawCode]) {
+        totalShares = realtimeData[rawCode].totalShares;
+    }
+    if (!totalShares) totalShares = 100.0; // 兜底防止除0，后续会报错
+
     klines.forEach(k => {
         const parts = k.split(',');
-        if (parts[0] >= userStartDate && parts[0] <= userEndDate) {
+        const dateStr = parts[0];
+        if (dateStr >= userStartDate && dateStr <= userEndDate) {
             let close = parseFloat(parts[1]);
             let mv = close * totalShares;
             rawData.push({
-                date: parts[0], close: close, mv: mv,
+                date: dateStr, 
+                close: close, 
+                mv: mv,
                 valScore: (mv<=minCap)?1:(mv>=maxCap)?-1:((mv<=midCap)?(midCap-mv)/(midCap-minCap):-(mv-midCap)/(maxCap-midCap))
             });
         }
     });
 
-    if (needRealtime && rtPrice > 0) {
-        const rtMv = rtPrice * totalShares;
-        const rtItem = {
-            date: todayStr, close: rtPrice, mv: rtMv,
-            valScore: (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap))
-        };
-        if (rawData.length > 0) {
-            const lastIdx = rawData.length - 1;
-            if (rawData[lastIdx].date === todayStr) rawData[lastIdx] = rtItem; 
-            else rawData.push(rtItem);
-        } else {
-            rawData.push(rtItem);
-        }
-    }
-
     if (rawData.length === 0) throw new Error("区间无数据");
+
+    // 3. 智能合并实时数据 (核心修复逻辑)
+    // 只有当用户选择的结束日期 >= 今天，才尝试合并实时数据
+    const todaySys = new Date().toISOString().split('T')[0];
+    if (realtimeData && realtimeData[rawCode] && userEndDate >= todaySys) {
+        const rt = realtimeData[rawCode];
+        const lastK = rawData[rawData.length - 1];
+
+        // --- 日期判断逻辑 ---
+        let rtTs = rt.timestamp; 
+        let rtDateObj = new Date(rtTs * 1000); // 转换为JS对象
+
+        // 【美股修正】：如果是美股(105/106)，东财返回的是北京时间。
+        // 例如周六早上5点(CN)收盘，其实是周五(US)。如果不处理，会变成周六的数据。
+        // 修正方法：减去15小时 (涵盖夏令时12/13小时的差异，确保落回前一天)
+        if (emSecId.startsWith('105.') || emSecId.startsWith('106.')) {
+            rtDateObj = new Date((rtTs - 15 * 3600) * 1000); 
+        }
+
+        // 生成 YYYY-MM-DD 字符串 (使用本地时间，因为new Date已经根据系统时区转换了时间戳)
+        const year = rtDateObj.getFullYear();
+        const month = String(rtDateObj.getMonth() + 1).padStart(2, '0');
+        const day = String(rtDateObj.getDate()).padStart(2, '0');
+        const rtDateStr = `${year}-${month}-${day}`;
+
+        // 计算实时估值分数
+        const rtMv = rt.price * rt.totalShares;
+        const rtScore = (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap));
+        const rtItem = { date: rtDateStr, close: rt.price, mv: rtMv, valScore: rtScore };
+
+        // --- 决策：添加、更新 还是 忽略 ---
+        if (rtDateStr > lastK.date) {
+            // 只有当实时数据的日期 > 历史K线最后一天，才追加 (例如K线只到昨天，今天是交易日)
+            rawData.push(rtItem);
+        } else if (rtDateStr === lastK.date) {
+            // 如果日期相同，说明K线里已经是今天的了，用实时价格更新它 (更精确)
+            // 保持数组引用不变，直接修改属性
+            rawData[rawData.length - 1] = rtItem;
+        } 
+        // 重点：如果 rtDateStr < lastK.date (甚至可能发生)，或者 rtDateStr == lastK.date
+        // 在非交易日（如周六），rtDateStr 会等于周五的日期 (因为时间戳没变)。
+        // 此时就会进入 `else if` 或者被忽略，而绝不会创建 "周六" 的新节点。
+    }
 
     const ma5Arr = calculateMA_Array(rawData, 5);
     const ma10Arr = calculateMA_Array(rawData, 10);
