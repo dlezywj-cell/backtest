@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (全局择时增强版)</title>
+    <title>估值杠杆策略 (择时对比增强版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -555,6 +555,7 @@
     let stocks = JSON.parse(APP_STORAGE.getItem('gridStocks')) || [];
     let myChart = null;
     let batchResults = [];
+    let benchmarkResults = []; // <--- 新增：用于存储不择时的基准结果
     let portfolioChart = null, holdingsChart = null, statusChart = null, contributionChart = null; 
 
 // IndexedDB: 浏览器本地数据库 (DB V2)
@@ -1008,7 +1009,7 @@ async function calculateStock(stock, realtimeData, globalStageMap = null) {
     return { stockName: stock.name, stockCode: stock.code, history, logs: changeLogs, stats: { ret: (last.nav-1)*100, stockRet: (last.close/history[0].close-1)*100, maxDD: maxDrawdown * 100, avgLev: history.reduce((a,b)=>a+b.leverage,0)/history.length } };
 }
 
-// === 4. 运行控制 (重写为两阶段运行) ===
+// === 4. 运行控制 (重写为两阶段运行 + 保存基准) ===
 async function runBatchBacktest() {
     const checkedBoxes = document.querySelectorAll('.stock-chk:checked');
     if(checkedBoxes.length === 0) return alert("请至少勾选一只股票");
@@ -1026,6 +1027,9 @@ async function runBatchBacktest() {
     resultsContainer.style.display = 'none'; 
     progress.style.display = 'block';
     
+    // 重置基准结果
+    benchmarkResults = []; 
+
     const allSecIds = selectedIndices.map(idx => getEmSecId(stocks[idx].code));
     btn.innerText = "⏳ 获取行情...";
     progress.innerHTML = `正在获取实时行情...`;
@@ -1077,6 +1081,10 @@ async function runBatchBacktest() {
         let idxPass1 = [...selectedIndices];
         const preResults = await runCalculationLoop(idxPass1, null);
         
+        // 保存第一遍（无择时）结果作为基准
+        benchmarkResults = preResults;
+        benchmarkResults.sort((a,b) => a.index - b.index);
+        
         // 计算全局状态地图
         const stageMap = getGlobalMarketStageMap(preResults);
         
@@ -1092,6 +1100,7 @@ async function runBatchBacktest() {
         btn.innerText = "🚀 极速计算中...";
         let idxPass1 = [...selectedIndices];
         finalResults = await runCalculationLoop(idxPass1, null);
+        benchmarkResults = null;
     }
 
     batchResults = finalResults;
@@ -1388,38 +1397,113 @@ function filterSummaryTable() {
     });
 }
 
-function runPortfolioStrategy() {
-    if (!batchResults || batchResults.length === 0) return alert("请先运行回测");
-    let rawThres = parseFloat(document.getElementById('pMinPos').value); const minPosThreshold = isNaN(rawThres) ? 0.4 : rawThres;
-    let dateMap = {}; batchResults.forEach((res) => { res.history.forEach(day => { if (!dateMap[day.date]) { dateMap[day.date] = { date: day.date, stocks: {} }; } dateMap[day.date].stocks[res.stockName] = { close: day.close, idealLev: day.leverage, reason: day.reason }; }); });
-    const sortedDates = Object.keys(dateMap).sort(); if (sortedDates.length < 2) return alert("有效日期数据不足");
-    let portNav = 1.0, portHistory = [], maxDD = 0, peak = 1.0; let lastValidData = {}, prevAllocatedLevs = {}, accContribution = {}; 
-    batchResults.forEach((res) => { accContribution[res.stockName] = 0; });
+// 提取出的纯计算函数
+function calculatePortfolioHistory(resultsInput) {
+    if (!resultsInput || resultsInput.length === 0) return null;
+    let rawThres = parseFloat(document.getElementById('pMinPos').value); 
+    const minPosThreshold = isNaN(rawThres) ? 0.4 : rawThres;
+    
+    let dateMap = {}; 
+    resultsInput.forEach((res) => { 
+        res.history.forEach(day => { 
+            if (!dateMap[day.date]) { dateMap[day.date] = { date: day.date, stocks: {} }; } 
+            dateMap[day.date].stocks[res.stockName] = { close: day.close, idealLev: day.leverage, reason: day.reason }; 
+        }); 
+    });
+    
+    const sortedDates = Object.keys(dateMap).sort(); 
+    if (sortedDates.length < 2) return null;
+    
+    let portNav = 1.0, portHistory = [], maxDD = 0, peak = 1.0; 
+    let lastValidData = {}, prevAllocatedLevs = {}, accContribution = {}; 
+    resultsInput.forEach((res) => { accContribution[res.stockName] = 0; });
 
     for (let i = 0; i < sortedDates.length; i++) {
-        const currDate = sortedDates[i]; const rawDayData = dateMap[currDate]; const prevValidData = { ...lastValidData };
-        batchResults.forEach((res) => { if (rawDayData.stocks[res.stockName]) lastValidData[res.stockName] = rawDayData.stocks[res.stockName]; });
+        const currDate = sortedDates[i]; 
+        const rawDayData = dateMap[currDate]; 
+        const prevValidData = { ...lastValidData };
+        
+        resultsInput.forEach((res) => { 
+            if (rawDayData.stocks[res.stockName]) lastValidData[res.stockName] = rawDayData.stocks[res.stockName]; 
+        });
+        
         let dailyContribBreakdown = {}; 
+        
         if (i > 0) {
             let dayPnLComponent = 0;
-            batchResults.forEach((res) => {
-                const sCurr = lastValidData[res.stockName]; const sPrev = prevValidData[res.stockName]; const allocatedL = prevAllocatedLevs[res.stockName] || 0; 
-                if (sCurr && sPrev && sPrev.close > 0) { const contribution = ((sCurr.close - sPrev.close) / sPrev.close) * allocatedL; dayPnLComponent += contribution; accContribution[res.stockName] += contribution; }
+            resultsInput.forEach((res) => {
+                const sCurr = lastValidData[res.stockName]; 
+                const sPrev = prevValidData[res.stockName]; 
+                const allocatedL = prevAllocatedLevs[res.stockName] || 0; 
+                if (sCurr && sPrev && sPrev.close > 0) { 
+                    const contribution = ((sCurr.close - sPrev.close) / sPrev.close) * allocatedL; 
+                    dayPnLComponent += contribution; 
+                    accContribution[res.stockName] += contribution; 
+                }
             });
-            portNav = portNav * (1 + dayPnLComponent); if (portNav > peak) peak = portNav; const dd = (peak - portNav) / peak; if (dd > maxDD) maxDD = dd;
+            portNav = portNav * (1 + dayPnLComponent); 
+            if (portNav > peak) peak = portNav; 
+            const dd = (peak - portNav) / peak; 
+            if (dd > maxDD) maxDD = dd;
         }
-        batchResults.forEach((res) => { dailyContribBreakdown[res.stockName] = accContribution[res.stockName]; });
+        
+        resultsInput.forEach((res) => { dailyContribBreakdown[res.stockName] = accContribution[res.stockName]; });
+        
         let currentValidStocks = {}, activeCount = 0;
-        batchResults.forEach((res) => { const sData = lastValidData[res.stockName]; if (sData && sData.idealLev >= minPosThreshold) { currentValidStocks[res.stockName] = sData.idealLev; activeCount++; } });
-        let dailyBreakdown = {}, currentCalculatedSumAlloc = 0; 
-        batchResults.forEach((res) => {
-            if (currentValidStocks[res.stockName] !== undefined && activeCount > 0) { const alloc = currentValidStocks[res.stockName] / activeCount; prevAllocatedLevs[res.stockName] = alloc; dailyBreakdown[res.stockName] = alloc; currentCalculatedSumAlloc += alloc; } else { prevAllocatedLevs[res.stockName] = 0; }
+        resultsInput.forEach((res) => { 
+            const sData = lastValidData[res.stockName]; 
+            if (sData && sData.idealLev >= minPosThreshold) { 
+                currentValidStocks[res.stockName] = sData.idealLev; 
+                activeCount++; 
+            } 
         });
-        portHistory.push({ date: currDate, nav: portNav, totalLev: currentCalculatedSumAlloc, breakdown: dailyBreakdown, contribBreakdown: dailyContribBreakdown, activeCount: activeCount });
+        
+        let dailyBreakdown = {}, currentCalculatedSumAlloc = 0; 
+        resultsInput.forEach((res) => {
+            if (currentValidStocks[res.stockName] !== undefined && activeCount > 0) { 
+                const alloc = currentValidStocks[res.stockName] / activeCount; 
+                prevAllocatedLevs[res.stockName] = alloc; 
+                dailyBreakdown[res.stockName] = alloc; 
+                currentCalculatedSumAlloc += alloc; 
+            } else { 
+                prevAllocatedLevs[res.stockName] = 0; 
+            }
+        });
+        
+        portHistory.push({ 
+            date: currDate, 
+            nav: portNav, 
+            totalLev: currentCalculatedSumAlloc, 
+            breakdown: dailyBreakdown, 
+            contribBreakdown: dailyContribBreakdown, 
+            activeCount: activeCount 
+        });
     }
-    renderPortfolioStats(portHistory, maxDD); renderHoldingsChart(portHistory); renderTradeLog(portHistory, dateMap); renderContributionChart(portHistory);
+    return { history: portHistory, maxDD: maxDD, dateMap: dateMap };
 }
-function renderPortfolioStats(hist, maxDD) {
+
+function runPortfolioStrategy() {
+    if (!batchResults || batchResults.length === 0) return alert("请先运行回测");
+    
+    // 1. 计算当前（择时后）的组合结果
+    const mainStats = calculatePortfolioHistory(batchResults);
+    if (!mainStats) return alert("有效日期数据不足");
+
+    // 2. 计算基准（不择时）的组合结果
+    let benchStats = null;
+    const useTiming = document.getElementById('pTimeEnable').checked;
+    if (useTiming && benchmarkResults && benchmarkResults.length > 0) {
+        benchStats = calculatePortfolioHistory(benchmarkResults);
+    }
+
+    // 3. 渲染
+    renderPortfolioStats(mainStats.history, mainStats.maxDD, (benchStats ? benchStats.history : null)); 
+    renderHoldingsChart(mainStats.history); 
+    renderTradeLog(mainStats.history, mainStats.dateMap); 
+    renderContributionChart(mainStats.history);
+}
+
+function renderPortfolioStats(hist, maxDD, benchHist) {
     const last = hist[hist.length - 1]; 
     const ret = (last.nav - 1) * 100; 
     const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
@@ -1438,6 +1522,41 @@ function renderPortfolioStats(hist, maxDD) {
     const dates = hist.map(h => h.date);
     const stageMarkArea = calculateMarketStagesMarkArea();
 
+    // 构建 Series
+    let seriesList = [ 
+        {
+            name: '组合净值', type: 'line', data: hist.map(h=>h.nav), 
+            itemStyle: {color: '#d32f2f'}, lineStyle: {width: 2}, 
+            showSymbol: false, xAxisIndex: 0, yAxisIndex: 0,
+            markArea: stageMarkArea,
+            z: 10 // 确保主线在最上层
+        }, 
+        {
+            name: '实际总杠杆', type: 'line', data: hist.map(h=>h.totalLev), 
+            itemStyle: {color: '#1976d2'}, lineStyle: {width: 1}, 
+            showSymbol: false, xAxisIndex: 1, yAxisIndex: 1, areaStyle: {opacity: 0.2}
+        } 
+    ];
+
+    // 如果有基准数据，添加黑色虚线
+    if (benchHist) {
+        seriesList.push({
+            name: '基准(不择时)', 
+            type: 'line', 
+            data: benchHist.map(h=>h.nav), 
+            itemStyle: {color: '#333'}, // 黑色
+            lineStyle: {width: 2, type: 'dashed'}, // 虚线
+            showSymbol: false, 
+            xAxisIndex: 0, 
+            yAxisIndex: 0,
+            z: 1 // 放在底层
+        });
+    }
+
+    // 更新 Legend 数据
+    let legendData = ['组合净值', '实际总杠杆'];
+    if (benchHist) legendData.push('基准(不择时)');
+
     portfolioChart.setOption({
         tooltip: { 
             trigger: 'axis', 
@@ -1446,16 +1565,25 @@ function renderPortfolioStats(hist, maxDD) {
                 if(!params.length) return ''; 
                 const index = params[0].dataIndex; 
                 const item = hist[index]; 
+                const benchItem = benchHist ? benchHist[index] : null;
+
                 if(!item) return ''; 
                 let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${item.date}</div>`; 
+                
                 h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d32f2f;margin-right:5px;"></span>组合净值</span><b>${item.nav.toFixed(3)}</b></div>`; 
+                
+                // 显示基准数据
+                if (benchItem) {
+                    h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#333;margin-right:5px;"></span>基准(不择时)</span><b>${benchItem.nav.toFixed(3)}</b></div>`; 
+                }
+
                 h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1976d2;margin-right:5px;"></span>实际总杠杆</span><b>${item.totalLev.toFixed(2)}x</b></div>`; 
-                if(item.activeCount !== undefined) h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px; color:#888;"><span>有效持仓数</span><b>${item.activeCount}只</b></div>`; 
+                
                 return h; 
             }, 
             backgroundColor: 'rgba(255,255,255,0.95)' 
         },
-        legend: { top: 0, data: ['组合净值', '实际总杠杆'] },
+        legend: { top: 0, data: legendData },
         grid: [{ left: '12%', right: '8%', top: '15%', height: '55%' }, { left: '12%', right: '8%', top: '75%', height: '15%' }],
         xAxis: [
             {type:'category', data:dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}}, 
@@ -1466,15 +1594,7 @@ function renderPortfolioStats(hist, maxDD) {
             {type:'value', gridIndex:1, splitLine:{show:false}, min:0}
         ],
         dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
-        series: [ 
-            {
-                name: '组合净值', type: 'line', data: hist.map(h=>h.nav), itemStyle: {color: '#d32f2f'}, lineStyle: {width: 2}, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0,
-                markArea: stageMarkArea 
-            }, 
-            {
-                name: '实际总杠杆', type: 'line', data: hist.map(h=>h.totalLev), itemStyle: {color: '#1976d2'}, lineStyle: {width: 1}, showSymbol: false, xAxisIndex: 1, yAxisIndex: 1, areaStyle: {opacity: 0.2}
-            } 
-        ]
+        series: seriesList
     });
 }
 function renderHoldingsChart(hist) {
