@@ -623,6 +623,7 @@ function saveSettings() {
     syncFromGithub();
 }
 
+// 修改：列表搜索过滤（更新全选状态）
 function filterStockList() {
     const term = document.getElementById('list-search-input').value.toLowerCase().trim();
     let visibleCount = 0;
@@ -632,7 +633,9 @@ function filterStockList() {
         else { row.style.display = 'none'; }
     });
     document.getElementById('list-count').innerText = `(${visibleCount}/${stocks.length})`;
+    checkAllState(); // 搜索后重新计算全选框状态
 }
+
 function toggleCard(id) {
     const el = document.getElementById(id); if(!el) return; el.classList.toggle('open');
     if(el.classList.contains('open') && id === 'card-result') {
@@ -1009,7 +1012,7 @@ async function runBatchBacktest() {
     }
 }
 
-// === 新增：计算市场阶段背景 (趋势锁+容错版+新逻辑) ===
+// === 新增：计算市场阶段背景 (趋势锁+容错版+宽容逻辑) ===
 function calculateMarketStagesMarkArea() {
     if (!batchResults || batchResults.length === 0) return { data: [] };
 
@@ -1050,14 +1053,14 @@ function calculateMarketStagesMarkArea() {
         const curr = statsMap[dates[i]];
         const prev = statsMap[dates[i-1]];
         
-        // 计算核心指标：非下跌力量 (上涨 + 震荡)
-        const currScore = curr.up + curr.sideways;
-        const prevScore = prev.up + prev.sideways;
+        const nonBearScoreCurr = curr.up + curr.sideways;
+        const nonBearScorePrev = prev.up + prev.sideways;
 
-        // 定义：上涨阶段 = (上涨+震荡) 增加
-        const isBullDay = currScore > prevScore;
-        // 定义：下跌阶段 = (上涨+震荡) 减少
-        const isBearDay = currScore < prevScore;
+        // 定义：上涨阶段 = (上涨+震荡) 增加 OR 下跌减少
+        const isBullDay = (nonBearScoreCurr > nonBearScorePrev) || (curr.down < prev.down);
+        
+        // 定义：下跌阶段 = (上涨+震荡) 减少 OR 下跌增加
+        const isBearDay = (nonBearScoreCurr < nonBearScorePrev) || (curr.down > prev.down);
 
         // --- 1. 趋势未确立阶段：寻找启动信号 ---
         if (currentStage === null) {
@@ -1244,8 +1247,30 @@ function renderTable() {
     tb.innerHTML = stocks.map((s, i) => `<tr> <td><b>${s.name}</b> <span style="color:#999;font-size:12px">${s.code}</span></td> <td> ${s.minCap}-${s.maxCap}亿 <div style="font-size:10px; color:#aaa; margin-top:2px;">${s.lastMod || ''}</div> </td> <td style="text-align:center;"><div class="op-btn-group"><button class="btn btn-edit-yellow btn-icon-square" onclick="editStock(${i})">✎</button><button class="btn btn-del-red btn-icon-square" onclick="delStock(${i})">✕</button></div></td> <td style="text-align:center;"><input type="checkbox" class="stock-chk" value="${i}" checked></td> </tr>`).join('');
     filterStockList(); checkAllState();
 }
-function toggleAllStocks(el) { document.querySelectorAll('.stock-chk').forEach(chk => chk.checked = el.checked); }
-function checkAllState() { const all = document.querySelectorAll('.stock-chk'); const checked = document.querySelectorAll('.stock-chk:checked'); document.getElementById('check-all').checked = (all.length > 0 && all.length === checked.length); }
+
+// 修改：列表全选功能（只选可见）
+function toggleAllStocks(el) {
+    // 只选取当前未被隐藏的行
+    const rows = document.querySelectorAll('#stock-tbody tr');
+    rows.forEach(row => {
+        if (row.style.display !== 'none') {
+            const chk = row.querySelector('.stock-chk');
+            if (chk) chk.checked = el.checked;
+        }
+    });
+}
+// 修改：检查全选状态（只查可见）
+function checkAllState() {
+    // 获取所有可见行
+    const rows = Array.from(document.querySelectorAll('#stock-tbody tr')).filter(r => r.style.display !== 'none');
+    if (rows.length === 0) {
+        document.getElementById('check-all').checked = false;
+        return;
+    }
+    const checkedCount = rows.filter(r => r.querySelector('.stock-chk').checked).length;
+    document.getElementById('check-all').checked = (checkedCount === rows.length);
+}
+
 document.addEventListener('change', function(e){ if(e.target.classList.contains('stock-chk')) checkAllState(); });
 function editStock(i) { const s = stocks[i]; document.getElementById('inName').value = s.name; document.getElementById('inCode').value = s.code; document.getElementById('inMin').value = s.minCap; document.getElementById('inMax').value = s.maxCap; document.getElementById('card-config').scrollIntoView({behavior: 'smooth'}); }
 function delStock(i) { if(confirm("确认删除？")) { stocks.splice(i, 1); APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(true); } }
