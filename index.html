@@ -1009,6 +1009,161 @@ async function runBatchBacktest() {
     }
 }
 
+// === 新增：计算市场阶段背景 (趋势锁+容错版) ===
+function calculateMarketStagesMarkArea() {
+    if (!batchResults || batchResults.length === 0) return { data: [] };
+
+    // 1. 统计每日各状态数量 (使用原始数据，不平滑)
+    let statsMap = {};
+    let allDates = new Set();
+    
+    batchResults.forEach(res => {
+        res.history.forEach(day => {
+            if (!statsMap[day.date]) statsMap[day.date] = { up: 0, down: 0 };
+            allDates.add(day.date);
+            if (day.status === '上涨趋势') statsMap[day.date].up++;
+            if (day.status === '下跌趋势') statsMap[day.date].down++;
+        });
+    });
+
+    const dates = Array.from(allDates).sort();
+    if (dates.length < 2) return { data: [] };
+
+    let markData = [];
+    
+    // 状态机变量
+    let currentStage = null; // 'bull' | 'bear' | null
+    let stageStartDate = null;
+    let toleranceCount = 0;  // 容错计数器
+    
+    // 连续计数器 (用于确认趋势启动)
+    let bullSeq = 0;
+    let bearSeq = 0;
+
+    // 参数设定
+    const CONFIRM_DAYS = 2;   // 连续多少天满足条件才启动
+    const TOLERANCE_MAX = 2;  // 允许中间多少天不满足条件 (容错)
+
+    for (let i = 1; i < dates.length; i++) {
+        const curr = statsMap[dates[i]];
+        const prev = statsMap[dates[i-1]];
+
+        // 核心定义：上涨趋势占比提升 且 下跌趋势占比下降
+        const isBullDay = (curr.up > prev.up) && (curr.down < prev.down);
+        // 核心定义：上涨趋势占比下降 且 下跌趋势占比提升
+        const isBearDay = (curr.up < prev.up) && (curr.down > prev.down);
+
+        // --- 1. 趋势未确立阶段：寻找启动信号 ---
+        if (currentStage === null) {
+            if (isBullDay) {
+                bullSeq++;
+                bearSeq = 0;
+            } else if (isBearDay) {
+                bearSeq++;
+                bullSeq = 0;
+            } else {
+                bullSeq = 0;
+                bearSeq = 0;
+            }
+
+            // 确认启动
+            if (bullSeq >= CONFIRM_DAYS) {
+                currentStage = 'bull';
+                // 回溯启动日期：如果是第i天确认的，说明是从 i-(CONFIRM_DAYS-1) 天开始的
+                stageStartDate = dates[i - (CONFIRM_DAYS - 1)]; 
+                toleranceCount = 0;
+            } else if (bearSeq >= CONFIRM_DAYS) {
+                currentStage = 'bear';
+                stageStartDate = dates[i - (CONFIRM_DAYS - 1)];
+                toleranceCount = 0;
+            }
+        } 
+        // --- 2. 趋势中：检查维持或中断 ---
+        else {
+            let isTrendReinforced = (currentStage === 'bull' && isBullDay) || (currentStage === 'bear' && isBearDay);
+            let isOppositeSignal = (currentStage === 'bull' && isBearDay) || (currentStage === 'bear' && isBullDay);
+
+            if (isTrendReinforced) {
+                // 趋势加强，重置容错
+                toleranceCount = 0;
+                // 同时重置对方的累积，防止在趋势中直接反转
+                if(currentStage === 'bull') bearSeq = 0;
+                else bullSeq = 0;
+            } else {
+                // 只要不满足条件，就消耗容错次数
+                toleranceCount++;
+                
+                // 检查是否出现强烈的反向信号 (直接反转)
+                if (isOppositeSignal) {
+                    if (currentStage === 'bull') bearSeq++; else bullSeq++;
+                }
+
+                // --- 退出条件 ---
+                // 1. 容错次数用尽
+                // 2. 或者出现了连续的反向信号(直接触发反转)
+                let shouldEnd = (toleranceCount > TOLERANCE_MAX);
+                let trendFlip = (currentStage === 'bull' && bearSeq >= CONFIRM_DAYS) || (currentStage === 'bear' && bullSeq >= CONFIRM_DAYS);
+
+                if (shouldEnd || trendFlip) {
+                    // 结束当前段
+                    // 结束日期：如果是容错耗尽，结束点应该是上一个有效日，而不是今天
+                    // 但为了视觉连贯，通常画到容错开始的前一天
+                    let endIndex = i - toleranceCount; 
+                    // 如果是因为反转Flip导致的，结束点就是反转确认点的前面
+                    if (trendFlip) endIndex = i - (CONFIRM_DAYS - 1);
+                    if (endIndex < 0) endIndex = 0;
+
+                    let color = currentStage === 'bull' ? 'rgba(255, 235, 238, 0.6)' : 'rgba(232, 245, 233, 0.6)';
+                    let name = currentStage === 'bull' ? '上涨阶段' : '下跌阶段';
+                    
+                    markData.push([{
+                        name: name,
+                        xAxis: stageStartDate,
+                        itemStyle: { color: color },
+                        label: { show: true, position: 'top', color: '#999', fontSize: 10, formatter: '{b}' }
+                    }, {
+                        xAxis: dates[endIndex]
+                    }]);
+
+                    // 重置状态
+                    currentStage = null;
+                    bullSeq = 0;
+                    bearSeq = 0;
+                    toleranceCount = 0;
+                    
+                    // 如果是因为反转导致的，需要立即开启新状态，不要漏掉
+                    if (trendFlip) {
+                        // 回退索引，让下一次循环重新判定这段反转信号（或者直接在这里处理）
+                        // 简单处理：重置后，让下一个循环去捕捉新趋势
+                        // 为了精确，我们将 i 回退，让循环重新处理这些反向信号作为启动信号
+                        i = i - CONFIRM_DAYS; 
+                    }
+                }
+            }
+        }
+    }
+
+    // 处理最后一段未闭合的区间
+    if (currentStage && stageStartDate) {
+        let color = currentStage === 'bull' ? 'rgba(255, 235, 238, 0.6)' : 'rgba(232, 245, 233, 0.6)';
+        let name = currentStage === 'bull' ? '上涨阶段' : '下跌阶段';
+        markData.push([{
+            name: name,
+            xAxis: stageStartDate,
+            itemStyle: { color: color },
+            label: { show: true, position: 'top', color: '#999', fontSize: 10, formatter: '{b}' }
+        }, {
+            xAxis: dates[dates.length - 1]
+        }]);
+    }
+
+    return { 
+        data: markData,
+        silent: true 
+    };
+}
+
+
 // === 5. 辅助与渲染逻辑 ===
 async function uploadToGithub() {
     const cfg = getGbConfig();
@@ -1207,20 +1362,78 @@ function runPortfolioStrategy() {
     renderPortfolioStats(portHistory, maxDD); renderHoldingsChart(portHistory); renderTradeLog(portHistory, dateMap); renderContributionChart(portHistory);
 }
 function renderPortfolioStats(hist, maxDD) {
-    const last = hist[hist.length - 1]; const ret = (last.nav - 1) * 100; const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
-    document.getElementById('port-ret').innerText = ret.toFixed(2) + '%'; document.getElementById('port-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
+    const last = hist[hist.length - 1]; 
+    const ret = (last.nav - 1) * 100; 
+    const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
+    
+    document.getElementById('port-ret').innerText = ret.toFixed(2) + '%'; 
+    document.getElementById('port-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
     document.getElementById('port-lev').innerText = avgLev.toFixed(2) + 'x';
-    document.getElementById('port-dd').innerText = (maxDD * 100).toFixed(2) + '%'; document.getElementById('port-dd').className = 'stat-val loss';
-    const dom = document.getElementById('portfolio-chart'); if (portfolioChart) portfolioChart.dispose(); portfolioChart = echarts.init(dom);
-    portfolioChart.group = 'stockGroup'; const dates = hist.map(h => h.date);
+    document.getElementById('port-dd').innerText = (maxDD * 100).toFixed(2) + '%'; 
+    document.getElementById('port-dd').className = 'stat-val loss';
+    
+    const dom = document.getElementById('portfolio-chart'); 
+    if (portfolioChart) portfolioChart.dispose(); 
+    portfolioChart = echarts.init(dom);
+    portfolioChart.group = 'stockGroup'; 
+    
+    const dates = hist.map(h => h.date);
+    
+    // === 获取阶段背景 ===
+    const stageMarkArea = calculateMarketStagesMarkArea();
+
     portfolioChart.setOption({
-        tooltip: { trigger: 'axis', axisPointer: {type: 'cross', link: {xAxisIndex: 'all'}}, formatter: function(params) { if(!params.length) return ''; const index = params[0].dataIndex; const item = hist[index]; if(!item) return ''; let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${item.date}</div>`; h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d32f2f;margin-right:5px;"></span>组合净值</span><b>${item.nav.toFixed(3)}</b></div>`; h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1976d2;margin-right:5px;"></span>实际总杠杆</span><b>${item.totalLev.toFixed(2)}x</b></div>`; if(item.activeCount !== undefined) h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px; color:#888;"><span>有效持仓数</span><b>${item.activeCount}只</b></div>`; return h; }, backgroundColor: 'rgba(255,255,255,0.95)' },
+        tooltip: { 
+            trigger: 'axis', 
+            axisPointer: {type: 'cross', link: {xAxisIndex: 'all'}}, 
+            formatter: function(params) { 
+                if(!params.length) return ''; 
+                const index = params[0].dataIndex; 
+                const item = hist[index]; 
+                if(!item) return ''; 
+                let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${item.date}</div>`; 
+                h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d32f2f;margin-right:5px;"></span>组合净值</span><b>${item.nav.toFixed(3)}</b></div>`; 
+                h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1976d2;margin-right:5px;"></span>实际总杠杆</span><b>${item.totalLev.toFixed(2)}x</b></div>`; 
+                if(item.activeCount !== undefined) h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px; color:#888;"><span>有效持仓数</span><b>${item.activeCount}只</b></div>`; 
+                return h; 
+            }, 
+            backgroundColor: 'rgba(255,255,255,0.95)' 
+        },
         legend: { top: 0, data: ['组合净值', '实际总杠杆'] },
         grid: [{ left: '12%', right: '8%', top: '15%', height: '55%' }, { left: '12%', right: '8%', top: '75%', height: '15%' }],
-        xAxis: [{type:'category', data:dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}}, {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}],
-        yAxis: [{type:'value', gridIndex:0, scale:true, splitLine:{show:false}}, {type:'value', gridIndex:1, splitLine:{show:false}, min:0}],
+        xAxis: [
+            {type:'category', data:dates, gridIndex:0, axisTick:{show:false}, axisLabel:{show:false}}, 
+            {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}, axisTick:{show:false}}
+        ],
+        yAxis: [
+            {type:'value', gridIndex:0, scale:true, splitLine:{show:false}}, 
+            {type:'value', gridIndex:1, splitLine:{show:false}, min:0}
+        ],
         dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
-        series: [ {name: '组合净值', type: 'line', data: hist.map(h=>h.nav), itemStyle: {color: '#d32f2f'}, lineStyle: {width: 2}, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0}, {name: '实际总杠杆', type: 'line', data: hist.map(h=>h.totalLev), itemStyle: {color: '#1976d2'}, lineStyle: {width: 1}, showSymbol: false, xAxisIndex: 1, yAxisIndex: 1, areaStyle: {opacity: 0.2}} ]
+        series: [ 
+            {
+                name: '组合净值', 
+                type: 'line', 
+                data: hist.map(h=>h.nav), 
+                itemStyle: {color: '#d32f2f'}, 
+                lineStyle: {width: 2}, 
+                showSymbol: false, 
+                xAxisIndex: 0, 
+                yAxisIndex: 0,
+                markArea: stageMarkArea // <--- 注入背景标记
+            }, 
+            {
+                name: '实际总杠杆', 
+                type: 'line', 
+                data: hist.map(h=>h.totalLev), 
+                itemStyle: {color: '#1976d2'}, 
+                lineStyle: {width: 1}, 
+                showSymbol: false, 
+                xAxisIndex: 1, 
+                yAxisIndex: 1, 
+                areaStyle: {opacity: 0.2}
+            } 
+        ]
     });
 }
 function renderHoldingsChart(hist) {
@@ -1258,13 +1471,86 @@ function renderTradeLog(hist, dateMap) {
 }
 function renderStatusDistribution() {
     if (!batchResults || batchResults.length === 0) return;
-    let statsMap = {}; let dates = []; batchResults.forEach(res => { res.history.forEach(day => { if (!statsMap[day.date]) { statsMap[day.date] = { '上涨趋势':0, '下跌趋势':0, '震荡整理':0, '触发风控':0, 'Total':0 }; dates.push(day.date); } let s = day.status || '震荡整理'; if(statsMap[day.date][s] !== undefined) { statsMap[day.date][s]++; statsMap[day.date]['Total']++; } }); }); dates.sort(); dates = [...new Set(dates)];
-    const seriesNames = ['上涨趋势', '震荡整理', '触发风控', '下跌趋势']; const colors = ['#d32f2f', '#1976d2', '#616161', '#2e7d32']; 
-    const seriesData = seriesNames.map((name, i) => { return { name: name, type: 'bar', stack: 'total', emphasis: { focus: 'series' }, itemStyle: { color: colors[i] }, data: dates.map(d => statsMap[d][name] || 0) }; });
-    const dom = document.getElementById('status-chart'); if (statusChart) statusChart.dispose(); statusChart = echarts.init(dom); statusChart.group = 'stockGroup'; 
+    
+    let statsMap = {}; 
+    let dates = []; 
+    
+    batchResults.forEach(res => { 
+        res.history.forEach(day => { 
+            if (!statsMap[day.date]) { 
+                statsMap[day.date] = { '上涨趋势':0, '下跌趋势':0, '震荡整理':0, '触发风控':0, 'Total':0 }; 
+                dates.push(day.date); 
+            } 
+            let s = day.status || '震荡整理'; 
+            if(statsMap[day.date][s] !== undefined) { 
+                statsMap[day.date][s]++; 
+                statsMap[day.date]['Total']++; 
+            } 
+        }); 
+    }); 
+    
+    dates.sort(); 
+    dates = [...new Set(dates)];
+    
+    const seriesNames = ['上涨趋势', '震荡整理', '触发风控', '下跌趋势']; 
+    const colors = ['#d32f2f', '#1976d2', '#616161', '#2e7d32']; 
+    const seriesData = seriesNames.map((name, i) => { 
+        return { 
+            name: name, 
+            type: 'bar', 
+            stack: 'total', 
+            emphasis: { focus: 'series' }, 
+            itemStyle: { color: colors[i] }, 
+            data: dates.map(d => statsMap[d][name] || 0) 
+        }; 
+    });
+
+    const dom = document.getElementById('status-chart'); 
+    if (statusChart) statusChart.dispose(); 
+    statusChart = echarts.init(dom); 
+    statusChart.group = 'stockGroup'; 
+    
+    // === 获取阶段背景 ===
+    const stageMarkArea = calculateMarketStagesMarkArea();
+    
+    // 将 markArea 加到第一个系列中 (上涨趋势)
+    if(seriesData.length > 0) {
+        seriesData[0].markArea = stageMarkArea;
+    }
+
     statusChart.setOption({
-        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: function (params) { let date = params[0].axisValue; let total = statsMap[date] ? statsMap[date]['Total'] : 0; let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${date} (Total: ${total})</div>`; params.forEach(p => { if (p.value > 0) { let pct = total > 0 ? (p.value / total * 100).toFixed(1) : 0; h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#p.color;margin-right:5px;"></span>${p.seriesName}</span><b>${p.value}只 (${pct}%)</b></div>`; } }); return h; }, backgroundColor: 'rgba(255,255,255,0.95)' },
-        legend: { data: seriesNames, top: 0, selectedMode: true, textStyle: { fontSize: 11 } }, grid: { left: '12%', right: '8%', bottom: '30px', top: '30px', containLabel: true }, xAxis: { type: 'category', data: dates, axisTick: { show: false }, axisLine: { lineStyle: { color: '#ccc' } } }, yAxis: { type: 'value', minInterval: 1, splitLine: { show: true, lineStyle: { type: 'dashed' } } }, dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 0, height: 20 }], series: seriesData
+        tooltip: { 
+            trigger: 'axis', 
+            axisPointer: { type: 'shadow' }, 
+            formatter: function (params) { 
+                let date = params[0].axisValue; 
+                let total = statsMap[date] ? statsMap[date]['Total'] : 0; 
+                let h = `<div style="font-size:12px;margin-bottom:5px;font-weight:bold">${date} (Total: ${total})</div>`; 
+                params.forEach(p => { 
+                    if (p.value > 0) { 
+                        let pct = total > 0 ? (p.value / total * 100).toFixed(1) : 0; 
+                        h += `<div style="font-size:11px; display:flex; justify-content:space-between; gap:15px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>${p.seriesName}</span><b>${p.value}只 (${pct}%)</b></div>`; 
+                    } 
+                }); 
+                return h; 
+            }, 
+            backgroundColor: 'rgba(255,255,255,0.95)' 
+        },
+        legend: { data: seriesNames, top: 0, selectedMode: true, textStyle: { fontSize: 11 } }, 
+        grid: { left: '12%', right: '8%', bottom: '30px', top: '30px', containLabel: true }, 
+        xAxis: { 
+            type: 'category', 
+            data: dates, 
+            axisTick: { show: false }, 
+            axisLine: { lineStyle: { color: '#ccc' } } 
+        }, 
+        yAxis: { 
+            type: 'value', 
+            minInterval: 1, 
+            splitLine: { show: true, lineStyle: { type: 'dashed' } } 
+        }, 
+        dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 0, height: 20 }], 
+        series: seriesData
     });
 }
 function renderTrendLog() {
