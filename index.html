@@ -1012,7 +1012,7 @@ async function runBatchBacktest() {
     }
 }
 
-// === 新增：计算市场阶段背景 (趋势锁+容错版+宽容逻辑) ===
+// === 新增：计算市场阶段背景 (分层判断逻辑) ===
 function calculateMarketStagesMarkArea() {
     if (!batchResults || batchResults.length === 0) return { data: [] };
 
@@ -1053,16 +1053,55 @@ function calculateMarketStagesMarkArea() {
         const curr = statsMap[dates[i]];
         const prev = statsMap[dates[i-1]];
         
-        const nonBearScoreCurr = curr.up + curr.sideways;
-        const nonBearScorePrev = prev.up + prev.sideways;
+        // --- 优先判断条件 ---
+        const diffUp = curr.up - prev.up;
+        const diffDown = curr.down - prev.down;
 
-        // 定义：上涨阶段 = (上涨+震荡) 增加 OR 下跌减少
-        const isBullDay = (nonBearScoreCurr > nonBearScorePrev) || (curr.down < prev.down);
-        
-        // 定义：下跌阶段 = (上涨+震荡) 减少 OR 下跌增加
-        const isBearDay = (nonBearScoreCurr < nonBearScorePrev) || (curr.down > prev.down);
+        // --- 次要判断条件 (如果优先条件未触发) ---
+        const currNonBear = curr.up + curr.sideways;
+        const prevNonBear = prev.up + prev.sideways;
+        const diffNonBear = currNonBear - prevNonBear; // 上涨+震荡 增加
 
-        // --- 1. 趋势未确立阶段：寻找启动信号 ---
+        const currNonBull = curr.down + curr.sideways;
+        const prevNonBull = prev.down + prev.sideways;
+        const diffNonBull = currNonBull - prevNonBull; // 下跌+震荡 增加
+
+        let isBullDay = false;
+        let isBearDay = false;
+
+        // --- 逻辑分层 ---
+        // 1. 优先层：看纯趋势数量变化
+        const primBull = diffUp > 0;
+        const primBear = diffDown > 0;
+
+        if (primBull || primBear) {
+            if (primBull && !primBear) {
+                isBullDay = true;
+            } else if (!primBull && primBear) {
+                isBearDay = true;
+            } else {
+                // 冲突：两者都增加，看谁增加得多
+                if (diffUp >= diffDown) isBullDay = true;
+                else isBearDay = true;
+            }
+        } 
+        // 2. 次要层：当优先条件都不满足时（即 diffUp <=0 && diffDown <=0）
+        else {
+            const secBull = diffNonBear > 0;
+            const secBear = diffNonBull > 0;
+
+            if (secBull && !secBear) {
+                isBullDay = true;
+            } else if (!secBull && secBear) {
+                isBearDay = true;
+            } else if (secBull && secBear) {
+                 // 再次冲突比较幅度
+                 if (diffNonBear >= diffNonBull) isBullDay = true;
+                 else isBearDay = true;
+            }
+        }
+
+        // --- 状态机逻辑 (保持不变) ---
         if (currentStage === null) {
             if (isBullDay) {
                 bullSeq++;
