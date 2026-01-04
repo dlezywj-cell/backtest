@@ -1059,7 +1059,7 @@ function calculateMarketStagesMarkArea() {
         let bearVotes = 0;
 
         // --- 维度1: 上涨趋势数量 (权重 1.5) ---
-        if (curr.up > prev.up) bullVotes += 1.5; 
+        if (curr.up > prev.up) bullVotes += 2.0; 
         else if (curr.up < prev.up) bearVotes += 1.5;
 
         // --- 维度2: 上涨 + 震荡 (权重 1.0) ---
@@ -1071,7 +1071,7 @@ function calculateMarketStagesMarkArea() {
         else if ((currDownEffective + curr.sideways) > (prevDownEffective + prev.sideways)) bearVotes += 1.0;
 
         // --- 维度4: 下跌趋势数量 (权重 1.5) (减少是利好，增加是利空) ---
-        if (currDownEffective < prevDownEffective) bullVotes += 1.5;
+        if (currDownEffective < prevDownEffective) bullVotes += 2.0;
         else if (currDownEffective > prevDownEffective) bearVotes += 1.5;
 
         // --- 综合判定 ---
