@@ -1012,7 +1012,7 @@ async function runBatchBacktest() {
     }
 }
 
-// === 新增：计算市场阶段背景 (综合评分法) ===
+// === 新增：计算市场阶段背景 (综合加权评分法) ===
 function calculateMarketStagesMarkArea() {
     if (!batchResults || batchResults.length === 0) return { data: [] };
 
@@ -1051,28 +1051,28 @@ function calculateMarketStagesMarkArea() {
         const curr = statsMap[dates[i]];
         const prev = statsMap[dates[i-1]];
         
-        // 为了计算准确，将“触发风控”归入广义的下跌力量中，防止因为股票跌停被踢出下跌组导致误判
+        // 广义下跌 = 纯下跌 + 触发风控
         const currDownEffective = curr.down + curr.risk;
         const prevDownEffective = prev.down + prev.risk;
 
         let bullVotes = 0;
         let bearVotes = 0;
 
-        // --- 维度1: 上涨趋势数量 ---
-        if (curr.up > prev.up) bullVotes++; 
-        else if (curr.up < prev.up) bearVotes++;
+        // --- 维度1: 上涨趋势数量 (权重 1.5) ---
+        if (curr.up > prev.up) bullVotes += 1.5; 
+        else if (curr.up < prev.up) bearVotes += 1.5;
 
-        // --- 维度2: 上涨 + 震荡 ---
-        if ((curr.up + curr.sideways) > (prev.up + prev.sideways)) bullVotes++;
-        else if ((curr.up + curr.sideways) < (prev.up + prev.sideways)) bearVotes++;
+        // --- 维度2: 上涨 + 震荡 (权重 1.0) ---
+        if ((curr.up + curr.sideways) > (prev.up + prev.sideways)) bullVotes += 1.0;
+        else if ((curr.up + curr.sideways) < (prev.up + prev.sideways)) bearVotes += 1.0;
 
-        // --- 维度3: 下跌 + 震荡 (注意: 减少是利好，增加是利空) ---
-        if ((currDownEffective + curr.sideways) < (prevDownEffective + prev.sideways)) bullVotes++;
-        else if ((currDownEffective + curr.sideways) > (prevDownEffective + prev.sideways)) bearVotes++;
+        // --- 维度3: 下跌 + 震荡 (权重 1.0) (减少是利好，增加是利空) ---
+        if ((currDownEffective + curr.sideways) < (prevDownEffective + prev.sideways)) bullVotes += 1.0;
+        else if ((currDownEffective + curr.sideways) > (prevDownEffective + prev.sideways)) bearVotes += 1.0;
 
-        // --- 维度4: 下跌趋势数量 (注意: 减少是利好，增加是利空) ---
-        if (currDownEffective < prevDownEffective) bullVotes++;
-        else if (currDownEffective > prevDownEffective) bearVotes++;
+        // --- 维度4: 下跌趋势数量 (权重 1.5) (减少是利好，增加是利空) ---
+        if (currDownEffective < prevDownEffective) bullVotes += 1.5;
+        else if (currDownEffective > prevDownEffective) bearVotes += 1.5;
 
         // --- 综合判定 ---
         const isBullDay = bullVotes > bearVotes;
