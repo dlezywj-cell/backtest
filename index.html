@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (完整数据源增强版)</title>
+    <title>估值杠杆策略 (全功能终极版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -114,6 +114,7 @@
         .summary-table tr { cursor: pointer; transition: background 0.1s; }
         .summary-table tr:active { background: #f0f0f0; }
         .summary-table tr.selected { background: #e3f2fd !important; border-left: 3px solid #007bff; }
+        .summary-table tr.selected td { font-weight: 500; }
         .val-pos { color: #d32f2f; } .val-neg { color: #2e7d32; }
 
         .list-search-bar { padding: 10px 15px; border-bottom: 1px solid #f0f0f0; background: #fff; display: flex; align-items: center; gap: 8px; }
@@ -172,6 +173,7 @@
         .daily-log-body { display: none; padding: 8px 10px; background: #fafafa; border: 1px solid #eee; border-top: none; }
         .daily-log-body.open { display: block; }
         .daily-item { display: flex; justify-content: space-between; margin-bottom: 4px; border-bottom: 1px dashed #eee; padding-bottom: 4px; font-size: 12px; }
+        .daily-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
         .arrow-daily { font-size: 10px; color: #999; transform: rotate(0deg); transition: transform 0.2s; }
         .daily-log-header.open .arrow-daily { transform: rotate(90deg); }
 
@@ -179,17 +181,24 @@
         .combo-input { width: 100%; padding: 8px 30px 8px 10px; border: 1px solid #ddd; border-radius: 6px; outline: none; font-weight: bold; color: #333; box-sizing: border-box; font-size: 16px; background: #fff; transition: border 0.2s; }
         .combo-input:focus { border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.1); }
         .combo-arrow { position: absolute; right: 0px; top: 0px; height: 100%; width: 30px; display: flex; align-items: center; justify-content: center; color: #999; cursor: pointer; font-size: 10px; transition: color 0.2s; }
+        .combo-arrow:hover { color: #333; }
         .combo-options { display: none; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #eee; border-radius: 6px; margin-top: 4px; max-height: 280px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.15); animation: fadeIn 0.1s; }
         .combo-options.show { display: block; }
         .combo-option { padding: 10px 12px; border-bottom: 1px solid #f9f9f9; cursor: pointer; font-size: 14px; color: #333; transition: background 0.1s; display: flex; justify-content: space-between; }
+        .combo-option:last-child { border-bottom: none; }
         .combo-option:hover { background: #f0f7ff; color: #007bff; }
         .combo-option.active { background: #e3f2fd; color: #007bff; font-weight: bold; }
         .combo-code { color: #999; font-size: 12px; margin-left: 8px; font-weight: normal; }
+        .combo-option:hover .combo-code { color: #6699cc; }
 
+        /* 新增：收益榜筛选栏样式 */
         .summary-filter-bar { display: flex; gap: 8px; padding: 0 0 10px 0; background: #fff; border-bottom: 1px solid #eee; margin-bottom: 0; }
         .summary-filter-bar input, .summary-filter-bar select { border: 1px solid #ddd; padding: 6px 10px; border-radius: 6px; font-size: 12px; outline: none; background: #f9f9f9; transition: all 0.2s; }
+        .summary-filter-bar input:focus, .summary-filter-bar select:focus { border-color: #007bff; background: #fff; }
         .summary-filter-bar input { flex: 1; }
+        .summary-filter-bar select { max-width: 140px; color: #555; }
 
+        /* 新增：右上角状态栏样式 */
         .sync-info { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-left: 10px; padding-left: 10px; border-left: 1px solid #eee; }
         .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; transition: background 0.3s; }
         .sync-dot.online { background: #34c759; box-shadow: 0 0 6px rgba(52, 199, 89, 0.4); }
@@ -197,17 +206,53 @@
         .sync-dot.error { background: #dc3545; }
         .status-txt { color: #666; cursor: pointer; }
         .settings-icon { font-size: 16px; color: #555; cursor: pointer; opacity: 0.7; transition: opacity 0.2s; margin-left: 5px; }
+        .settings-icon:hover { opacity: 1; transform: rotate(30deg); transition: transform 0.3s; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
+        /* 设置弹窗表单样式 */
         .settings-form .form-group { margin-bottom: 15px; }
         .settings-form label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
         .settings-form input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
         .settings-tip { font-size: 12px; color: #888; margin-top: 3px; }
 
-        #holdings-detail-panel { display: none; margin-top: 10px; border: 1px solid #ddd; background: #fff; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        .detail-header-bar { padding: 8px 12px; background: #f8f9fa; border-bottom: 1px solid #eee; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-radius: 6px 6px 0 0; font-size: 13px; }
-        .detail-scroll-box { height: 250px; overflow-y: auto; padding: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; background: #fff; }
-        .detail-row { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid #f5f5f5; font-size: 12px; align-items: center; }
+        /* === 修改：持仓详情滚动列表样式 (手机端优化) === */
+        #holdings-detail-panel {
+            display: none;
+            margin-top: 10px;
+            border: 1px solid #ddd;
+            background: #fff;
+            border-radius: 6px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .detail-header-bar {
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #eee;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 6px 6px 0 0;
+            font-size: 13px;
+        }
+        .detail-scroll-box {
+            /* 固定高度，确保滚动区域固定 */
+            height: 250px; 
+            overflow-y: auto;
+            padding: 0;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain; /* 防止滚动传导到页面 */
+            background: #fff;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            border-bottom: 1px solid #f5f5f5;
+            font-size: 12px;
+            align-items: center;
+        }
+        .detail-row:last-child { border-bottom: none; }
         .detail-row:nth-child(even) { background: #fafafa; }
         .detail-name { display: flex; align-items: center; gap: 6px; font-weight: 500; }
         .detail-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
@@ -220,6 +265,7 @@
     <div class="card-header" onclick="toggleCard('card-config')">
         <div class="header-title"><span>⚙️ 策略配置</span></div>
         <div style="display:flex; align-items:center;">
+            <!-- 新增：右上角状态和设置 -->
             <div class="sync-info">
                 <div id="syncDot" class="sync-dot"></div>
                 <span id="statusTxt" class="status-txt" onclick="syncFromGithub()">未连接</span>
@@ -258,20 +304,20 @@
             <span style="font-size:14px">🔍</span>
             <input type="text" id="list-search-input" placeholder="输入名称或代码筛选..." oninput="filterStockList()">
         </div>
-        <div class="table-scroll-box">
-            <table class="base-table">
-                <thead>
-                    <tr>
-                        <th>股票信息</th>
-                        <th style="width:30%;">市值区间</th>
-                        <th style="text-align:center; width:90px;">操作</th>
-                        <th style="width:40px; text-align:center;"><input type="checkbox" id="check-all" onchange="toggleAllStocks(this)" checked></th>
-                    </tr>
-                </thead>
-                <tbody id="stock-tbody"></tbody>
-            </table>
-        </div>
+<div class="table-scroll-box">
+        <table class="base-table">
+            <thead>
+                <tr>
+                    <th>股票信息</th>
+                    <th style="width:30%;">市值区间</th>
+                    <th style="text-align:center; width:90px;">操作</th>
+                    <th style="width:40px; text-align:center;"><input type="checkbox" id="check-all" onchange="toggleAllStocks(this)" checked></th>
+                </tr>
+            </thead>
+            <tbody id="stock-tbody"></tbody>
+        </table>
     </div>
+</div>
 </div>
 <!-- 结果卡片 -->
 <div class="card open" id="card-result">
@@ -285,219 +331,257 @@
             <div class="form-group"><label>结束日期</label><input type="date" id="inEndDate"></div>
             <button class="btn btn-blue" id="btn-run-all" onclick="runBatchBacktest()">🚀 运行选中</button>
         </div>
-        <div class="toggle-link" onclick="toggleAdvSettings()">🛠 高级参数设置 ▼</div>
-        <div id="adv-settings">
-            <div style="font-size:12px; color:#007bff; margin-bottom:8px; font-weight:bold;">基础设定</div>
-            <div class="form-row">
-                <div class="form-group"><label>最大杠杆率 (MaxLev)</label><input type="number" id="pMaxLev" step="0.1" value="2.0"></div>
-                <div class="form-group"></div>
-            </div>
-            <div style="border-top:1px dashed #eee; margin:8px 0;"></div>
-            <div style="font-size:12px; color:#28a745; margin-bottom:8px; font-weight:bold;">低估区 (市值 < 下限)</div>
-            <div class="form-row">
-                <div class="form-group"><label>敏感度 (越小越迟钝)</label><input type="number" id="pLowSens" value="12"></div>
-                <div class="form-group"><label>最大减仓比例 (0-1)</label><input type="number" id="pLowRed" step="0.1" value="0.3"></div>
-            </div>
-            <div style="border-top:1px dashed #eee; margin:8px 0;"></div>
-            <div style="font-size:12px; color:#666; margin-bottom:8px; font-weight:bold;">常态/高估区</div>
-            <div class="form-row">
-                <div class="form-group"><label>敏感度 (默认25)</label><input type="number" id="pNormSens" value="25"></div>
-                <div class="form-group"><label>最大减仓比例 (0-1)</label><input type="number" id="pNormRed" step="0.1" value="0.8"></div>
-            </div>
-            <div style="border-top:1px dashed #eee; margin:8px 0;"></div>
-            <div style="font-size:12px; color:#fd7e14; margin-bottom:8px; font-weight:bold;">全局择时策略 (Global Timing)</div>
-            <div class="form-row">
-                <div class="form-group" style="flex:0.8; display:flex; align-items:flex-end; padding-bottom:10px;">
-                    <input type="checkbox" id="pTimeEnable" style="width:16px; height:16px; margin-right:5px; cursor:pointer;">
-                    <label for="pTimeEnable" style="margin:0; cursor:pointer; font-weight:bold; color:#333;" title="开启后将先预演全市场状态，判定为下跌区间时强制降仓">开启下跌区间择时</label>
-                </div>
-                <div class="form-group">
-                    <label>区间持仓系数 (0-1)</label>
-                    <input type="number" id="pTimeRatio" step="0.1" value="0.0" placeholder="0=空仓, 0.5=半仓">
-                </div>
-            </div>
-            <div style="font-size:11px; color:#999; margin-bottom:5px;">* 注：开启后回测时间会加倍（需运行两遍）</div>
+<div class="toggle-link" onclick="toggleAdvSettings()">🛠 高级参数设置 ▼</div>
+<div id="adv-settings">
+    <div style="font-size:12px; color:#007bff; margin-bottom:8px; font-weight:bold;">基础设定</div>
+    <div class="form-row">
+        <div class="form-group"><label>最大杠杆率 (MaxLev)</label><input type="number" id="pMaxLev" step="0.1" value="2.0"></div>
+        <div class="form-group"></div>
+    </div>
+    <div style="border-top:1px dashed #eee; margin:8px 0;"></div>
+    <div style="font-size:12px; color:#28a745; margin-bottom:8px; font-weight:bold;">低估区 (市值 < 下限)</div>
+    <div class="form-row">
+        <div class="form-group"><label>敏感度 (越小越迟钝)</label><input type="number" id="pLowSens" value="12"></div>
+        <div class="form-group"><label>最大减仓比例 (0-1)</label><input type="number" id="pLowRed" step="0.1" value="0.3"></div>
+    </div>
+    <div style="border-top:1px dashed #eee; margin:8px 0;"></div>
+    <div style="font-size:12px; color:#666; margin-bottom:8px; font-weight:bold;">常态/高估区</div>
+    <div class="form-row">
+        <div class="form-group"><label>敏感度 (默认25)</label><input type="number" id="pNormSens" value="25"></div>
+        <div class="form-group"><label>最大减仓比例 (0-1)</label><input type="number" id="pNormRed" step="0.1" value="0.8"></div>
+    </div>
+    
+    <!-- ▼▼▼ 全局择时策略 ▼▼▼ -->
+    <div style="border-top:1px dashed #eee; margin:8px 0;"></div>
+    <div style="font-size:12px; color:#fd7e14; margin-bottom:8px; font-weight:bold;">全局择时策略 (Global Timing)</div>
+    <div class="form-row">
+        <div class="form-group" style="flex:0.8; display:flex; align-items:flex-end; padding-bottom:10px;">
+            <input type="checkbox" id="pTimeEnable" style="width:16px; height:16px; margin-right:5px; cursor:pointer;">
+            <label for="pTimeEnable" style="margin:0; cursor:pointer; font-weight:bold; color:#333;" title="开启后将先预演全市场状态，判定为下跌区间时强制降仓">开启下跌区间择时</label>
         </div>
-        <div id="batch-progress" style="display:none; margin:12px 0; padding:10px; background:#e3f2fd; color:#0056b3; font-size:13px; border-radius:4px; text-align:center; border:1px solid #b3e5fc;">准备就绪</div>
-        
-        <!-- 结果统一展示容器 -->
-        <div id="results-container" style="display:none; margin-top:15px;">
-            <div id="batch-summary-box" style="margin-bottom:15px;">
-                <div class="section-header expanded" onclick="toggleSection('summary-content', this)">
-                    <span>📈 收益排行榜</span> 
-                    <span class="arrow header-arrow">▼</span>
-                </div>
-                <div id="summary-content" class="section-body">
-                    <div class="summary-filter-bar">
-                        <input type="text" id="summary-search" placeholder="🔍 搜股票/代码..." oninput="filterSummaryTable()">
-                        <select id="summary-filter-reason" onchange="filterSummaryTable()">
-                            <option value="">全部原因</option>
-                        </select>
-                    </div>
-                    <div class="summary-wrapper">
-                        <table class="summary-table">
-                            <thead>
-                                <tr>
-                                    <th>股票</th>
-                                    <th>策略收益</th>
-                                    <th>最大回撤</th>
-                                    <th>最新变动</th>
-                                    <th style="text-align:left; padding-left:10px;">最新原因</th>
-                                </tr>
-                            </thead>
-                            <tbody id="summary-tbody"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+        <div class="form-group">
+            <label>区间持仓系数 (0-1)</label>
+            <input type="number" id="pTimeRatio" step="0.1" value="0.0" placeholder="0=空仓, 0.5=半仓">
+        </div>
+    </div>
+    <div style="font-size:11px; color:#999; margin-bottom:5px;">* 注：开启后回测时间会加倍（需运行两遍，Pass 1 判定状态，Pass 2 执行降仓）</div>
+</div>
+<div id="batch-progress" style="display:none; margin:12px 0; padding:10px; background:#e3f2fd; color:#0056b3; font-size:13px; border-radius:4px; text-align:center; border:1px solid #b3e5fc;">
+    准备就绪
+</div>
+<!-- 结果统一展示容器 -->
+<div id="results-container" style="display:none; margin-top:15px;">
 
-            <!-- 2. 组合策略 -->
-            <div id="portfolio-section" style="margin-bottom:15px;">
-                <div class="section-header expanded" onclick="toggleSection('portfolio-content', this)">
-                    <span>💰 组合策略 (Portfolio)</span> 
-                    <span class="arrow header-arrow">▼</span>
-                </div>
-                <div id="portfolio-content" class="section-body">
-                    <div class="form-row">
-                        <div class="form-group"><label>剔除门槛 (Min Threshold)</label><input type="number" id="pMinPos" step="0.1" value="0.4"></div>
-                        <div class="form-group"></div>
-                    </div>
-                    <div style="text-align:right; margin-bottom:10px;">
-                        <button class="btn btn-orange" onclick="runPortfolioStrategy()" style="width:100%">🔄 重新计算组合</button>
-                        <div style="font-size:11px; color:#666; margin-top:5px; text-align:left; line-height:1.4;">逻辑：<b>动态等权</b>。自动剔除“建议杠杆 < 门槛”的无效股票。<br>资金仅在满足条件的股票中平分。</div>
-                    </div>
-                    <div class="stat-grid">
-                        <div class="stat-item"><div class="stat-val" id="port-ret">--</div><div class="stat-lbl">组合总收益</div></div>
-                        <div class="stat-item"><div class="stat-val" id="port-dd">--</div><div class="stat-lbl">最大回撤</div></div>
-                        <div class="stat-item"><div class="stat-val" id="port-lev">--</div><div class="stat-lbl">平均占用杠杆</div></div>
-                    </div>
-                    <div id="portfolio-chart" style="width: 100%; height: 350px;"></div>
-                </div>
-            </div>
-
-            <!-- 3. 每日持仓结构 -->
-            <div id="holdings-section" style="margin-bottom:15px;">
-                <div class="section-header" onclick="toggleSection('holdings-content', this)">
-                    <span>📚 每日持仓结构 (Holdings)</span> 
-                    <span class="arrow header-arrow">▼</span>
-                </div>
-                <div id="holdings-content" class="section-body collapsed">
-                    <div id="holdings-chart" style="width: 100%; height: 400px;"></div>
-                    <div id="holdings-detail-panel">
-                        <div class="detail-header-bar"><span id="detail-date-title">持仓详情</span></div>
-                        <div class="detail-scroll-box" id="detail-list-content"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 4. 交易明细 -->
-            <div id="trade-log-section" style="margin-bottom:15px;">
-                <div class="section-header" onclick="toggleSection('trade-log-content', this)">
-                    <span>📝 每日调仓明细</span> 
-                    <span class="arrow header-arrow">▼</span>
-                </div>
-                <div id="trade-log-content" class="section-body collapsed" style="padding:0; border:none; max-height:400px; overflow-y:auto;">
-                    <div id="trade-log-list"></div>
-                </div>
-            </div>
-
-            <!-- 5. 每日状态分布 -->
-            <div id="status-dist-section" style="margin-bottom:15px;">
-                <div class="section-header" onclick="toggleSection('status-dist-content', this)">
-                    <span>🚥 每日状态占比</span> 
-                    <span class="arrow header-arrow">▼</span>
-                </div>
-                <div id="status-dist-content" class="section-body collapsed">
-                    <div id="status-chart" style="width: 100%; height: 350px;"></div>
-                </div>
-            </div>
-
-            <!-- 5.1 各状态明细 -->
-            <div id="status-detail-section" style="margin-bottom:15px;">
-                <div class="section-header" onclick="toggleSection('status-detail-content', this)">
-                    <span>📋 各状态股票明细</span> 
-                    <span class="arrow header-arrow">▼</span>
-                </div>
-                <div id="status-detail-content" class="section-body collapsed">
-                    <div id="status-detail-container" style="display:flex; flex-wrap:wrap; gap:10px;"></div>
-                </div>
-            </div>
-
-            <!-- 5.5 趋势日志 -->
-            <div id="trend-log-section" style="margin-bottom:15px;">
-                <div class="section-header" onclick="toggleSection('trend-log-content', this)">
-                    <span>🗂 趋势变更日志</span> 
-                    <span class="arrow header-arrow">▼</span>
-                </div>
-                <div id="trend-log-content" class="section-body collapsed" style="padding:0; border:none; max-height:400px; overflow-y:auto;">
-                    <div id="trend-log-list"></div>
-                </div>
-            </div>
-
-            <!-- 6. 盈亏贡献 -->
-            <div id="contribution-section" style="margin-bottom:15px;">
-                <div class="section-header" onclick="toggleSection('contribution-content', this)">
-                    <span>💰 累计盈亏贡献</span> 
-                    <span class="arrow header-arrow">▼</span>
-                </div>
-                <div id="contribution-content" class="section-body collapsed">
-                    <div id="contribution-chart" style="width: 100%; height: 400px;"></div>
-                </div>
-            </div>
+<!-- 1. 收益排行榜 -->
+<div id="batch-summary-box" style="margin-bottom:15px;">
+    <div class="section-header expanded" onclick="toggleSection('summary-content', this)">
+        <span>📈 收益排行榜</span> 
+        <span class="arrow header-arrow">▼</span>
+    </div>
+    <div id="summary-content" class="section-body">
+        <!-- 新增：搜索和筛选栏 -->
+        <div class="summary-filter-bar">
+            <input type="text" id="summary-search" placeholder="🔍 搜股票/代码..." oninput="filterSummaryTable()">
+            <select id="summary-filter-reason" onchange="filterSummaryTable()">
+                <option value="">全部原因</option>
+            </select>
         </div>
 
-        <!-- 单只详情展示区 -->
-        <div id="detail-view" style="display:none; border-top: 2px dashed #eee; margin-top: 20px; padding-top: 15px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <div class="combo-box" id="detail-combo">
-                    <input type="text" class="combo-input" id="detail-combo-input" placeholder="点击选择或输入搜索..." oninput="filterDetailCombo()" onfocus="openDetailCombo()" onclick="this.select()">
-                    <span class="combo-arrow" onclick="toggleDetailCombo(event)">▼</span>
-                    <div class="combo-options" id="detail-combo-list"></div>
-                </div>
-                <span style="font-size:11px; background:#e3f2fd; padding:3px 8px; border-radius:4px; color:#007bff; font-weight:500;">当前选中</span>
+        <div class="summary-wrapper">
+            <table class="summary-table">
+                <thead>
+                    <tr>
+                        <th>股票</th>
+                        <th>策略收益</th>
+                        <th>最大回撤</th>
+                        <th>最新变动</th>
+                        <th style="text-align:left; padding-left:10px;">最新原因</th>
+                    </tr>
+                </thead>
+                <tbody id="summary-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 2. 组合策略 -->
+<div id="portfolio-section" style="margin-bottom:15px;">
+    <div class="section-header expanded" onclick="toggleSection('portfolio-content', this)">
+        <span>💰 组合策略 (Portfolio)</span> 
+        <span class="arrow header-arrow">▼</span>
+    </div>
+    <div id="portfolio-content" class="section-body">
+        <div class="form-row">
+            <div class="form-group"><label>剔除门槛 (Min Threshold)</label><input type="number" id="pMinPos" step="0.1" value="0.4"></div>
+            <div class="form-group"></div>
+        </div>
+        <div style="text-align:right; margin-bottom:10px;">
+            <button class="btn btn-orange" onclick="runPortfolioStrategy()" style="width:100%">🔄 重新计算组合</button>
+            <div style="font-size:11px; color:#666; margin-top:5px; text-align:left; line-height:1.4;">
+                逻辑：<b>动态等权</b>。自动剔除“建议杠杆 < 门槛”的无效股票。<br>
+                资金仅在满足条件的股票中平分。若无股票满足，则空仓。
             </div>
-            <div class="stat-grid">
-                <div class="stat-item"><div class="stat-val" id="val-ret">--</div><div class="stat-lbl">策略收益</div></div>
-                <div class="stat-item"><div class="stat-val" id="val-stock">--</div><div class="stat-lbl">股价涨跌</div></div>
-                <div class="stat-item"><div class="stat-val" id="val-lev">--</div><div class="stat-lbl">平均杠杆</div></div>
+        </div>
+        <div class="stat-grid">
+            <div class="stat-item"><div class="stat-val" id="port-ret">--</div><div class="stat-lbl">组合总收益</div></div>
+            <div class="stat-item"><div class="stat-val" id="port-dd">--</div><div class="stat-lbl">最大回撤</div></div>
+            <div class="stat-item"><div class="stat-val" id="port-lev">--</div><div class="stat-lbl">平均占用杠杆</div></div>
+        </div>
+        <div id="portfolio-chart" style="width: 100%; height: 350px;"></div>
+    </div>
+</div>
+
+<!-- 3. 每日持仓结构 -->
+<div id="holdings-section" style="margin-bottom:15px;">
+    <div class="section-header" onclick="toggleSection('holdings-content', this)">
+        <span>📚 每日持仓结构 (Holdings Structure)</span> 
+        <span class="arrow header-arrow">▼</span>
+    </div>
+    <div id="holdings-content" class="section-body collapsed">
+        <div id="holdings-chart" style="width: 100%; height: 400px;"></div>
+        <div style="text-align:center; font-size:11px; color:#999; margin-top:5px; margin-bottom:10px;">
+            提示：手指在图表上滑动，下方明细列表将实时更新。
+        </div>
+        <!-- 持仓详情滚动列表 -->
+        <div id="holdings-detail-panel">
+            <div class="detail-header-bar">
+                <span id="detail-date-title">持仓详情</span>
+                <!-- 去掉了关闭按钮，作为固定面板展示 -->
             </div>
-            <div id="chart-box"></div>
-            <div style="margin-top:20px;">
-                <div class="section-header" onclick="toggleSection('log-content', this)">
-                    <span>📜 交易日志 <span id="log-count" style="font-weight:normal; color:#999; font-size:12px;"></span></span> 
-                    <span class="arrow header-arrow">▼</span>
-                </div>
-                <div id="log-content" class="section-body collapsed" style="border:1px solid #eee; border-radius:6px; border-top:0;">
-                    <div style="max-height: 300px; overflow: auto; -webkit-overflow-scrolling: touch;">
-                        <table class="log-table">
-                            <thead style="background:#f9f9f9;">
-                                <tr>
-                                    <th class="log-col-date">日期</th>
-                                    <th class="log-col-action">动作</th>
-                                    <th class="log-col-val">变动</th>
-                                    <th class="log-col-mas">均线(5/10/20)</th>
-                                    <th class="log-col-reason">原因</th>
-                                </tr>
-                            </thead>
-                            <tbody id="log-tbody"></tbody>
-                        </table>
-                    </div>
-                </div>
+            <div class="detail-scroll-box" id="detail-list-content">
+                <!-- 内容通过JS填充 -->
             </div>
         </div>
     </div>
 </div>
+
+<!-- 4. 交易明细 -->
+<div id="trade-log-section" style="margin-bottom:15px;">
+    <div class="section-header" onclick="toggleSection('trade-log-content', this)">
+        <span>📝 每日调仓明细 (Trading Signals)</span> 
+        <span class="arrow header-arrow">▼</span>
+    </div>
+    <div id="trade-log-content" class="section-body collapsed" style="padding:0; border:none; max-height:400px; overflow-y:auto;">
+        <div id="trade-log-list"></div>
+    </div>
 </div>
 
-<!-- Settings Modal -->
+<!-- 5. 每日状态分布 -->
+<div id="status-dist-section" style="margin-bottom:15px;">
+    <div class="section-header" onclick="toggleSection('status-dist-content', this)">
+        <span>🚥 每日状态占比 (Market Status)</span> 
+        <span class="arrow header-arrow">▼</span>
+    </div>
+    <div id="status-dist-content" class="section-body collapsed">
+        <div id="status-chart" style="width: 100%; height: 350px;"></div>
+        <div style="text-align:center; font-size:11px; color:#999; margin-top:5px;">
+            统计每日处于不同技术形态的股票数量。红色=上涨趋势，绿色=下跌趋势，灰色=风控/止损，蓝色=震荡。
+        </div>
+    </div>
+</div>
+
+<!-- 5.1 新增：各状态股票明细卡片 -->
+<div id="status-detail-section" style="margin-bottom:15px;">
+    <div class="section-header" onclick="toggleSection('status-detail-content', this)">
+        <span>📋 各状态股票明细 (Status Breakdown)</span> 
+        <span class="arrow header-arrow">▼</span>
+    </div>
+    <div id="status-detail-content" class="section-body collapsed">
+        <div id="status-detail-container" style="display:flex; flex-wrap:wrap; gap:10px;">
+            <!-- 内容由JS生成 -->
+        </div>
+    </div>
+</div>
+
+<!-- 5.5 新增：趋势变更日志 -->
+<div id="trend-log-section" style="margin-bottom:15px;">
+    <div class="section-header" onclick="toggleSection('trend-log-content', this)">
+        <span>🗂 每日趋势变更日志 (Trend Log)</span> 
+        <span class="arrow header-arrow">▼</span>
+    </div>
+    <div id="trend-log-content" class="section-body collapsed" style="padding:0; border:none; max-height:400px; overflow-y:auto;">
+        <div id="trend-log-list"></div>
+    </div>
+</div>
+
+<!-- 6. 各股盈亏贡献堆叠图 -->
+<div id="contribution-section" style="margin-bottom:15px;">
+    <div class="section-header" onclick="toggleSection('contribution-content', this)">
+        <span>💰 累计盈亏贡献 (Profit Contribution)</span> 
+        <span class="arrow header-arrow">▼</span>
+    </div>
+    <div id="contribution-content" class="section-body collapsed">
+        <div id="contribution-chart" style="width: 100%; height: 400px;"></div>
+        <div style="text-align:center; font-size:11px; color:#999; margin-top:5px;">
+            展示每只股票对组合总收益的累计点数贡献 (Stacked P&L)。
+        </div>
+    </div>
+</div>
+</div> <!-- end results-container -->
+<!-- 单只详情展示区 -->
+<div id="detail-view" style="display:none; border-top: 2px dashed #eee; margin-top: 20px; padding-top: 15px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div class="combo-box" id="detail-combo">
+            <input type="text" class="combo-input" id="detail-combo-input" placeholder="点击选择或输入搜索..." oninput="filterDetailCombo()" onfocus="openDetailCombo()" onclick="this.select()">
+            <span class="combo-arrow" onclick="toggleDetailCombo(event)">▼</span>
+            <div class="combo-options" id="detail-combo-list"></div>
+        </div>
+<span style="font-size:11px; background:#e3f2fd; padding:3px 8px; border-radius:4px; color:#007bff; font-weight:500;">当前选中</span>
+</div>
+<div class="stat-grid">
+    <div class="stat-item"><div class="stat-val" id="val-ret">--</div><div class="stat-lbl">策略收益</div></div>
+    <div class="stat-item"><div class="stat-val" id="val-stock">--</div><div class="stat-lbl">股价涨跌</div></div>
+    <div class="stat-item"><div class="stat-val" id="val-lev">--</div><div class="stat-lbl">平均杠杆</div></div>
+</div>
+<div id="chart-box"></div>
+<div style="margin-top:20px;">
+    <div class="section-header" onclick="toggleSection('log-content', this)">
+        <span>📜 交易日志 <span id="log-count" style="font-weight:normal; color:#999; font-size:12px;"></span></span> 
+        <span class="arrow header-arrow">▼</span>
+    </div>
+    <div id="log-content" class="section-body collapsed" style="border:1px solid #eee; border-radius:6px; border-top:0;">
+        <div style="max-height: 300px; overflow: auto; -webkit-overflow-scrolling: touch;">
+            <table class="log-table">
+                <thead style="background:#f9f9f9;">
+                    <tr>
+                        <th class="log-col-date">日期</th>
+                        <th class="log-col-action">动作</th>
+                        <th class="log-col-val">变动</th>
+                        <th class="log-col-mas">均线(5/10/20)</th>
+                        <th class="log-col-reason">原因</th>
+                    </tr>
+                </thead>
+                <tbody id="log-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Settings Modal (New Standard) -->
 <div id="settings-modal" class="modal">
     <div class="modal-box">
-        <h3>⚙️ 策略配置 (GitHub)</h3>
+        <h3>⚙️ 策略配置 (隔离版)</h3>
         <div class="settings-form">
-            <div class="form-group"><label>用户名 (GitHub User)</label><input type="text" id="cfg-username" placeholder="GitHub 用户名"></div>
-            <div class="form-group"><label>仓库名 (Repository)</label><input type="text" id="cfg-repo" placeholder="仓库名"></div>
-            <div class="form-group"><label>分支 (Branch)</label><input type="text" id="cfg-branch" placeholder="main"></div>
-            <div class="form-group"><label>Token (密钥)</label><input type="password" id="cfg-token" placeholder="ghp_xxxx..."></div>
+            <div class="form-group">
+                <label>用户名 (GitHub User)</label>
+                <input type="text" id="cfg-username" placeholder="GitHub 用户名">
+            </div>
+            <div class="form-group">
+                <label>仓库名 (Repository)</label>
+                <input type="text" id="cfg-repo" placeholder="仓库名">
+                <div class="settings-tip">数据将自动保存为: data.json (不与主页串台)</div>
+            </div>
+            <div class="form-group">
+                <label>分支 (Branch)</label>
+                <input type="text" id="cfg-branch" placeholder="main">
+            </div>
+            <div class="form-group">
+                <label>Token (密钥)</label>
+                <input type="password" id="cfg-token" placeholder="ghp_xxxx...">
+            </div>
         </div>
         <div style="display:flex; gap:10px; margin-top:15px;">
             <button class="btn btn-gray" style="flex:1" onclick="closeSettingsModal()">取消</button>
@@ -880,6 +964,21 @@
 
             data.forEach(sourceItem => {
                 if (!sourceItem.code || !sourceItem.name) return; 
+
+                // ▼▼▼▼ 代码格式标准化逻辑 ▼▼▼▼
+                let rawCode = sourceItem.code.trim().toUpperCase();
+                let bareCode = rawCode.replace(/\.(HK|SH|SZ|US)$/, '').replace(/^(HK|SH|SZ|US)\.?/, '');
+                let finalCode = rawCode;
+                if (!rawCode.includes('.')) {
+                    if (/^\d{5}$/.test(bareCode)) finalCode = bareCode + ".HK";
+                    else if (/^\d{6}$/.test(bareCode)) finalCode = bareCode.startsWith('6') ? bareCode + ".SH" : bareCode + ".SZ";
+                    else if (!/^\d+$/.test(bareCode)) finalCode = bareCode + ".US";
+                } else {
+                    const suffix = rawCode.split('.').pop();
+                    finalCode = bareCode + "." + suffix;
+                }
+                // ▲▲▲▲ 标准化结束 ▲▲▲▲
+
                 const profit = parseFloat(sourceItem.profit) || 0, revenue = parseFloat(sourceItem.revenue) || 0;
                 const lowPE = parseFloat(sourceItem.lowPE) || 0, highPE = parseFloat(sourceItem.highPE) || 0;
                 const lowPS = parseFloat(sourceItem.lowPS) || 0, highPS = parseFloat(sourceItem.highPS) || 0;
@@ -891,18 +990,256 @@
                 let calcMin = minCandidates.length > 0 ? Math.min(...minCandidates) : (sourceItem.minCap || 2000);
 
                 let maxCandidates = []; if (valPE_High > 0) maxCandidates.push(valPE_High); if (valPS_High > 0) maxCandidates.push(valPS_High);
-                // 使用 min(...) 作为保守上限
                 let calcMax = maxCandidates.length > 0 ? Math.min(...maxCandidates) : (sourceItem.maxCap || 4000);
 
-                const newItem = { code: sourceItem.code, name: sourceItem.name, minCap: calcMin, maxCap: calcMax, profit, revenue, tags: sourceItem.tags || "", lastMod: new Date().toISOString().split('T')[0] };
+                const newItem = { code: finalCode, name: sourceItem.name, minCap: calcMin, maxCap: calcMax, profit, revenue, tags: sourceItem.tags || "", lastMod: new Date().toISOString().split('T')[0] };
 
-                if (stockMap.has(sourceItem.code)) { Object.assign(stockMap.get(sourceItem.code), newItem); updatedCount++; } 
-                else { stocks.push(newItem); stockMap.set(newItem.code, newItem); addedCount++; }
+                if (stockMap.has(finalCode)) { Object.assign(stockMap.get(finalCode), newItem); updatedCount++; } 
+                else { stocks.push(newItem); stockMap.set(finalCode, newItem); addedCount++; }
             });
 
             APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(true);
             alert(`✅ 导入成功!\n新增: ${addedCount}, 更新: ${updatedCount}`); updateStatus('online', '导入完成');
         } catch (e) { console.error(e); alert("❌ 导入失败: " + e.message); updateStatus('error', '导入失败'); }
+    }
+
+    function calculateMarketStagesMarkArea() {
+        if (!batchResults || batchResults.length === 0) return { data: [] };
+        let statsMap = {}; let allDates = new Set();
+        batchResults.forEach(res => {
+            res.history.forEach(day => {
+                if (!statsMap[day.date]) statsMap[day.date] = { up: 0, down: 0, sideways: 0, risk: 0 }; 
+                allDates.add(day.date);
+                if (day.status === '上涨趋势') statsMap[day.date].up++;
+                else if (day.status === '下跌趋势') statsMap[day.date].down++;
+                else if (day.status === '震荡整理') statsMap[day.date].sideways++;
+                else if (day.status === '触发风控') statsMap[day.date].risk++;
+            });
+        });
+        const dates = Array.from(allDates).sort();
+        if (dates.length < 2) return { data: [] };
+        let markData = []; let currentStage = null; let stageStartDate = null; let toleranceCount = 0;  
+        let bullSeq = 0, bearSeq = 0;
+        for (let i = 1; i < dates.length; i++) {
+            const curr = statsMap[dates[i]]; const prev = statsMap[dates[i-1]];
+            const currDown = curr.down + curr.risk; const prevDown = prev.down + prev.risk;
+            let bullVotes = 0, bearVotes = 0;
+            if (curr.up > prev.up) bullVotes += 2.0; else if (curr.up < prev.up) bearVotes += 1.5;
+            if ((curr.up + curr.sideways) > (prev.up + prev.sideways)) bullVotes += 1.0; else if ((curr.up + curr.sideways) < (prev.up + prev.sideways)) bearVotes += 1.0;
+            if (currDown < prevDown) bullVotes += 2.0; else if (currDown > prevDown) bearVotes += 1.5;
+
+            const isBullDay = bullVotes > bearVotes; const isBearDay = bearVotes > bullVotes;
+            if (currentStage === null) {
+                if (isBullDay) { bullSeq++; bearSeq = 0; } else if (isBearDay) { bearSeq++; bullSeq = 0; } else { bullSeq = 0; bearSeq = 0; }
+                if (bullSeq >= 2) { currentStage = 'bull'; stageStartDate = dates[i - 1]; toleranceCount = 0; } 
+                else if (bearSeq >= 2) { currentStage = 'bear'; stageStartDate = dates[i - 1]; toleranceCount = 0; }
+            } else {
+                let isReinforced = (currentStage === 'bull' && isBullDay) || (currentStage === 'bear' && isBearDay);
+                let isOpposite = (currentStage === 'bull' && isBearDay) || (currentStage === 'bear' && isBullDay);
+                if (isReinforced) { toleranceCount = 0; if(currentStage === 'bull') bearSeq = 0; else bullSeq = 0; } 
+                else {
+                    toleranceCount++;
+                    if (isOpposite) { if (currentStage === 'bull') bearSeq++; else bullSeq++; }
+                    let trendFlip = (currentStage === 'bull' && bearSeq >= 2) || (currentStage === 'bear' && bullSeq >= 2);
+                    if (toleranceCount > 2 || trendFlip) {
+                        let endIndex = i - toleranceCount; if (trendFlip) endIndex = i - 1; if (endIndex < 0) endIndex = 0;
+                        let color = currentStage === 'bull' ? 'rgba(255, 235, 238, 0.6)' : 'rgba(232, 245, 233, 0.6)';
+                        let name = currentStage === 'bull' ? '上涨阶段' : '下跌阶段';
+                        markData.push([{ name: name, xAxis: stageStartDate, itemStyle: { color: color }, label: { show: true, position: 'top', color: '#999', fontSize: 10, formatter: '{b}' } }, { xAxis: dates[endIndex] }]);
+                        currentStage = null; bullSeq = 0; bearSeq = 0; toleranceCount = 0;
+                        if (trendFlip) i = i - 2; 
+                    }
+                }
+            }
+        }
+        if (currentStage && stageStartDate) {
+            let color = currentStage === 'bull' ? 'rgba(255, 235, 238, 0.6)' : 'rgba(232, 245, 233, 0.6)';
+            let name = currentStage === 'bull' ? '上涨阶段' : '下跌阶段';
+            markData.push([{ name: name, xAxis: stageStartDate, itemStyle: { color: color }, label: { show: true, position: 'top', color: '#999', fontSize: 10, formatter: '{b}' } }, { xAxis: dates[dates.length - 1] }]);
+        }
+        return { data: markData, silent: true };
+    }
+
+    function calculatePortfolioHistory(resultsInput) {
+        if (!resultsInput || resultsInput.length === 0) return null;
+        let minPosThreshold = parseFloat(document.getElementById('pMinPos').value) || 0.4; 
+        
+        let dateMap = {}; 
+        resultsInput.forEach((res) => { res.history.forEach(day => { if (!dateMap[day.date]) dateMap[day.date] = { date: day.date, stocks: {} }; dateMap[day.date].stocks[res.stockName] = { close: day.close, idealLev: day.leverage, reason: day.reason }; }); });
+        const sortedDates = Object.keys(dateMap).sort(); if (sortedDates.length < 2) return null;
+        
+        let portNav = 1.0, portHistory = [], maxDD = 0, peak = 1.0; 
+        let lastValidData = {}, prevAllocatedLevs = {}, accContribution = {}; 
+        resultsInput.forEach((res) => { accContribution[res.stockName] = 0; });
+
+        for (let i = 0; i < sortedDates.length; i++) {
+            const currDate = sortedDates[i]; const rawDayData = dateMap[currDate]; const prevValidData = { ...lastValidData };
+            resultsInput.forEach((res) => { if (rawDayData.stocks[res.stockName]) lastValidData[res.stockName] = rawDayData.stocks[res.stockName]; });
+            let dailyContribBreakdown = {}; 
+            
+            if (i > 0) {
+                let dayPnLComponent = 0;
+                resultsInput.forEach((res) => {
+                    const sCurr = lastValidData[res.stockName]; const sPrev = prevValidData[res.stockName]; const allocatedL = prevAllocatedLevs[res.stockName] || 0; 
+                    if (sCurr && sPrev && sPrev.close > 0) { 
+                        const contribution = ((sCurr.close - sPrev.close) / sPrev.close) * allocatedL; 
+                        dayPnLComponent += contribution; accContribution[res.stockName] += contribution; 
+                    }
+                });
+                portNav = portNav * (1 + dayPnLComponent); 
+                if (portNav > peak) peak = portNav; 
+                const dd = (peak - portNav) / peak; if (dd > maxDD) maxDD = dd;
+            }
+            resultsInput.forEach((res) => { dailyContribBreakdown[res.stockName] = accContribution[res.stockName]; });
+            
+            let currentValidStocks = {}, activeCount = 0;
+            resultsInput.forEach((res) => { const sData = lastValidData[res.stockName]; if (sData && sData.idealLev >= minPosThreshold) { currentValidStocks[res.stockName] = sData.idealLev; activeCount++; } });
+            
+            let dailyBreakdown = {}, currentCalculatedSumAlloc = 0; 
+            resultsInput.forEach((res) => {
+                if (currentValidStocks[res.stockName] !== undefined && activeCount > 0) { const alloc = currentValidStocks[res.stockName] / activeCount; prevAllocatedLevs[res.stockName] = alloc; dailyBreakdown[res.stockName] = alloc; currentCalculatedSumAlloc += alloc; } 
+                else { prevAllocatedLevs[res.stockName] = 0; }
+            });
+            portHistory.push({ date: currDate, nav: portNav, totalLev: currentCalculatedSumAlloc, breakdown: dailyBreakdown, contribBreakdown: dailyContribBreakdown, activeCount: activeCount });
+        }
+        return { history: portHistory, maxDD: maxDD, dateMap: dateMap };
+    }
+
+    function runPortfolioStrategy() {
+        if (!batchResults || batchResults.length === 0) return alert("请先运行回测");
+        const mainStats = calculatePortfolioHistory(batchResults);
+        if (!mainStats) return alert("有效日期数据不足");
+        const useTiming = document.getElementById('pTimeEnable').checked;
+        let benchStats = (useTiming && benchmarkResults.length > 0) ? calculatePortfolioHistory(benchmarkResults) : null;
+
+        renderPortfolioStats(mainStats.history, mainStats.maxDD, (benchStats ? benchStats.history : null)); 
+        renderHoldingsChart(mainStats.history); 
+        renderTradeLog(mainStats.history, mainStats.dateMap); 
+        renderContributionChart(mainStats.history);
+    }
+
+    function renderPortfolioStats(hist, maxDD, benchHist) {
+        const last = hist[hist.length - 1]; const ret = (last.nav - 1) * 100; const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
+        document.getElementById('port-ret').innerText = ret.toFixed(2) + '%'; document.getElementById('port-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
+        document.getElementById('port-lev').innerText = avgLev.toFixed(2) + 'x';
+        document.getElementById('port-dd').innerText = (maxDD * 100).toFixed(2) + '%'; document.getElementById('port-dd').className = 'stat-val loss';
+        
+        const dom = document.getElementById('portfolio-chart'); if (portfolioChart) portfolioChart.dispose(); portfolioChart = echarts.init(dom); portfolioChart.group = 'stockGroup'; 
+        const dates = hist.map(h => h.date); const stageMarkArea = calculateMarketStagesMarkArea();
+        let seriesList = [ {name: '组合净值', type: 'line', data: hist.map(h=>h.nav), itemStyle: {color: '#d32f2f'}, lineStyle: {width: 2}, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0, markArea: stageMarkArea, z: 10}, {name: '实际总杠杆', type: 'line', data: hist.map(h=>h.totalLev), itemStyle: {color: '#1976d2'}, lineStyle: {width: 1}, showSymbol: false, xAxisIndex: 1, yAxisIndex: 1, areaStyle: {opacity: 0.2}} ];
+        if (benchHist) seriesList.push({name: '基准(不择时)', type: 'line', data: benchHist.map(h=>h.nav), itemStyle: {color: '#333'}, lineStyle: {width: 2, type: 'dashed'}, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0, z: 1});
+
+        portfolioChart.setOption({
+            tooltip: { trigger: 'axis', axisPointer: {type: 'cross', link: {xAxisIndex: 'all'}}, formatter: function(params) { if(!params.length) return ''; const idx = params[0].dataIndex; const item = hist[idx]; const benchItem = benchHist ? benchHist[idx] : null; let h = `<div style="font-weight:bold">${item.date}</div>`; h += `<div style="font-size:11px;">组合净值: <b>${item.nav.toFixed(3)}</b></div>`; if (benchItem) h += `<div style="font-size:11px;">基准(不择时): <b>${benchItem.nav.toFixed(3)}</b></div>`; h += `<div style="font-size:11px;">实际总杠杆: <b>${item.totalLev.toFixed(2)}x</b></div>`; return h; }},
+            legend: { top: 0, data: ['组合净值', '实际总杠杆', benchHist ? '基准(不择时)' : null].filter(Boolean) },
+            grid: [{ left: '12%', right: '8%', top: '15%', height: '55%' }, { left: '12%', right: '8%', top: '75%', height: '15%' }],
+            xAxis: [{type:'category', data:dates, gridIndex:0, axisLabel:{show:false}}, {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}}],
+            yAxis: [{type:'value', gridIndex:0, scale:true}, {type:'value', gridIndex:1, min:0}],
+            dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
+            series: seriesList
+        });
+    }
+
+    function updateDetailPanel(hist, index) {
+        const item = hist[index]; if(!item) return;
+        const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
+        let list = []; Object.keys(item.breakdown).forEach(name => { if(item.breakdown[name] > 0.001) list.push({name: name, val: item.breakdown[name]}); });
+        list.sort((a, b) => b.val - a.val);
+        let html = '';
+        list.forEach((p, i) => { const posPct = (p.val / maxLev * 100).toFixed(2) + '%'; const dotColor = i === 0 ? '#d32f2f' : '#007bff'; html += `<div class="detail-row"><div class="detail-name"><span style="color:#999; font-size:10px;">${i+1}.</span><div class="detail-dot" style="background:${dotColor}"></div>${p.name}</div><div><b>${p.val.toFixed(3)}x</b><span style="color:#888; font-size:11px; margin-left:5px;">(${posPct})</span></div></div>`; });
+        if (list.length === 0) html = '<div style="padding:20px; text-align:center; color:#999;">该日无持仓 (空仓)</div>';
+        document.getElementById('detail-date-title').innerText = `${item.date} 持仓明细 (共${list.length}只)`;
+        document.getElementById('detail-list-content').innerHTML = html;
+        document.getElementById('holdings-detail-panel').style.display = 'block';
+    }
+
+    function renderHoldingsChart(hist) {
+        const dom = document.getElementById('holdings-chart'); if (holdingsChart) holdingsChart.dispose(); holdingsChart = echarts.init(dom); holdingsChart.group = 'stockGroup'; 
+        const dates = hist.map(h => h.date); const allNames = batchResults.map(r => r.stockName);
+        const seriesData = allNames.map(name => ({ name: name, type: 'line', stack: 'Total', areaStyle: {}, showSymbol: false, lineStyle: { width: 0 }, data: hist.map(h => h.breakdown[name] || 0) }));
+        holdingsChart.setOption({
+            tooltip: { trigger: 'axis', formatter: function(params) { let sum = params.reduce((a,b)=>a+parseFloat(b.value), 0); return `<div style="font-weight:bold">${params[0].name}</div>总杠杆: ${sum.toFixed(2)}x<div style="font-size:10px; color:#aaa;">⬇️ 下方查看明细</div>`; } },
+            legend: { data: allNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, grid: { left: '12%', right: '8%', bottom: '25px', containLabel: false }, xAxis: { type: 'category', boundaryGap: false, data: dates }, yAxis: { type: 'value', min: 0 }, dataZoom: [{type:'inside'}, {type:'slider', bottom:0, height:20}], series: seriesData
+        });
+        holdingsChart.on('updateAxisPointer', function (event) { const xInfo = event.axesInfo && event.axesInfo[0]; if (xInfo) updateDetailPanel(hist, xInfo.value); });
+        if(hist.length > 0) updateDetailPanel(hist, hist.length - 1);
+    }
+
+    function renderTradeLog(hist, dateMap) {
+        const container = document.getElementById('trade-log-list'); container.innerHTML = ''; const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
+        for (let i = hist.length - 1; i > 0; i--) {
+            const today = hist[i], yesterday = hist[i-1]; let changes = [], dailyNetChange = 0; 
+            new Set([...Object.keys(today.breakdown), ...Object.keys(yesterday.breakdown)]).forEach(name => {
+                const nowPos = (today.breakdown[name] || 0) / maxLev * 100, prevPos = (yesterday.breakdown[name] || 0) / maxLev * 100, diffPos = nowPos - prevPos;
+                if (Math.abs(diffPos) > 0.1) { 
+                    let levStr = "", isPassive = false, reasonStr = "";
+                    if(dateMap) { const dNow = dateMap[today.date]?.stocks[name], dPrev = dateMap[yesterday.date]?.stocks[name]; const lNow = dNow ? dNow.idealLev : 0, lPrev = dPrev ? dPrev.idealLev : 0; reasonStr = dNow ? dNow.reason : ""; if (Math.abs(lNow - lPrev) < 0.01) { levStr = `${lNow.toFixed(1)}x`; isPassive = true; } else { levStr = `<span style="color:${lNow > lPrev ? '#d32f2f' : '#2e7d32'}; font-weight:bold;">${lPrev.toFixed(1)}x → ${lNow.toFixed(1)}x</span>`; } }
+                    changes.push({name, diffPos, nowPos, prevPos, levStr, isPassive, reasonStr}); dailyNetChange += diffPos; 
+                }
+            });
+            const isLatest = (i === hist.length - 1); if (changes.length === 0 && !isLatest) continue;
+            changes.sort((a,b) => a.isPassive !== b.isPassive ? (a.isPassive ? 1 : -1) : Math.abs(b.diffPos) - Math.abs(a.diffPos));
+            const header = document.createElement('div'); header.className = 'daily-log-header' + (isLatest ? ' open' : ''); header.onclick = function() { toggleDailyLog(this); }; 
+            header.innerHTML = `<div style="font-weight:bold;">${today.date} <span style="font-size:11px; margin-left:8px; color:#fff; background:${dailyNetChange > 0 ? '#d32f2f' : '#2e7d32'}; padding:2px 6px; border-radius:4px;">合计: ${dailyNetChange > 0 ? '+' : ''}${dailyNetChange.toFixed(1)}%</span><span style="font-weight:normal; font-size:11px; color:#999; margin-left:5px;">(${changes.length})</span></div><span class="arrow-daily">▶</span>`;
+            const body = document.createElement('div'); body.className = 'daily-log-body' + (isLatest ? ' open' : '');
+            if (changes.length === 0) body.innerHTML = `<div style="text-align:center; color:#999;">无调仓</div>`; 
+            else body.innerHTML = changes.map(c => `<div class="daily-item"><div style="display:flex; align-items:center; gap:8px;"><span style="font-weight:500;">${c.name}</span><span style="font-size:11px;">${c.levStr}</span><span style="font-size:10px; color:#aaa;" title="${c.reasonStr}">${c.reasonStr}</span></div><span><span style="color:${c.diffPos > 0 ? '#d32f2f' : '#2e7d32'}; font-weight:bold;">${c.diffPos > 0 ? '+' : ''}${c.diffPos.toFixed(1)}%</span></span></div>`).join('');
+            container.appendChild(header); container.appendChild(body);
+        }
+        if (container.innerHTML === '') container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无调仓记录</div>';
+    }
+
+    function renderStatusDistribution() {
+        let statsMap = {}, dates = []; 
+        batchResults.forEach(res => { res.history.forEach(day => { if (!statsMap[day.date]) { statsMap[day.date] = { '上涨趋势':0, '下跌趋势':0, '震荡整理':0, '触发风控':0, 'Total':0 }; dates.push(day.date); } let s = day.status || '震荡整理'; if(statsMap[day.date][s] !== undefined) { statsMap[day.date][s]++; statsMap[day.date]['Total']++; } }); }); 
+        dates.sort(); dates = [...new Set(dates)];
+        const names = ['上涨趋势', '震荡整理', '触发风控', '下跌趋势'], colors = ['#d32f2f', '#1976d2', '#616161', '#2e7d32']; 
+        const sData = names.map((name, i) => ({ name: name, type: 'bar', stack: 'total', itemStyle: { color: colors[i] }, data: dates.map(d => statsMap[d][name] || 0) }));
+        const dom = document.getElementById('status-chart'); if (statusChart) statusChart.dispose(); statusChart = echarts.init(dom); statusChart.group = 'stockGroup'; 
+        sData[0].markArea = calculateMarketStagesMarkArea();
+        statusChart.setOption({
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } }, legend: { data: names, top: 0 }, grid: { left: '12%', right: '8%', bottom: '30px', top: '30px', containLabel: true }, xAxis: { type: 'category', data: dates }, yAxis: { type: 'value' }, dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 0, height: 20 }], series: sData
+        });
+    }
+
+    function renderStatusDetails() {
+        const container = document.getElementById('status-detail-container'); container.innerHTML = '';
+        const groups = { '上涨趋势': { color: '#d32f2f', bg: '#ffebee', icon: '🔥', items: [] }, '下跌趋势': { color: '#2e7d32', bg: '#e8f5e9', icon: '❄️', items: [] }, '震荡整理': { color: '#1976d2', bg: '#e3f2fd', icon: '〰️', items: [] }, '触发风控': { color: '#616161', bg: '#f5f5f5', icon: '🛡️', items: [] } };
+        batchResults.forEach(res => { const s = res.history[res.history.length - 1].status || '震荡整理'; if (groups[s]) groups[s].items.push(res); });
+        Object.keys(groups).forEach(key => {
+            const g = groups[key];
+            let html = `<div style="flex:1; min-width:160px; background:${g.bg}; border:1px solid ${g.color}30; border-radius:6px; padding:10px;"><div style="font-weight:bold; color:${g.color}; margin-bottom:8px;">${g.icon} ${key} <span style="font-size:11px; opacity:0.8">(${g.items.length})</span></div><div style="display:flex; flex-wrap:wrap; gap:5px;">`;
+            if (g.items.length === 0) html += `<span style="font-size:11px; color:#999;">无</span>`; else g.items.forEach(item => { html += `<span onclick="showDetail(${item.index})" style="background:#fff; font-size:11px; padding:3px 6px; border-radius:4px; border:1px solid #ddd; cursor:pointer;">${item.stockName}</span>`; });
+            html += `</div></div>`; container.innerHTML += html;
+        });
+    }
+
+    function renderTrendLog() {
+        const container = document.getElementById('trend-log-list'); container.innerHTML = '';
+        let dateMap = {}, allDates = new Set(); batchResults.forEach(res => { res.history.forEach(day => { if (!dateMap[day.date]) dateMap[day.date] = {}; dateMap[day.date][res.stockName] = day.status; allDates.add(day.date); }); });
+        const sortedDates = Array.from(allDates).sort().reverse(); let hasContent = false;
+        const config = { '上涨趋势': { color: '#d32f2f', label: '入上涨' }, '下跌趋势': { color: '#2e7d32', label: '入下跌' }, '震荡整理': { color: '#1976d2', label: '入震荡' }, '触发风控': { color: '#616161', label: '触风控' } };
+        for (let i = 0; i < sortedDates.length - 1; i++) {
+            const today = sortedDates[i], yesterday = sortedDates[i+1]; let changes = { '上涨趋势': [], '下跌趋势': [], '震荡整理': [], '触发风控': [] }, total = 0;
+            batchResults.forEach(res => { const name = res.stockName, now = dateMap[today][name], prev = dateMap[yesterday][name]; if (now && prev && now !== prev) { changes[now].push(name); total++; } });
+            if (total === 0) continue; hasContent = true; const isLatest = (i === 0);
+            const header = document.createElement('div'); header.className = 'daily-log-header' + (isLatest ? ' open' : ''); header.onclick = function() { toggleDailyLog(this); };
+            header.innerHTML = `<div style="font-weight:bold;">${today} <span style="color:#999; font-weight:normal; font-size:11px;">(${total}只变动)</span></div><span class="arrow-daily">▶</span>`;
+            const body = document.createElement('div'); body.className = 'daily-log-body' + (isLatest ? ' open' : ''); let content = '';
+            Object.keys(config).forEach(key => { if (changes[key].length > 0) { const cfg = config[key]; content += `<div class="daily-item" style="border-bottom:1px dashed #eee; padding-bottom:6px;"><span style="color:#fff; background:${cfg.color}; padding:2px 6px; border-radius:3px;">${cfg.label}</span><div style="font-size:12px;">${changes[key].join('、')}</div></div>`; } });
+            body.innerHTML = content; container.appendChild(header); container.appendChild(body);
+        }
+        if (!hasContent) container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无趋势变更记录</div>';
+    }
+
+    function renderContributionChart(hist) {
+        const dom = document.getElementById('contribution-chart'); if (contributionChart) contributionChart.dispose(); contributionChart = echarts.init(dom); contributionChart.group = 'stockGroup';
+        const dates = hist.map(h => h.date); const allNames = batchResults.map(r => r.stockName);
+        const seriesData = allNames.map(name => ({ name: name, type: 'line', stack: 'Total', areaStyle: {}, showSymbol: false, lineStyle: { width: 0 }, data: hist.map(h => h.contribBreakdown[name] || 0) }));
+        contributionChart.setOption({
+            tooltip: { trigger: 'axis', formatter: function (params) { let sum = params.reduce((a,b)=>a+parseFloat(b.value),0); return `<div style="font-weight:bold">${params[0].name}</div>总累计盈亏: ${(sum*100).toFixed(2)}%`; } },
+            legend: { data: allNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, grid: { left: '12%', right: '8%', bottom: '25px', containLabel: false }, xAxis: { type: 'category', boundaryGap: false, data: dates }, yAxis: { type: 'value', axisLabel: { formatter: (val) => (val*100).toFixed(0)+'%' } }, dataZoom: [{type:'inside'}, {type:'slider', bottom:0, height:20}], series: seriesData
+        });
     }
 
     function searchStock() {
@@ -965,266 +1302,6 @@
         });
     }
 
-    // === 组合与图表完整逻辑恢复 ===
-
-    // 计算背景阴影（市场状态划分）
-    function calculateMarketStagesMarkArea() {
-        if (!batchResults || batchResults.length === 0) return { data: [] };
-        let statsMap = {}; let allDates = new Set();
-        batchResults.forEach(res => {
-            res.history.forEach(day => {
-                if (!statsMap[day.date]) statsMap[day.date] = { up: 0, down: 0, sideways: 0, risk: 0 }; 
-                allDates.add(day.date);
-                if (day.status === '上涨趋势') statsMap[day.date].up++;
-                else if (day.status === '下跌趋势') statsMap[day.date].down++;
-                else if (day.status === '震荡整理') statsMap[day.date].sideways++;
-                else if (day.status === '触发风控') statsMap[day.date].risk++;
-            });
-        });
-        const dates = Array.from(allDates).sort();
-        if (dates.length < 2) return { data: [] };
-        let markData = []; let currentStage = null; let stageStartDate = null; let toleranceCount = 0;  
-        let bullSeq = 0, bearSeq = 0;
-        for (let i = 1; i < dates.length; i++) {
-            const curr = statsMap[dates[i]]; const prev = statsMap[dates[i-1]];
-            const currDown = curr.down + curr.risk; const prevDown = prev.down + prev.risk;
-            let bullVotes = 0, bearVotes = 0;
-            if (curr.up > prev.up) bullVotes += 2.0; else if (curr.up < prev.up) bearVotes += 1.5;
-            if ((curr.up + curr.sideways) > (prev.up + prev.sideways)) bullVotes += 1.0; else if ((curr.up + curr.sideways) < (prev.up + prev.sideways)) bearVotes += 1.0;
-            if (currDown < prevDown) bullVotes += 2.0; else if (currDown > prevDown) bearVotes += 1.5;
-
-            const isBullDay = bullVotes > bearVotes; const isBearDay = bearVotes > bullVotes;
-            if (currentStage === null) {
-                if (isBullDay) { bullSeq++; bearSeq = 0; } else if (isBearDay) { bearSeq++; bullSeq = 0; } else { bullSeq = 0; bearSeq = 0; }
-                if (bullSeq >= 2) { currentStage = 'bull'; stageStartDate = dates[i - 1]; toleranceCount = 0; } 
-                else if (bearSeq >= 2) { currentStage = 'bear'; stageStartDate = dates[i - 1]; toleranceCount = 0; }
-            } else {
-                let isReinforced = (currentStage === 'bull' && isBullDay) || (currentStage === 'bear' && isBearDay);
-                let isOpposite = (currentStage === 'bull' && isBearDay) || (currentStage === 'bear' && isBullDay);
-                if (isReinforced) { toleranceCount = 0; if(currentStage === 'bull') bearSeq = 0; else bullSeq = 0; } 
-                else {
-                    toleranceCount++;
-                    if (isOpposite) { if (currentStage === 'bull') bearSeq++; else bullSeq++; }
-                    let trendFlip = (currentStage === 'bull' && bearSeq >= 2) || (currentStage === 'bear' && bullSeq >= 2);
-                    if (toleranceCount > 2 || trendFlip) {
-                        let endIndex = i - toleranceCount; if (trendFlip) endIndex = i - 1; if (endIndex < 0) endIndex = 0;
-                        let color = currentStage === 'bull' ? 'rgba(255, 235, 238, 0.6)' : 'rgba(232, 245, 233, 0.6)';
-                        let name = currentStage === 'bull' ? '上涨阶段' : '下跌阶段';
-                        markData.push([{ name: name, xAxis: stageStartDate, itemStyle: { color: color }, label: { show: true, position: 'top', color: '#999', fontSize: 10, formatter: '{b}' } }, { xAxis: dates[endIndex] }]);
-                        currentStage = null; bullSeq = 0; bearSeq = 0; toleranceCount = 0;
-                        if (trendFlip) i = i - 2; 
-                    }
-                }
-            }
-        }
-        if (currentStage && stageStartDate) {
-            let color = currentStage === 'bull' ? 'rgba(255, 235, 238, 0.6)' : 'rgba(232, 245, 233, 0.6)';
-            let name = currentStage === 'bull' ? '上涨阶段' : '下跌阶段';
-            markData.push([{ name: name, xAxis: stageStartDate, itemStyle: { color: color }, label: { show: true, position: 'top', color: '#999', fontSize: 10, formatter: '{b}' } }, { xAxis: dates[dates.length - 1] }]);
-        }
-        return { data: markData, silent: true };
-    }
-
-    // 计算组合收益逻辑
-    function calculatePortfolioHistory(resultsInput) {
-        if (!resultsInput || resultsInput.length === 0) return null;
-        let minPosThreshold = parseFloat(document.getElementById('pMinPos').value) || 0.4; 
-        
-        let dateMap = {}; 
-        resultsInput.forEach((res) => { res.history.forEach(day => { if (!dateMap[day.date]) dateMap[day.date] = { date: day.date, stocks: {} }; dateMap[day.date].stocks[res.stockName] = { close: day.close, idealLev: day.leverage, reason: day.reason }; }); });
-        const sortedDates = Object.keys(dateMap).sort(); if (sortedDates.length < 2) return null;
-        
-        let portNav = 1.0, portHistory = [], maxDD = 0, peak = 1.0; 
-        let lastValidData = {}, prevAllocatedLevs = {}, accContribution = {}; 
-        resultsInput.forEach((res) => { accContribution[res.stockName] = 0; });
-
-        for (let i = 0; i < sortedDates.length; i++) {
-            const currDate = sortedDates[i]; const rawDayData = dateMap[currDate]; const prevValidData = { ...lastValidData };
-            resultsInput.forEach((res) => { if (rawDayData.stocks[res.stockName]) lastValidData[res.stockName] = rawDayData.stocks[res.stockName]; });
-            let dailyContribBreakdown = {}; 
-            
-            if (i > 0) {
-                let dayPnLComponent = 0;
-                resultsInput.forEach((res) => {
-                    const sCurr = lastValidData[res.stockName]; const sPrev = prevValidData[res.stockName]; const allocatedL = prevAllocatedLevs[res.stockName] || 0; 
-                    if (sCurr && sPrev && sPrev.close > 0) { 
-                        const contribution = ((sCurr.close - sPrev.close) / sPrev.close) * allocatedL; 
-                        dayPnLComponent += contribution; accContribution[res.stockName] += contribution; 
-                    }
-                });
-                portNav = portNav * (1 + dayPnLComponent); 
-                if (portNav > peak) peak = portNav; 
-                const dd = (peak - portNav) / peak; if (dd > maxDD) maxDD = dd;
-            }
-            resultsInput.forEach((res) => { dailyContribBreakdown[res.stockName] = accContribution[res.stockName]; });
-            
-            let currentValidStocks = {}, activeCount = 0;
-            resultsInput.forEach((res) => { const sData = lastValidData[res.stockName]; if (sData && sData.idealLev >= minPosThreshold) { currentValidStocks[res.stockName] = sData.idealLev; activeCount++; } });
-            
-            let dailyBreakdown = {}, currentCalculatedSumAlloc = 0; 
-            resultsInput.forEach((res) => {
-                if (currentValidStocks[res.stockName] !== undefined && activeCount > 0) { const alloc = currentValidStocks[res.stockName] / activeCount; prevAllocatedLevs[res.stockName] = alloc; dailyBreakdown[res.stockName] = alloc; currentCalculatedSumAlloc += alloc; } 
-                else { prevAllocatedLevs[res.stockName] = 0; }
-            });
-            portHistory.push({ date: currDate, nav: portNav, totalLev: currentCalculatedSumAlloc, breakdown: dailyBreakdown, contribBreakdown: dailyContribBreakdown, activeCount: activeCount });
-        }
-        return { history: portHistory, maxDD: maxDD, dateMap: dateMap };
-    }
-
-    // 运行组合策略总入口
-    function runPortfolioStrategy() {
-        if (!batchResults || batchResults.length === 0) return alert("请先运行回测");
-        const mainStats = calculatePortfolioHistory(batchResults);
-        if (!mainStats) return alert("有效日期数据不足");
-        const useTiming = document.getElementById('pTimeEnable').checked;
-        let benchStats = (useTiming && benchmarkResults.length > 0) ? calculatePortfolioHistory(benchmarkResults) : null;
-
-        renderPortfolioStats(mainStats.history, mainStats.maxDD, (benchStats ? benchStats.history : null)); 
-        renderHoldingsChart(mainStats.history); 
-        renderTradeLog(mainStats.history, mainStats.dateMap); 
-        renderContributionChart(mainStats.history);
-    }
-
-    // 渲染组合收益图表
-    function renderPortfolioStats(hist, maxDD, benchHist) {
-        const last = hist[hist.length - 1]; const ret = (last.nav - 1) * 100; const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
-        document.getElementById('port-ret').innerText = ret.toFixed(2) + '%'; document.getElementById('port-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
-        document.getElementById('port-lev').innerText = avgLev.toFixed(2) + 'x';
-        document.getElementById('port-dd').innerText = (maxDD * 100).toFixed(2) + '%'; document.getElementById('port-dd').className = 'stat-val loss';
-        
-        const dom = document.getElementById('portfolio-chart'); if (portfolioChart) portfolioChart.dispose(); portfolioChart = echarts.init(dom); portfolioChart.group = 'stockGroup'; 
-        const dates = hist.map(h => h.date); const stageMarkArea = calculateMarketStagesMarkArea();
-        let seriesList = [ {name: '组合净值', type: 'line', data: hist.map(h=>h.nav), itemStyle: {color: '#d32f2f'}, lineStyle: {width: 2}, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0, markArea: stageMarkArea, z: 10}, {name: '实际总杠杆', type: 'line', data: hist.map(h=>h.totalLev), itemStyle: {color: '#1976d2'}, lineStyle: {width: 1}, showSymbol: false, xAxisIndex: 1, yAxisIndex: 1, areaStyle: {opacity: 0.2}} ];
-        if (benchHist) seriesList.push({name: '基准(不择时)', type: 'line', data: benchHist.map(h=>h.nav), itemStyle: {color: '#333'}, lineStyle: {width: 2, type: 'dashed'}, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0, z: 1});
-
-        portfolioChart.setOption({
-            tooltip: { trigger: 'axis', axisPointer: {type: 'cross', link: {xAxisIndex: 'all'}}, formatter: function(params) { if(!params.length) return ''; const idx = params[0].dataIndex; const item = hist[idx]; const benchItem = benchHist ? benchHist[idx] : null; let h = `<div style="font-weight:bold">${item.date}</div>`; h += `<div style="font-size:11px;">组合净值: <b>${item.nav.toFixed(3)}</b></div>`; if (benchItem) h += `<div style="font-size:11px;">基准(不择时): <b>${benchItem.nav.toFixed(3)}</b></div>`; h += `<div style="font-size:11px;">实际总杠杆: <b>${item.totalLev.toFixed(2)}x</b></div>`; return h; }},
-            legend: { top: 0, data: ['组合净值', '实际总杠杆', benchHist ? '基准(不择时)' : null].filter(Boolean) },
-            grid: [{ left: '12%', right: '8%', top: '15%', height: '55%' }, { left: '12%', right: '8%', top: '75%', height: '15%' }],
-            xAxis: [{type:'category', data:dates, gridIndex:0, axisLabel:{show:false}}, {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}}],
-            yAxis: [{type:'value', gridIndex:0, scale:true}, {type:'value', gridIndex:1, min:0}],
-            dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
-            series: seriesList
-        });
-    }
-
-    // 更新下方持仓明细面板
-    function updateDetailPanel(hist, index) {
-        const item = hist[index]; if(!item) return;
-        const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
-        let list = []; Object.keys(item.breakdown).forEach(name => { if(item.breakdown[name] > 0.001) list.push({name: name, val: item.breakdown[name]}); });
-        list.sort((a, b) => b.val - a.val);
-
-        let html = '';
-        list.forEach((p, i) => { const posPct = (p.val / maxLev * 100).toFixed(2) + '%'; const dotColor = i === 0 ? '#d32f2f' : '#007bff'; html += `<div class="detail-row"><div class="detail-name"><span style="color:#999; font-size:10px;">${i+1}.</span><div class="detail-dot" style="background:${dotColor}"></div>${p.name}</div><div><b>${p.val.toFixed(3)}x</b><span style="color:#888; font-size:11px; margin-left:5px;">(${posPct})</span></div></div>`; });
-        if (list.length === 0) html = '<div style="padding:20px; text-align:center; color:#999;">该日无持仓 (空仓)</div>';
-
-        document.getElementById('detail-date-title').innerText = `${item.date} 持仓明细 (共${list.length}只)`;
-        document.getElementById('detail-list-content').innerHTML = html;
-        document.getElementById('holdings-detail-panel').style.display = 'block';
-    }
-
-    // 渲染持仓堆积图
-    function renderHoldingsChart(hist) {
-        const dom = document.getElementById('holdings-chart'); if (holdingsChart) holdingsChart.dispose(); holdingsChart = echarts.init(dom); holdingsChart.group = 'stockGroup'; 
-        const dates = hist.map(h => h.date); const allNames = batchResults.map(r => r.stockName);
-        const seriesData = allNames.map(name => ({ name: name, type: 'line', stack: 'Total', areaStyle: {}, showSymbol: false, lineStyle: { width: 0 }, data: hist.map(h => h.breakdown[name] || 0) }));
-
-        holdingsChart.setOption({
-            tooltip: { trigger: 'axis', formatter: function(params) { let sum = params.reduce((a,b)=>a+parseFloat(b.value), 0); return `<div style="font-weight:bold">${params[0].name}</div>总杠杆: ${sum.toFixed(2)}x<div style="font-size:10px; color:#aaa;">⬇️ 下方查看明细</div>`; } },
-            legend: { data: allNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, grid: { left: '12%', right: '8%', bottom: '25px', containLabel: false }, xAxis: { type: 'category', boundaryGap: false, data: dates }, yAxis: { type: 'value', min: 0 }, dataZoom: [{type:'inside'}, {type:'slider', bottom:0, height:20}], series: seriesData
-        });
-
-        holdingsChart.on('updateAxisPointer', function (event) { const xInfo = event.axesInfo && event.axesInfo[0]; if (xInfo) updateDetailPanel(hist, xInfo.value); });
-        if(hist.length > 0) updateDetailPanel(hist, hist.length - 1);
-    }
-
-    // 渲染每日调仓日志
-    function renderTradeLog(hist, dateMap) {
-        const container = document.getElementById('trade-log-list'); container.innerHTML = ''; const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
-        for (let i = hist.length - 1; i > 0; i--) {
-            const today = hist[i], yesterday = hist[i-1]; let changes = [], dailyNetChange = 0; 
-            new Set([...Object.keys(today.breakdown), ...Object.keys(yesterday.breakdown)]).forEach(name => {
-                const nowPos = (today.breakdown[name] || 0) / maxLev * 100, prevPos = (yesterday.breakdown[name] || 0) / maxLev * 100, diffPos = nowPos - prevPos;
-                if (Math.abs(diffPos) > 0.1) { 
-                    let levStr = "", isPassive = false, reasonStr = "";
-                    if(dateMap) { const dNow = dateMap[today.date]?.stocks[name], dPrev = dateMap[yesterday.date]?.stocks[name]; const lNow = dNow ? dNow.idealLev : 0, lPrev = dPrev ? dPrev.idealLev : 0; reasonStr = dNow ? dNow.reason : ""; if (Math.abs(lNow - lPrev) < 0.01) { levStr = `${lNow.toFixed(1)}x`; isPassive = true; } else { levStr = `<span style="color:${lNow > lPrev ? '#d32f2f' : '#2e7d32'}; font-weight:bold;">${lPrev.toFixed(1)}x → ${lNow.toFixed(1)}x</span>`; } }
-                    changes.push({name, diffPos, nowPos, prevPos, levStr, isPassive, reasonStr}); dailyNetChange += diffPos; 
-                }
-            });
-            const isLatest = (i === hist.length - 1); if (changes.length === 0 && !isLatest) continue;
-            changes.sort((a,b) => a.isPassive !== b.isPassive ? (a.isPassive ? 1 : -1) : Math.abs(b.diffPos) - Math.abs(a.diffPos));
-            
-            const header = document.createElement('div'); header.className = 'daily-log-header' + (isLatest ? ' open' : ''); header.onclick = function() { toggleDailyLog(this); }; 
-            header.innerHTML = `<div style="font-weight:bold;">${today.date} <span style="font-size:11px; margin-left:8px; color:#fff; background:${dailyNetChange > 0 ? '#d32f2f' : '#2e7d32'}; padding:2px 6px; border-radius:4px;">合计: ${dailyNetChange > 0 ? '+' : ''}${dailyNetChange.toFixed(1)}%</span><span style="font-weight:normal; font-size:11px; color:#999; margin-left:5px;">(${changes.length})</span></div><span class="arrow-daily">▶</span>`;
-            
-            const body = document.createElement('div'); body.className = 'daily-log-body' + (isLatest ? ' open' : '');
-            if (changes.length === 0) body.innerHTML = `<div style="text-align:center; color:#999;">无调仓</div>`; 
-            else body.innerHTML = changes.map(c => `<div class="daily-item"><div style="display:flex; align-items:center; gap:8px;"><span style="font-weight:500;">${c.name}</span><span style="font-size:11px;">${c.levStr}</span><span style="font-size:10px; color:#aaa;" title="${c.reasonStr}">${c.reasonStr}</span></div><span><span style="color:${c.diffPos > 0 ? '#d32f2f' : '#2e7d32'}; font-weight:bold;">${c.diffPos > 0 ? '+' : ''}${c.diffPos.toFixed(1)}%</span></span></div>`).join('');
-            container.appendChild(header); container.appendChild(body);
-        }
-        if (container.innerHTML === '') container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无调仓记录</div>';
-    }
-
-    // 渲染状态分布
-    function renderStatusDistribution() {
-        let statsMap = {}, dates = []; 
-        batchResults.forEach(res => { res.history.forEach(day => { if (!statsMap[day.date]) { statsMap[day.date] = { '上涨趋势':0, '下跌趋势':0, '震荡整理':0, '触发风控':0, 'Total':0 }; dates.push(day.date); } let s = day.status || '震荡整理'; if(statsMap[day.date][s] !== undefined) { statsMap[day.date][s]++; statsMap[day.date]['Total']++; } }); }); 
-        dates.sort(); dates = [...new Set(dates)];
-        const names = ['上涨趋势', '震荡整理', '触发风控', '下跌趋势'], colors = ['#d32f2f', '#1976d2', '#616161', '#2e7d32']; 
-        const sData = names.map((name, i) => ({ name: name, type: 'bar', stack: 'total', itemStyle: { color: colors[i] }, data: dates.map(d => statsMap[d][name] || 0) }));
-        const dom = document.getElementById('status-chart'); if (statusChart) statusChart.dispose(); statusChart = echarts.init(dom); statusChart.group = 'stockGroup'; 
-        sData[0].markArea = calculateMarketStagesMarkArea();
-
-        statusChart.setOption({
-            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } }, legend: { data: names, top: 0 }, grid: { left: '12%', right: '8%', bottom: '30px', top: '30px', containLabel: true }, xAxis: { type: 'category', data: dates }, yAxis: { type: 'value' }, dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 0, height: 20 }], series: sData
-        });
-    }
-
-    // 渲染各状态股票明细 (列表)
-    function renderStatusDetails() {
-        const container = document.getElementById('status-detail-container'); container.innerHTML = '';
-        const groups = { '上涨趋势': { color: '#d32f2f', bg: '#ffebee', icon: '🔥', items: [] }, '下跌趋势': { color: '#2e7d32', bg: '#e8f5e9', icon: '❄️', items: [] }, '震荡整理': { color: '#1976d2', bg: '#e3f2fd', icon: '〰️', items: [] }, '触发风控': { color: '#616161', bg: '#f5f5f5', icon: '🛡️', items: [] } };
-        batchResults.forEach(res => { const s = res.history[res.history.length - 1].status || '震荡整理'; if (groups[s]) groups[s].items.push(res); });
-        Object.keys(groups).forEach(key => {
-            const g = groups[key];
-            let html = `<div style="flex:1; min-width:160px; background:${g.bg}; border:1px solid ${g.color}30; border-radius:6px; padding:10px;"><div style="font-weight:bold; color:${g.color}; margin-bottom:8px;">${g.icon} ${key} <span style="font-size:11px; opacity:0.8">(${g.items.length})</span></div><div style="display:flex; flex-wrap:wrap; gap:5px;">`;
-            if (g.items.length === 0) html += `<span style="font-size:11px; color:#999;">无</span>`; else g.items.forEach(item => { html += `<span onclick="showDetail(${item.index})" style="background:#fff; font-size:11px; padding:3px 6px; border-radius:4px; border:1px solid #ddd; cursor:pointer;">${item.stockName}</span>`; });
-            html += `</div></div>`; container.innerHTML += html;
-        });
-    }
-
-    // 渲染趋势变更日志
-    function renderTrendLog() {
-        const container = document.getElementById('trend-log-list'); container.innerHTML = '';
-        let dateMap = {}, allDates = new Set(); batchResults.forEach(res => { res.history.forEach(day => { if (!dateMap[day.date]) dateMap[day.date] = {}; dateMap[day.date][res.stockName] = day.status; allDates.add(day.date); }); });
-        const sortedDates = Array.from(allDates).sort().reverse(); let hasContent = false;
-        const config = { '上涨趋势': { color: '#d32f2f', label: '入上涨' }, '下跌趋势': { color: '#2e7d32', label: '入下跌' }, '震荡整理': { color: '#1976d2', label: '入震荡' }, '触发风控': { color: '#616161', label: '触风控' } };
-        for (let i = 0; i < sortedDates.length - 1; i++) {
-            const today = sortedDates[i], yesterday = sortedDates[i+1]; let changes = { '上涨趋势': [], '下跌趋势': [], '震荡整理': [], '触发风控': [] }, total = 0;
-            batchResults.forEach(res => { const name = res.stockName, now = dateMap[today][name], prev = dateMap[yesterday][name]; if (now && prev && now !== prev) { changes[now].push(name); total++; } });
-            if (total === 0) continue; hasContent = true; const isLatest = (i === 0);
-            const header = document.createElement('div'); header.className = 'daily-log-header' + (isLatest ? ' open' : ''); header.onclick = function() { toggleDailyLog(this); };
-            header.innerHTML = `<div style="font-weight:bold;">${today} <span style="color:#999; font-weight:normal; font-size:11px;">(${total}只变动)</span></div><span class="arrow-daily">▶</span>`;
-            const body = document.createElement('div'); body.className = 'daily-log-body' + (isLatest ? ' open' : ''); let content = '';
-            Object.keys(config).forEach(key => { if (changes[key].length > 0) { const cfg = config[key]; content += `<div class="daily-item" style="border-bottom:1px dashed #eee; padding-bottom:6px;"><span style="color:#fff; background:${cfg.color}; padding:2px 6px; border-radius:3px;">${cfg.label}</span><div style="font-size:12px;">${changes[key].join('、')}</div></div>`; } });
-            body.innerHTML = content; container.appendChild(header); container.appendChild(body);
-        }
-        if (!hasContent) container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无趋势变更记录</div>';
-    }
-
-    // 渲染累计盈亏贡献图
-    function renderContributionChart(hist) {
-        const dom = document.getElementById('contribution-chart'); if (contributionChart) contributionChart.dispose(); contributionChart = echarts.init(dom); contributionChart.group = 'stockGroup';
-        const dates = hist.map(h => h.date); const allNames = batchResults.map(r => r.stockName);
-        const seriesData = allNames.map(name => ({ name: name, type: 'line', stack: 'Total', areaStyle: {}, showSymbol: false, lineStyle: { width: 0 }, data: hist.map(h => h.contribBreakdown[name] || 0) }));
-        contributionChart.setOption({
-            tooltip: { trigger: 'axis', formatter: function (params) { let sum = params.reduce((a,b)=>a+parseFloat(b.value),0); return `<div style="font-weight:bold">${params[0].name}</div>总累计盈亏: ${(sum*100).toFixed(2)}%`; } },
-            legend: { data: allNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, grid: { left: '12%', right: '8%', bottom: '25px', containLabel: false }, xAxis: { type: 'category', boundaryGap: false, data: dates }, yAxis: { type: 'value', axisLabel: { formatter: (val) => (val*100).toFixed(0)+'%' } }, dataZoom: [{type:'inside'}, {type:'slider', bottom:0, height:20}], series: seriesData
-        });
-    }
-
-    // UI 组件过滤与选择
     function renderDetailCombo() { 
         const list = document.getElementById('detail-combo-list'); list.innerHTML = '';
         batchResults.forEach(res => { const div = document.createElement('div'); div.className = 'combo-option'; div.innerHTML = `<span>${res.stockName}</span><span class="combo-code">${res.stockCode}</span>`; div.onclick = (e) => { e.stopPropagation(); showDetail(res.index); list.classList.remove('show'); }; div.dataset.index = res.index; div.dataset.searchText = (res.stockName + res.stockCode).toLowerCase(); list.appendChild(div); });
@@ -1243,9 +1320,7 @@
         document.querySelectorAll('#summary-tbody tr').forEach(r => { const m1 = txt===''||r.innerText.toLowerCase().includes(txt), m2 = rsn===''||r.cells[4].innerText === rsn; r.style.display = m1&&m2 ? '' : 'none'; });
     }
 
-    // 注册全局图表联动
     echarts.connect('stockGroup');
-
     window.addEventListener('beforeunload', (e) => { if (APP_STORAGE.getItem('gridHasUnsavedChanges') === 'true') { e.preventDefault(); e.returnValue = ''; } });
     (async function autoSync() { const cfg = getGbConfig(); if(cfg.token) { updateStatus('syncing'); try { const u = `https://api.github.com/repos/${cfg.username}/${cfg.repo}/contents/${cfg.path}`, h = {"Authorization":`token ${cfg.token}`,"Accept":"application/vnd.github.v3+json"}; let r = await fetch(u, {headers:h}); let d = r.ok ? JSON.parse(safeB64ToUtf8((await r.json()).content)) : await (await fetch(`https://raw.githubusercontent.com/${cfg.username}/${cfg.repo}/${cfg.branch}/${cfg.path}`)).json(); if(Array.isArray(d)) { stocks = d; APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(false); updateStatus('online'); } } catch(e){ updateStatus('error'); } } })();
 </script>
