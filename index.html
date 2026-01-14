@@ -926,7 +926,7 @@
         } catch (e) { alert("❌ " + e.message); updateStatus('error', '拉取失败'); } finally { btn.innerText = origin; btn.disabled = false; }
     }
 
-    // ▼▼▼▼▼▼▼▼▼▼ 导入合并逻辑 (已修正: 去除前缀 + 覆盖数据) ▼▼▼▼▼▼▼▼▼▼
+    // ▼▼▼▼▼▼▼▼▼▼ 导入合并逻辑 (已修正: 美股/港股前缀识别 + 覆盖模式) ▼▼▼▼▼▼▼▼▼▼
     async function importMergeFromGithub() {
         const cfg = getGbConfig(); let token = cfg.token;
         if (!token) { openSettingsModal(); return; }
@@ -963,35 +963,49 @@
             data.forEach(sourceItem => {
                 if (!sourceItem.code || !sourceItem.name) return; 
 
-                // ▼▼▼▼ 代码格式标准化逻辑 (修正版：去前缀+智能后缀) ▼▼▼▼
+                // ▼▼▼▼ 代码格式标准化逻辑 (修正版：东财特有前缀识别) ▼▼▼▼
                 let rawCode = sourceItem.code.toString().trim().toUpperCase();
-                
-                // 1. 剥离纯代码：
-                // 移除 sh/sz 等字母前缀/后缀
-                let bareCode = rawCode.replace(/^[A-Z]+\.?/i, '').replace(/\.[A-Z]+$/i, '');
-                // 移除 0.xxxxxx 或 1.xxxxxx 这种东财数字前缀 (关键修正!)
-                bareCode = bareCode.replace(/^[01]\./, ''); 
-                
-                // 2. 判定后缀
+                let bareCode = rawCode;
                 let suffix = "";
-                
-                // 优先根据原代码中的字母标识
-                if (rawCode.includes('.SH') || rawCode.startsWith('SH')) suffix = ".SH";
-                else if (rawCode.includes('.SZ') || rawCode.startsWith('SZ')) suffix = ".SZ";
-                else if (rawCode.includes('.HK') || rawCode.startsWith('HK')) suffix = ".HK";
+
+                // 1. 优先检查原字符串是否自带后缀/前缀字母 (如 00700.HK, sh600519)
+                if (rawCode.includes('.HK') || rawCode.startsWith('HK')) suffix = ".HK";
                 else if (rawCode.includes('.US') || rawCode.startsWith('US')) suffix = ".US";
-                
-                // 如果原代码没有标识，则根据数字规则推断
+                else if (rawCode.includes('.SH') || rawCode.startsWith('SH')) suffix = ".SH";
+                else if (rawCode.includes('.SZ') || rawCode.startsWith('SZ')) suffix = ".SZ";
+
+                // 清洗掉所有字母前后缀
+                bareCode = bareCode.replace(/^(HK|SH|SZ|US)\.?/i, '').replace(/\.(HK|SH|SZ|US)$/i, '');
+
+                // 2. 如果还没有后缀，则根据东财特有的数字前缀进行判定
+                if (!suffix) {
+                    if (/^116\./.test(bareCode)) {
+                        suffix = ".HK"; bareCode = bareCode.replace(/^116\./, '');
+                    } 
+                    else if (/^(105|106|107)\./.test(bareCode)) {
+                        suffix = ".US"; bareCode = bareCode.replace(/^(105|106|107)\./, '');
+                    }
+                    else if (/^0\./.test(bareCode)) {
+                        suffix = ".SZ"; bareCode = bareCode.replace(/^0\./, '');
+                    }
+                    else if (/^1\./.test(bareCode)) {
+                        suffix = ".SH"; bareCode = bareCode.replace(/^1\./, '');
+                    }
+                } else {
+                    // 即使已经有后缀，也要把东财前缀清理掉 (如: 116.00700.HK -> 00700.HK)
+                    bareCode = bareCode.replace(/^(116|105|106|107|0|1)\./, '');
+                }
+
+                // 3. 兜底逻辑：如果仍然没有后缀，根据位数规则推断
                 if (!suffix) {
                     if (/^6\d{5}$/.test(bareCode)) suffix = ".SH";       // 6开头 -> 上交所
                     else if (/^9\d{5}$/.test(bareCode)) suffix = ".SH";  // 9开头 -> B股
-                    else if (/^0\d{5}$/.test(bareCode)) suffix = ".SZ";  // 0开头 -> 深交所 (修正: 002008)
+                    else if (/^0\d{5}$/.test(bareCode)) suffix = ".SZ";  // 0开头 -> 深交所
                     else if (/^3\d{5}$/.test(bareCode)) suffix = ".SZ";  // 3开头 -> 创业板
-                    else if (/^8\d{5}$/.test(bareCode)) suffix = ".SZ";  // 8开头 -> 北交所 (暂归SZ处理)
-                    else if (/^4\d{5}$/.test(bareCode)) suffix = ".SZ";  // 4开头 -> 三板
+                    else if (/^8\d{5}$/.test(bareCode)) suffix = ".SZ";  // 8开头 -> 北交所
                     else if (/^\d{5}$/.test(bareCode)) suffix = ".HK";   // 5位数字 -> 港股
                     else if (!/^\d+$/.test(bareCode)) suffix = ".US";    // 非纯数字 -> 美股
-                    else suffix = ".SZ"; // 默认兜底
+                    else suffix = ".SZ"; // 默认
                 }
 
                 let finalCode = bareCode + suffix;
