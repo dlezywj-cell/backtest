@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (智能代码修复版)</title>
+    <title>估值杠杆策略 (全功能终极版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -926,11 +926,12 @@
         } catch (e) { alert("❌ " + e.message); updateStatus('error', '拉取失败'); } finally { btn.innerText = origin; btn.disabled = false; }
     }
 
-    // ▼▼▼▼▼▼▼▼▼▼ 核心修复：智能代码清洗与合并 ▼▼▼▼▼▼▼▼▼▼
+    // ▼▼▼▼▼▼▼▼▼▼ 导入合并逻辑 ▼▼▼▼▼▼▼▼▼▼
     async function importMergeFromGithub() {
         const cfg = getGbConfig(); let token = cfg.token;
         if (!token) { openSettingsModal(); return; }
         
+        // 目标仓库配置
         const DATA_REPO_USER = "dlezywj-cell";
         const DATA_REPO_NAME = "stockdata";
         
@@ -940,15 +941,18 @@
         updateStatus('syncing', '正在计算并导入...');
         try {
             let data = [];
+            // 如果输入是 http URL，直接用；否则构建 API URL 指向 stockdata 仓库
             if (targetPath.startsWith('http')) {
                 const res = await fetch(targetPath); if (!res.ok) throw new Error("无法访问该 URL"); data = await res.json();
             } else {
+                // 强制指向 dlezywj-cell/stockdata
                 const url = `https://api.github.com/repos/${DATA_REPO_USER}/${DATA_REPO_NAME}/contents/${targetPath.trim()}`;
                 const headers = { "Accept": "application/vnd.github.v3+json" }; if(token) headers["Authorization"] = `token ${token.trim()}`;
                 let res = await fetch(url, { headers });
                 
                 if (res.ok) { const json = await res.json(); data = JSON.parse(safeB64ToUtf8(json.content)); } 
                 else { 
+                    // 降级 Raw URL，也指向 stockdata 仓库
                     const rawUrl = `https://raw.githubusercontent.com/${DATA_REPO_USER}/${DATA_REPO_NAME}/main/${targetPath.trim()}?t=${Date.now()}`; 
                     const rawRes = await fetch(rawUrl); if(!rawRes.ok) throw new Error("未找到文件"); data = await rawRes.json(); 
                 }
@@ -956,27 +960,25 @@
             if (!Array.isArray(data)) throw new Error("源数据格式必须是数组 [...]");
 
             let addedCount = 0, updatedCount = 0;
-            
-            // 修复逻辑：遍历每一条新数据
+            const stockMap = new Map(); stocks.forEach(s => stockMap.set(s.code, s));
+
             data.forEach(sourceItem => {
                 if (!sourceItem.code || !sourceItem.name) return; 
 
-                // 1. 代码格式化：处理 "0.002008" 这种浮点字符串
-                let rawCodeStr = String(sourceItem.code).trim().toUpperCase();
-                // 如果是 0.xxxx 这种 Excel 导出格式，去掉前面的 0.
-                if (/^0\.\d+$/.test(rawCodeStr)) {
-                    rawCodeStr = rawCodeStr.split('.')[1]; 
+                // ▼▼▼▼ 代码格式标准化逻辑 ▼▼▼▼
+                let rawCode = sourceItem.code.trim().toUpperCase();
+                let bareCode = rawCode.replace(/\.(HK|SH|SZ|US)$/, '').replace(/^(HK|SH|SZ|US)\.?/, '');
+                let finalCode = rawCode;
+                if (!rawCode.includes('.')) {
+                    if (/^\d{5}$/.test(bareCode)) finalCode = bareCode + ".HK";
+                    else if (/^\d{6}$/.test(bareCode)) finalCode = bareCode.startsWith('6') ? bareCode + ".SH" : bareCode + ".SZ";
+                    else if (!/^\d+$/.test(bareCode)) finalCode = bareCode + ".US";
+                } else {
+                    const suffix = rawCode.split('.').pop();
+                    finalCode = bareCode + "." + suffix;
                 }
-                
-                // 2. 根据位数补全后缀 (仅当没有 .SH/.SZ/.HK/.US 时)
-                let finalCode = rawCodeStr;
-                if (!/\.(SH|SZ|HK|US)$/.test(rawCodeStr)) {
-                    if (/^\d{5}$/.test(rawCodeStr)) finalCode = rawCodeStr + ".HK";
-                    else if (/^\d{6}$/.test(rawCodeStr)) finalCode = rawCodeStr.startsWith('6') ? rawCodeStr + ".SH" : rawCodeStr + ".SZ";
-                    else if (/^[A-Z]+$/.test(rawCodeStr)) finalCode = rawCodeStr + ".US";
-                }
+                // ▲▲▲▲ 标准化结束 ▲▲▲▲
 
-                // 3. 计算市值
                 const profit = parseFloat(sourceItem.profit) || 0, revenue = parseFloat(sourceItem.revenue) || 0;
                 const lowPE = parseFloat(sourceItem.lowPE) || 0, highPE = parseFloat(sourceItem.highPE) || 0;
                 const lowPS = parseFloat(sourceItem.lowPS) || 0, highPS = parseFloat(sourceItem.highPS) || 0;
@@ -990,35 +992,16 @@
                 let maxCandidates = []; if (valPE_High > 0) maxCandidates.push(valPE_High); if (valPS_High > 0) maxCandidates.push(valPS_High);
                 let calcMax = maxCandidates.length > 0 ? Math.min(...maxCandidates) : (sourceItem.maxCap || 4000);
 
-                const newItem = { 
-                    code: finalCode, // 使用修复后的代码
-                    name: sourceItem.name, 
-                    minCap: calcMin, 
-                    maxCap: calcMax, 
-                    profit, revenue, 
-                    tags: sourceItem.tags || "", 
-                    lastMod: new Date().toISOString().split('T')[0] 
-                };
+                const newItem = { code: finalCode, name: sourceItem.name, minCap: calcMin, maxCap: calcMax, profit, revenue, tags: sourceItem.tags || "", lastMod: new Date().toISOString().split('T')[0] };
 
-                // 4. 智能合并：优先匹配名称，其次匹配代码
-                const existingIndex = stocks.findIndex(s => s.name === newItem.name || s.code === newItem.code);
-                
-                if (existingIndex !== -1) {
-                    // 找到了：更新旧数据 (包括更新成标准化的代码)
-                    stocks[existingIndex] = { ...stocks[existingIndex], ...newItem };
-                    updatedCount++;
-                } else {
-                    // 没找到：新增
-                    stocks.push(newItem);
-                    addedCount++;
-                }
+                if (stockMap.has(finalCode)) { Object.assign(stockMap.get(finalCode), newItem); updatedCount++; } 
+                else { stocks.push(newItem); stockMap.set(finalCode, newItem); addedCount++; }
             });
 
             APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(true);
             alert(`✅ 导入成功!\n新增: ${addedCount}, 更新: ${updatedCount}`); updateStatus('online', '导入完成');
         } catch (e) { console.error(e); alert("❌ 导入失败: " + e.message); updateStatus('error', '导入失败'); }
     }
-    // ▲▲▲▲▲▲▲▲▲▲ 修复结束 ▲▲▲▲▲▲▲▲▲▲
 
     function calculateMarketStagesMarkArea() {
         if (!batchResults || batchResults.length === 0) return { data: [] };
@@ -1256,6 +1239,66 @@
         contributionChart.setOption({
             tooltip: { trigger: 'axis', formatter: function (params) { let sum = params.reduce((a,b)=>a+parseFloat(b.value),0); return `<div style="font-weight:bold">${params[0].name}</div>总累计盈亏: ${(sum*100).toFixed(2)}%`; } },
             legend: { data: allNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, grid: { left: '12%', right: '8%', bottom: '25px', containLabel: false }, xAxis: { type: 'category', boundaryGap: false, data: dates }, yAxis: { type: 'value', axisLabel: { formatter: (val) => (val*100).toFixed(0)+'%' } }, dataZoom: [{type:'inside'}, {type:'slider', bottom:0, height:20}], series: seriesData
+        });
+    }
+
+    function searchStock() {
+        const val = document.getElementById('inName').value.trim(); if(!val) return;
+        const s = document.createElement('script');
+        s.src = `https://searchapi.eastmoney.com/api/suggest/get?input=${encodeURIComponent(val)}&type=14&token=D43BF722C8E33BD5D50F639205545E43&cb=handleSearch`;
+        window.handleSearch = (d) => { if(d?.QuotationCodeTable?.Data?.[0]) { let r = d.QuotationCodeTable.Data[0], suffix = ""; if (/^\d{5}$/.test(r.Code)) suffix = r.Code.startsWith('6') ? ".SH" : ".SZ"; else if (!/^\d+$/.test(r.Code)) suffix = ".US"; else { if(r.MarketType == "1") suffix = ".SH"; else if(r.MarketType == "2") suffix = ".SZ"; else if(r.MarketType == "5") suffix = ".HK"; } document.getElementById('inCode').value = r.Code + suffix; document.getElementById('inName').value = r.Name; } else alert("未找到"); s.remove(); }
+        document.body.appendChild(s);
+    }
+    function saveStock() {
+        const code = document.getElementById('inCode').value, name = document.getElementById('inName').value;
+        const min = parseFloat(document.getElementById('inMin').value), max = parseFloat(document.getElementById('inMax').value);
+        if(!code || isNaN(min)) return alert("请填写完整");
+        const item = { code, name, minCap: min, maxCap: max, lastMod: new Date().toISOString().split('T')[0] }; 
+        const idx = stocks.findIndex(s => s.code === code); if(idx >= 0) stocks[idx] = item; else stocks.push(item); 
+        APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(true); alert("已保存");
+    }
+    function renderTable() {
+        const tb = document.getElementById('stock-tbody');
+        tb.innerHTML = stocks.map((s, i) => `<tr> <td><b>${s.name}</b> <span style="color:#999;font-size:12px">${s.code}</span></td> <td> ${Math.round(s.minCap)}-${Math.round(s.maxCap)}亿 <div style="font-size:10px; color:#aaa; margin-top:2px;">${s.lastMod || ''}</div> </td> <td style="text-align:center;"><div class="op-btn-group"><button class="btn btn-edit-yellow btn-icon-square" onclick="editStock(${i})">✎</button><button class="btn btn-del-red btn-icon-square" onclick="delStock(${i})">✕</button></div></td> <td style="text-align:center;"><input type="checkbox" class="stock-chk" value="${i}" checked></td> </tr>`).join('');
+        filterStockList(); checkAllState();
+    }
+
+    function toggleAllStocks(el) { document.querySelectorAll('#stock-tbody tr').forEach(row => { if (row.style.display !== 'none') { const chk = row.querySelector('.stock-chk'); if (chk) chk.checked = el.checked; } }); }
+    function checkAllState() { const rows = Array.from(document.querySelectorAll('#stock-tbody tr')).filter(r => r.style.display !== 'none'); if (rows.length === 0) { document.getElementById('check-all').checked = false; return; } document.getElementById('check-all').checked = (rows.filter(r => r.querySelector('.stock-chk').checked).length === rows.length); }
+    document.addEventListener('change', function(e){ if(e.target.classList.contains('stock-chk')) checkAllState(); });
+    function editStock(i) { const s = stocks[i]; document.getElementById('inName').value = s.name; document.getElementById('inCode').value = s.code; document.getElementById('inMin').value = s.minCap; document.getElementById('inMax').value = s.maxCap; document.getElementById('card-config').scrollIntoView({behavior: 'smooth'}); }
+    function delStock(i) { if(confirm("确认删除？")) { stocks.splice(i, 1); APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(true); } }
+
+    function appendSummaryRow(res, index) {
+        const tr = document.createElement('tr'); tr.id = `row-${index}`; tr.onclick = () => showDetail(index);
+        const lastLog = res.logs && res.logs.length > 0 ? res.logs[res.logs.length - 1] : { action: '-', val: '-', reason: '无数据' };
+        tr.innerHTML = `<td><b>${res.stockName}</b><br><span style="color:#999;font-size:10px">${res.stockCode}</span></td><td class="${res.stats.ret >= 0 ? 'val-pos' : 'val-neg'}">${res.stats.ret.toFixed(1)}%</td><td style="color:#555;">${res.stats.maxDD.toFixed(1)}%</td><td><div style="display:flex; flex-direction:column; align-items:flex-end; justify-content:center;">${lastLog.action}<span style="font-size:10px; color:#888; margin-top:3px; font-family:monospace;">${lastLog.val}</span></div></td><td style="text-align:left; padding-left:10px; max-width:220px;"><span style="font-size:11px; color:#333; display:block; line-height:1.4; white-space:normal;">${lastLog.reason}</span></td>`;
+        document.getElementById('summary-tbody').appendChild(tr);
+    }
+    function showDetail(index) {
+        const res = batchResults.find(r => r.index === index); if(!res) return;
+        document.querySelectorAll('.summary-table tr').forEach(r => r.classList.remove('selected')); document.getElementById(`row-${index}`)?.classList.add('selected');
+        document.getElementById('detail-view').style.display = 'block';
+        const input = document.getElementById('detail-combo-input'); if(input) { input.value = `${res.stockName} (${res.stockCode})`; document.querySelectorAll('.combo-option').forEach(opt => opt.classList.remove('active')); document.querySelector(`.combo-option[data-index="${index}"]`)?.classList.add('active'); }
+        document.getElementById('val-ret').innerText = res.stats.ret.toFixed(2) + '%'; document.getElementById('val-ret').className = 'stat-val ' + (res.stats.ret>=0?'win':'loss');
+        document.getElementById('val-stock').innerText = res.stats.stockRet.toFixed(2) + '%'; document.getElementById('val-stock').className = 'stat-val ' + (res.stats.stockRet>=0?'win':'loss');
+        document.getElementById('val-lev').innerText = res.stats.avgLev.toFixed(2) + 'x';
+        renderChart(res.history); renderLog(res.logs); if(myChart) myChart.resize();
+    }
+    function renderLog(logs) {
+        const tbody = document.getElementById('log-tbody'); document.getElementById('log-count').innerText = `(${logs.length})`;
+        if(logs.length === 0) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">期间无操作</td></tr>'; return; }
+        tbody.innerHTML = logs.slice().reverse().map(l => `<tr><td class="log-col-date" style="color:#666;">${l.date}</td><td class="log-col-action">${l.action}</td><td class="log-col-val" style="font-family:monospace;">${l.val}</td><td class="log-col-mas">${l.mas}</td><td class="log-col-reason" style="color:#555;" title="${l.reason}">${l.reason}</td></tr>`).join('');
+    }
+    function renderChart(hist) {
+        const dom = document.getElementById('chart-box'); if(myChart) myChart.clear(); else myChart = echarts.init(dom);
+        myChart.setOption({
+            tooltip: { trigger: 'axis', axisPointer: { type: 'cross', link: { xAxisIndex: 'all' } }, formatter: p => { if(!p.length)return''; const i=p[0].dataIndex, d=hist[i]; return `<div style="font-weight:bold">${d.date}</div>股价: ${d.close}<br>净值: ${d.nav.toFixed(3)}<br>杠杆: ${d.leverage.toFixed(2)}x`; } },
+            grid: [{ left: '12%', right: '8%', top: '12%', height: '58%' }, { left: '12%', right: '8%', top: '78%', height: '15%' }],
+            xAxis: [{type:'category', data: hist.map(h=>h.date), gridIndex:0, axisLabel:{show:false}}, {type:'category', data: hist.map(h=>h.date), gridIndex:1, axisLabel:{show:false}}],
+            yAxis: [{type:'value', position:'left'}, {type:'value', position:'right'}, {type:'value', gridIndex:1, min:0, max:2.1}],
+            dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
+            series: [{name:'股价', type:'line', yAxisIndex:0, data:hist.map(h=>h.close), itemStyle:{color:'#999'}, showSymbol:false}, {name:'净值', type:'line', yAxisIndex:1, data:hist.map(h=>h.nav), itemStyle:{color:'#d32f2f'}, showSymbol:false}, {name:'杠杆', type:'line', xAxisIndex:1, yAxisIndex:2, data:hist.map(h=>h.leverage), itemStyle:{color:'#28a745'}, step:'end', showSymbol:false, areaStyle:{opacity:0.1}}]
         });
     }
 
