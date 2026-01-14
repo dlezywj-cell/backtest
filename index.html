@@ -926,7 +926,7 @@
         } catch (e) { alert("❌ " + e.message); updateStatus('error', '拉取失败'); } finally { btn.innerText = origin; btn.disabled = false; }
     }
 
-    // ▼▼▼▼▼▼▼▼▼▼ 导入合并逻辑 (已修正代码格式化) ▼▼▼▼▼▼▼▼▼▼
+    // ▼▼▼▼▼▼▼▼▼▼ 导入合并逻辑 (已修正: 去除前缀 + 覆盖数据) ▼▼▼▼▼▼▼▼▼▼
     async function importMergeFromGithub() {
         const cfg = getGbConfig(); let token = cfg.token;
         if (!token) { openSettingsModal(); return; }
@@ -935,64 +935,65 @@
         const DATA_REPO_USER = "dlezywj-cell";
         const DATA_REPO_NAME = "stockdata";
         
-        let targetPath = prompt(`从 ${DATA_REPO_USER}/${DATA_REPO_NAME} 导入:\n请输入文件名:`, "data.json");
+        let targetPath = prompt(`从 ${DATA_REPO_USER}/${DATA_REPO_NAME} 导入 (将覆盖当前数据):\n请输入文件名:`, "data.json");
         if (!targetPath) return;
 
         updateStatus('syncing', '正在计算并导入...');
         try {
             let data = [];
-            // 如果输入是 http URL，直接用；否则构建 API URL 指向 stockdata 仓库
             if (targetPath.startsWith('http')) {
                 const res = await fetch(targetPath); if (!res.ok) throw new Error("无法访问该 URL"); data = await res.json();
             } else {
-                // 强制指向 dlezywj-cell/stockdata
                 const url = `https://api.github.com/repos/${DATA_REPO_USER}/${DATA_REPO_NAME}/contents/${targetPath.trim()}`;
                 const headers = { "Accept": "application/vnd.github.v3+json" }; if(token) headers["Authorization"] = `token ${token.trim()}`;
                 let res = await fetch(url, { headers });
                 
                 if (res.ok) { const json = await res.json(); data = JSON.parse(safeB64ToUtf8(json.content)); } 
                 else { 
-                    // 降级 Raw URL，也指向 stockdata 仓库
                     const rawUrl = `https://raw.githubusercontent.com/${DATA_REPO_USER}/${DATA_REPO_NAME}/main/${targetPath.trim()}?t=${Date.now()}`; 
                     const rawRes = await fetch(rawUrl); if(!rawRes.ok) throw new Error("未找到文件"); data = await rawRes.json(); 
                 }
             }
             if (!Array.isArray(data)) throw new Error("源数据格式必须是数组 [...]");
 
-            let addedCount = 0, updatedCount = 0;
-            const stockMap = new Map(); stocks.forEach(s => stockMap.set(s.code, s));
+            // ⚠️ 覆盖模式：先清空当前列表
+            stocks = [];
+            let addedCount = 0;
 
             data.forEach(sourceItem => {
                 if (!sourceItem.code || !sourceItem.name) return; 
 
-                // ▼▼▼▼ 代码格式标准化逻辑 (修正版：强制无前缀、有后缀) ▼▼▼▼
-                let rawCode = sourceItem.code.trim().toUpperCase();
+                // ▼▼▼▼ 代码格式标准化逻辑 (修正版：去前缀+智能后缀) ▼▼▼▼
+                let rawCode = sourceItem.code.toString().trim().toUpperCase();
                 
-                // 1. 剥离出纯代码 (移除可能存在的 .SH, .SZ, sh, sz 等前后缀)
-                let bareCode = rawCode.replace(/^(HK|SH|SZ|US)\.?/i, '').replace(/\.(HK|SH|SZ|US)$/i, '');
+                // 1. 剥离纯代码：
+                // 移除 sh/sz 等字母前缀/后缀
+                let bareCode = rawCode.replace(/^[A-Z]+\.?/i, '').replace(/\.[A-Z]+$/i, '');
+                // 移除 0.xxxxxx 或 1.xxxxxx 这种东财数字前缀 (关键修正!)
+                bareCode = bareCode.replace(/^[01]\./, ''); 
                 
                 // 2. 判定后缀
                 let suffix = "";
                 
-                // 优先根据原代码中的标识判断
+                // 优先根据原代码中的字母标识
                 if (rawCode.includes('.SH') || rawCode.startsWith('SH')) suffix = ".SH";
                 else if (rawCode.includes('.SZ') || rawCode.startsWith('SZ')) suffix = ".SZ";
                 else if (rawCode.includes('.HK') || rawCode.startsWith('HK')) suffix = ".HK";
                 else if (rawCode.includes('.US') || rawCode.startsWith('US')) suffix = ".US";
                 
-                // 如果原代码没有标识，则根据数字规则智能推断
+                // 如果原代码没有标识，则根据数字规则推断
                 if (!suffix) {
-                    if (/^6\d{5}$/.test(bareCode)) suffix = ".SH";       // 6开头6位 -> 上交所
+                    if (/^6\d{5}$/.test(bareCode)) suffix = ".SH";       // 6开头 -> 上交所
                     else if (/^9\d{5}$/.test(bareCode)) suffix = ".SH";  // 9开头 -> B股
-                    else if (/^00\d{4}$/.test(bareCode)) suffix = ".SZ"; // 00开头 -> 深交所
-                    else if (/^30\d{4}$/.test(bareCode)) suffix = ".SZ"; // 30开头 -> 创业板
-                    else if (/^8\d{5}$/.test(bareCode)) suffix = ".SZ";  // 8开头 -> 北交所/新三板
+                    else if (/^0\d{5}$/.test(bareCode)) suffix = ".SZ";  // 0开头 -> 深交所 (修正: 002008)
+                    else if (/^3\d{5}$/.test(bareCode)) suffix = ".SZ";  // 3开头 -> 创业板
+                    else if (/^8\d{5}$/.test(bareCode)) suffix = ".SZ";  // 8开头 -> 北交所 (暂归SZ处理)
+                    else if (/^4\d{5}$/.test(bareCode)) suffix = ".SZ";  // 4开头 -> 三板
                     else if (/^\d{5}$/.test(bareCode)) suffix = ".HK";   // 5位数字 -> 港股
                     else if (!/^\d+$/.test(bareCode)) suffix = ".US";    // 非纯数字 -> 美股
                     else suffix = ".SZ"; // 默认兜底
                 }
 
-                // 3. 组装最终格式：代码 + 后缀
                 let finalCode = bareCode + suffix;
                 // ▲▲▲▲ 标准化结束 ▲▲▲▲
 
@@ -1010,13 +1011,11 @@
                 let calcMax = maxCandidates.length > 0 ? Math.min(...maxCandidates) : (sourceItem.maxCap || 4000);
 
                 const newItem = { code: finalCode, name: sourceItem.name, minCap: calcMin, maxCap: calcMax, profit, revenue, tags: sourceItem.tags || "", lastMod: new Date().toISOString().split('T')[0] };
-
-                if (stockMap.has(finalCode)) { Object.assign(stockMap.get(finalCode), newItem); updatedCount++; } 
-                else { stocks.push(newItem); stockMap.set(finalCode, newItem); addedCount++; }
+                stocks.push(newItem); addedCount++;
             });
 
             APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(true);
-            alert(`✅ 导入成功!\n新增: ${addedCount}, 更新: ${updatedCount}`); updateStatus('online', '导入完成');
+            alert(`✅ 导入成功 (覆盖模式)!\n共导入: ${addedCount} 条数据`); updateStatus('online', '导入完成');
         } catch (e) { console.error(e); alert("❌ 导入失败: " + e.message); updateStatus('error', '导入失败'); }
     }
 
