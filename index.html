@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (自动计算增强版)</title>
+    <title>估值杠杆策略 (跨仓库数据源版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -196,7 +196,7 @@
         <div style="display:flex; gap:10px; margin-top:15px; border-top:1px solid #eee; padding-top:15px;">
             <button class="btn btn-purple" style="flex:1" id="btn-pull" onclick="syncFromGithub()">☁️ 拉取(覆盖)</button>
             <!-- ⬇️ 导入按钮 ⬇️ -->
-            <button class="btn btn-gray" style="flex:1" onclick="importMergeFromGithub()">📥 导入(合并)</button>
+            <button class="btn btn-gray" style="flex:1" onclick="importMergeFromGithub()">📥 导入(StockData)</button>
             <button class="btn btn-orange" style="flex:1" id="btn-push" onclick="uploadToGithub()">🚀 保存配置</button>
             <button class="btn btn-green" style="flex:1" onclick="saveStock()">💾 存本地</button>
         </div>
@@ -784,24 +784,36 @@
         } catch (e) { alert("❌ " + e.message); updateStatus('error', '拉取失败'); } finally { btn.innerText = origin; btn.disabled = false; }
     }
 
-    // ▼▼▼▼▼▼▼▼▼▼ 新增：导入合并功能 ▼▼▼▼▼▼▼▼▼▼
+    // ▼▼▼▼▼▼▼▼▼▼ 修改：跨仓库导入逻辑 ▼▼▼▼▼▼▼▼▼▼
     async function importMergeFromGithub() {
         const cfg = getGbConfig(); let token = cfg.token;
         if (!token) { openSettingsModal(); return; }
-        let targetPath = prompt("请输入 GitHub 仓库中的文件名:", "data.json");
+        
+        // 目标仓库配置
+        const DATA_REPO_USER = "dlezywj-cell";
+        const DATA_REPO_NAME = "stockdata";
+        
+        let targetPath = prompt(`从 ${DATA_REPO_USER}/${DATA_REPO_NAME} 导入:\n请输入文件名:`, "data.json");
         if (!targetPath) return;
 
         updateStatus('syncing', '正在计算并导入...');
         try {
             let data = [];
+            // 如果输入是 http URL，直接用；否则构建 API URL 指向 stockdata 仓库
             if (targetPath.startsWith('http')) {
                 const res = await fetch(targetPath); if (!res.ok) throw new Error("无法访问该 URL"); data = await res.json();
             } else {
-                const url = `https://api.github.com/repos/${cfg.username}/${cfg.repo}/contents/${targetPath.trim()}`;
+                // 强制指向 dlezywj-cell/stockdata
+                const url = `https://api.github.com/repos/${DATA_REPO_USER}/${DATA_REPO_NAME}/contents/${targetPath.trim()}`;
                 const headers = { "Accept": "application/vnd.github.v3+json" }; if(token) headers["Authorization"] = `token ${token.trim()}`;
                 let res = await fetch(url, { headers });
+                
                 if (res.ok) { const json = await res.json(); data = JSON.parse(safeB64ToUtf8(json.content)); } 
-                else { const rawUrl = `https://raw.githubusercontent.com/${cfg.username}/${cfg.repo}/${cfg.branch}/${targetPath.trim()}?t=${Date.now()}`; const rawRes = await fetch(rawUrl); if(!rawRes.ok) throw new Error("未找到文件"); data = await rawRes.json(); }
+                else { 
+                    // 降级 Raw URL，也指向 stockdata 仓库
+                    const rawUrl = `https://raw.githubusercontent.com/${DATA_REPO_USER}/${DATA_REPO_NAME}/main/${targetPath.trim()}?t=${Date.now()}`; 
+                    const rawRes = await fetch(rawUrl); if(!rawRes.ok) throw new Error("未找到文件"); data = await rawRes.json(); 
+                }
             }
             if (!Array.isArray(data)) throw new Error("源数据格式必须是数组 [...]");
 
@@ -834,7 +846,7 @@
             alert(`✅ 导入成功!\n新增: ${addedCount}, 更新: ${updatedCount}`); updateStatus('online', '导入完成');
         } catch (e) { console.error(e); alert("❌ 导入失败: " + e.message); updateStatus('error', '导入失败'); }
     }
-    // ▲▲▲▲▲▲▲▲▲▲ 新增结束 ▲▲▲▲▲▲▲▲▲▲
+    // ▲▲▲▲▲▲▲▲▲▲ 修改结束 ▲▲▲▲▲▲▲▲▲▲
 
     function searchStock() {
         const val = document.getElementById('inName').value.trim(); if(!val) return;
@@ -896,7 +908,6 @@
         });
     }
 
-    // 组合、持仓、状态分布等图表渲染省略复杂细节以保持流畅，核心逻辑同上
     function runPortfolioStrategy() { /* 保持原逻辑 */ } 
     function renderStatusDistribution() { /* 保持原逻辑 */ }
     function renderTrendLog() { /* 保持原逻辑 */ }
