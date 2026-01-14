@@ -926,7 +926,7 @@
         } catch (e) { alert("❌ " + e.message); updateStatus('error', '拉取失败'); } finally { btn.innerText = origin; btn.disabled = false; }
     }
 
-    // ▼▼▼▼▼▼▼▼▼▼ 导入合并逻辑 ▼▼▼▼▼▼▼▼▼▼
+    // ▼▼▼▼▼▼▼▼▼▼ 导入合并逻辑 (已修正代码格式化) ▼▼▼▼▼▼▼▼▼▼
     async function importMergeFromGithub() {
         const cfg = getGbConfig(); let token = cfg.token;
         if (!token) { openSettingsModal(); return; }
@@ -965,18 +965,35 @@
             data.forEach(sourceItem => {
                 if (!sourceItem.code || !sourceItem.name) return; 
 
-                // ▼▼▼▼ 代码格式标准化逻辑 ▼▼▼▼
+                // ▼▼▼▼ 代码格式标准化逻辑 (修正版：强制无前缀、有后缀) ▼▼▼▼
                 let rawCode = sourceItem.code.trim().toUpperCase();
-                let bareCode = rawCode.replace(/\.(HK|SH|SZ|US)$/, '').replace(/^(HK|SH|SZ|US)\.?/, '');
-                let finalCode = rawCode;
-                if (!rawCode.includes('.')) {
-                    if (/^\d{5}$/.test(bareCode)) finalCode = bareCode + ".HK";
-                    else if (/^\d{6}$/.test(bareCode)) finalCode = bareCode.startsWith('6') ? bareCode + ".SH" : bareCode + ".SZ";
-                    else if (!/^\d+$/.test(bareCode)) finalCode = bareCode + ".US";
-                } else {
-                    const suffix = rawCode.split('.').pop();
-                    finalCode = bareCode + "." + suffix;
+                
+                // 1. 剥离出纯代码 (移除可能存在的 .SH, .SZ, sh, sz 等前后缀)
+                let bareCode = rawCode.replace(/^(HK|SH|SZ|US)\.?/i, '').replace(/\.(HK|SH|SZ|US)$/i, '');
+                
+                // 2. 判定后缀
+                let suffix = "";
+                
+                // 优先根据原代码中的标识判断
+                if (rawCode.includes('.SH') || rawCode.startsWith('SH')) suffix = ".SH";
+                else if (rawCode.includes('.SZ') || rawCode.startsWith('SZ')) suffix = ".SZ";
+                else if (rawCode.includes('.HK') || rawCode.startsWith('HK')) suffix = ".HK";
+                else if (rawCode.includes('.US') || rawCode.startsWith('US')) suffix = ".US";
+                
+                // 如果原代码没有标识，则根据数字规则智能推断
+                if (!suffix) {
+                    if (/^6\d{5}$/.test(bareCode)) suffix = ".SH";       // 6开头6位 -> 上交所
+                    else if (/^9\d{5}$/.test(bareCode)) suffix = ".SH";  // 9开头 -> B股
+                    else if (/^00\d{4}$/.test(bareCode)) suffix = ".SZ"; // 00开头 -> 深交所
+                    else if (/^30\d{4}$/.test(bareCode)) suffix = ".SZ"; // 30开头 -> 创业板
+                    else if (/^8\d{5}$/.test(bareCode)) suffix = ".SZ";  // 8开头 -> 北交所/新三板
+                    else if (/^\d{5}$/.test(bareCode)) suffix = ".HK";   // 5位数字 -> 港股
+                    else if (!/^\d+$/.test(bareCode)) suffix = ".US";    // 非纯数字 -> 美股
+                    else suffix = ".SZ"; // 默认兜底
                 }
+
+                // 3. 组装最终格式：代码 + 后缀
+                let finalCode = bareCode + suffix;
                 // ▲▲▲▲ 标准化结束 ▲▲▲▲
 
                 const profit = parseFloat(sourceItem.profit) || 0, revenue = parseFloat(sourceItem.revenue) || 0;
