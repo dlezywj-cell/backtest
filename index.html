@@ -700,12 +700,16 @@
             let matchMarket = true;
             if (currentMarketFilter !== 'ALL') {
                 const c = stock.code.toUpperCase();
-                if (currentMarketFilter === 'A') {
-                    matchMarket = c.includes('.SH') || c.includes('.SZ');
-                } else if (currentMarketFilter === 'HK') {
-                    matchMarket = c.includes('.HK');
+                // 按照您的要求修改后的判断逻辑：
+                if (currentMarketFilter === 'HK') {
+                    // 以 .HK 结尾的是港股
+                    matchMarket = c.endsWith('.HK');
                 } else if (currentMarketFilter === 'US') {
-                    matchMarket = c.includes('.US');
+                    // 以 .US 结尾的是美股
+                    matchMarket = c.endsWith('.US');
+                } else if (currentMarketFilter === 'A') {
+                    // 其他都是A股 (即：不是HK 且 不是US)
+                    matchMarket = !c.endsWith('.HK') && !c.endsWith('.US');
                 }
             }
 
