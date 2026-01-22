@@ -121,7 +121,7 @@
         .list-search-bar input { flex: 1; min-width: 120px; border: 1px solid #eee; border-radius: 6px; padding: 8px; font-size: 13px; background: #f9f9f9; outline: none; transition: all 0.2s; }
         .list-search-bar input:focus { background: #fff; border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.1); }
         
-        /* === 新增：市场筛选按钮样式 === */
+        /* === 市场筛选按钮样式 === */
         .market-filter-group { display: flex; gap: 5px; }
         .filter-btn { border: 1px solid #ddd; background: #fff; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; color: #555; transition: all 0.2s; white-space: nowrap; }
         .filter-btn:hover { background: #f8f9fa; }
@@ -610,6 +610,9 @@
 <script>
     // === 1. 基础配置与隔离策略 ===
     const APP_STORAGE = localStorage;
+    // ▼▼▼ 修复点：将 currentMarketFilter 移到这里，所有函数的最上方 ▼▼▼
+    let currentMarketFilter = 'ALL';
+
     function getGbConfig() {
         return {
             username: APP_STORAGE.getItem('grid_sys_username') || "",
@@ -676,9 +679,7 @@
         closeSettingsModal(); syncFromGithub();
     }
 
-    // === 新增：市场筛选逻辑 ===
-    let currentMarketFilter = 'ALL';
-
+    // === 市场筛选逻辑 ===
     function setMarketFilter(type, btn) {
         currentMarketFilter = type;
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
