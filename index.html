@@ -429,7 +429,8 @@
     </div>
     <div id="portfolio-content" class="section-body">
         <div class="form-row">
-            <div class="form-group"><label>剔除门槛 (Min Threshold)</label><input type="number" id="pMinPos" step="0.1" value="0.4"></div>
+            <!-- 默认值改为 0 -->
+            <div class="form-group"><label>剔除门槛 (Min Threshold)</label><input type="number" id="pMinPos" step="0.1" value="0"></div>
             <div class="form-group"></div>
         </div>
         <div style="text-align:right; margin-bottom:10px;">
@@ -610,7 +611,7 @@
 <script>
     // === 1. 基础配置与隔离策略 ===
     const APP_STORAGE = localStorage;
-    // ▼▼▼ 修复点：将 currentMarketFilter 移到这里，所有函数的最上方 ▼▼▼
+    // ▼▼▼ 全局变量：当前市场筛选状态 ▼▼▼
     let currentMarketFilter = 'ALL';
 
     function getGbConfig() {
@@ -693,22 +694,20 @@
         const rows = document.querySelectorAll('#stock-tbody tr');
         
         rows.forEach((row, index) => {
-            const stock = stocks[index]; // 直接获取对应数据
+            const stock = stocks[index];
             const text = row.innerText.toLowerCase();
             const matchText = term === '' || text.includes(term);
             
             let matchMarket = true;
             if (currentMarketFilter !== 'ALL') {
                 const c = stock.code.toUpperCase();
-                // 按照您的要求修改后的判断逻辑：
+                // 修正后的判断逻辑
                 if (currentMarketFilter === 'HK') {
-                    // 以 .HK 结尾的是港股
                     matchMarket = c.endsWith('.HK');
                 } else if (currentMarketFilter === 'US') {
-                    // 以 .US 结尾的是美股
                     matchMarket = c.endsWith('.US');
                 } else if (currentMarketFilter === 'A') {
-                    // 其他都是A股 (即：不是HK 且 不是US)
+                    // 其他都是A股
                     matchMarket = !c.endsWith('.HK') && !c.endsWith('.US');
                 }
             }
@@ -719,7 +718,9 @@
                 row.style.display = 'none'; 
             }
         });
-        document.getElementById('list-count').innerText = `(${visibleCount}/${stocks.length})`; checkAllState();
+        document.getElementById('list-count').innerText = `(${visibleCount}/${stocks.length})`; 
+        // 筛选后重新计算全选框状态
+        checkAllState();
     }
 
     function toggleCard(id) {
@@ -898,10 +899,24 @@
         return { stockName: stock.name, stockCode: stock.code, history, logs, stats: { ret: (nav-1)*100, stockRet: (history[history.length-1].close/history[0].close-1)*100, maxDD: maxDD * 100, avgLev: history.reduce((a,b)=>a+b.leverage,0)/history.length } };
     }
 
-    // === 4. 运行控制 ===
+    // === 4. 运行控制 (已修复：只运行可见且选中的) ===
     async function runBatchBacktest() {
-        const checked = document.querySelectorAll('.stock-chk:checked'); if(checked.length === 0) return alert("请至少勾选一只股票");
-        const indices = Array.from(checked).map(cb => parseInt(cb.value));
+        // 修改：使用过滤器获取所有可见的行
+        const allRows = document.querySelectorAll('#stock-tbody tr');
+        const indices = [];
+        
+        allRows.forEach((row, index) => {
+            // 只有当行不是隐藏状态 (display != none) 且 复选框被选中时，才加入回测队列
+            if (row.style.display !== 'none') {
+                const chk = row.querySelector('.stock-chk');
+                if (chk && chk.checked) {
+                    indices.push(index);
+                }
+            }
+        });
+
+        if(indices.length === 0) return alert("请至少勾选一只可见的股票");
+
         const btn = document.getElementById('btn-run-all'), progress = document.getElementById('batch-progress'), useTiming = document.getElementById('pTimeEnable').checked;
         
         btn.disabled = true; document.getElementById('summary-tbody').innerHTML = ''; document.getElementById('results-container').style.display = 'none'; progress.style.display = 'block';
@@ -1346,8 +1361,27 @@
         filterStockList(); checkAllState();
     }
 
-    function toggleAllStocks(el) { document.querySelectorAll('#stock-tbody tr').forEach(row => { if (row.style.display !== 'none') { const chk = row.querySelector('.stock-chk'); if (chk) chk.checked = el.checked; } }); }
-    function checkAllState() { const rows = Array.from(document.querySelectorAll('#stock-tbody tr')).filter(r => r.style.display !== 'none'); if (rows.length === 0) { document.getElementById('check-all').checked = false; return; } document.getElementById('check-all').checked = (rows.filter(r => r.querySelector('.stock-chk').checked).length === rows.length); }
+    // === 修改：只全选/取消全选“可见”的行 ===
+    function toggleAllStocks(el) { 
+        document.querySelectorAll('#stock-tbody tr').forEach(row => { 
+            // 关键修改：只针对未隐藏(style.display != none)的行操作
+            if (row.style.display !== 'none') { 
+                const chk = row.querySelector('.stock-chk'); 
+                if (chk) chk.checked = el.checked; 
+            } 
+        }); 
+    }
+    
+    // === 修改：判断全选状态时只考虑可见行 ===
+    function checkAllState() { 
+        const rows = Array.from(document.querySelectorAll('#stock-tbody tr')).filter(r => r.style.display !== 'none'); 
+        if (rows.length === 0) { 
+            document.getElementById('check-all').checked = false; 
+            return; 
+        } 
+        document.getElementById('check-all').checked = (rows.filter(r => r.querySelector('.stock-chk').checked).length === rows.length); 
+    }
+    
     document.addEventListener('change', function(e){ if(e.target.classList.contains('stock-chk')) checkAllState(); });
     function editStock(i) { const s = stocks[i]; document.getElementById('inName').value = s.name; document.getElementById('inCode').value = s.code; document.getElementById('inMin').value = s.minCap; document.getElementById('inMax').value = s.maxCap; document.getElementById('card-config').scrollIntoView({behavior: 'smooth'}); }
     function delStock(i) { if(confirm("确认删除？")) { stocks.splice(i, 1); APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(true); } }
