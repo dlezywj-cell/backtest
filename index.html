@@ -1,9 +1,10 @@
+html
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>估值杠杆策略 (全功能终极版)</title>
+    <title>估值杠杆策略 (自动修复版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         /* === 基础变量 === */
@@ -41,6 +42,8 @@
         .form-group { flex: 1; min-width: 0; }
         .form-group label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; }
         .form-group input { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
+        /* 新增：网络选择下拉框 */
+        .net-select { padding: 10px; border: 1px solid #ffca28; background: #fff8e1; border-radius: 6px; font-weight: bold; color: #555; width: 100%; outline: none; }
 
         .run-bar { display: flex; gap: 10px; align-items: flex-end; background:#f8f9fa; padding:10px; border-radius:6px; margin-top:0; }
         @media (max-width: 600px) {
@@ -290,6 +293,20 @@
             <button class="btn btn-blue" style="margin-bottom:1px; width:40px;" onclick="searchStock()">🔍</button>
             <div class="form-group" style="flex:1.5"><label>代码 (自动)</label><input type="text" id="inCode" readonly></div>
         </div>
+        
+        <!-- 新增：网络线路选择 -->
+        <div class="form-row">
+            <div class="form-group">
+                <label>🌐 网络线路 (如遇 "Failed to fetch" 错误请切换)</label>
+                <select id="net-route" class="net-select" onchange="saveNetworkPref()">
+                    <option value="allorigins">线路 1 (AllOrigins - 推荐)</option>
+                    <option value="corsproxy">线路 2 (CorsProxy - 备用)</option>
+                    <option value="direct">线路 3 (直连模式 - 需安装 Allow-CORS 插件)</option>
+                </select>
+            </div>
+        </div>
+        <div style="font-size:11px; color:#999; margin-bottom:10px;">* 注：开启 VPN 时建议使用“直连模式”并安装 Allow-CORS 浏览器插件，速度最快且不报错。</div>
+
         <div class="form-row">
             <div class="form-group"><label>最低市值(亿)</label><input type="number" id="inMin" placeholder="2500"></div>
             <div class="form-group"><label>最高市值(亿)</label><input type="number" id="inMax" placeholder="4000"></div>
@@ -300,6 +317,10 @@
             <button class="btn btn-gray" style="flex:1" onclick="importMergeFromGithub()">📥 导入(StockData)</button>
             <button class="btn btn-orange" style="flex:1" id="btn-push" onclick="uploadToGithub()">🚀 保存配置</button>
             <button class="btn btn-green" style="flex:1" onclick="saveStock()">💾 存本地</button>
+        </div>
+        <!-- 修复按钮 -->
+        <div style="margin-top:10px;">
+             <button class="btn btn-edit-yellow" style="width:100%; font-size:12px; padding:6px;" onclick="ensureStockCodes()">🔧 自动修复缺失代码 (解决无K线数据问题)</button>
         </div>
     </div>
 </div>
@@ -613,6 +634,8 @@
     const APP_STORAGE = localStorage;
     // ▼▼▼ 全局变量：当前市场筛选状态 ▼▼▼
     let currentMarketFilter = 'ALL';
+    // 新增：代理配置
+    let currentProxyPref = APP_STORAGE.getItem('gridProxyPref') || 'allorigins';
 
     function getGbConfig() {
         return {
@@ -624,7 +647,22 @@
         };
     }
 
-    const PROXY = 'https://corsproxy.io/?'; 
+    // 初始化下拉框状态
+    document.getElementById('net-route').value = currentProxyPref;
+
+    function saveNetworkPref() {
+        const val = document.getElementById('net-route').value;
+        APP_STORAGE.setItem('gridProxyPref', val);
+        currentProxyPref = val;
+        alert("线路已切换! 如下次运行仍报错请尝试其他线路。\n\n提示：'直连模式' 需配合 Allow-CORS 浏览器插件使用。");
+    }
+
+    function getProxyUrl() {
+        if (currentProxyPref === 'direct') return ''; // 直连
+        if (currentProxyPref === 'corsproxy') return 'https://corsproxy.io/?';
+        return 'https://api.allorigins.win/raw?url='; // 默认
+    }
+
     let stocks = JSON.parse(APP_STORAGE.getItem('gridStocks')) || [];
     let myChart = null;
     let batchResults = [];
@@ -700,7 +738,7 @@
             
             let matchMarket = true;
             if (currentMarketFilter !== 'ALL') {
-                const c = stock.code.toUpperCase();
+                const c = stock.code ? stock.code.toUpperCase() : "";
                 // 修正后的判断逻辑
                 if (currentMarketFilter === 'HK') {
                     matchMarket = c.endsWith('.HK');
@@ -746,6 +784,7 @@
     function safeB64ToUtf8(str) { return decodeURIComponent(escape(window.atob(str.replace(/\s/g, '')))); }
     function utf8ToB64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
     const getEmSecId = c => { 
+        if (!c) return "0.000000"; // 防止空代码报错
         let raw = c.replace(/\.[A-Z]+$/, '');
         if (/^\d{5}$/.test(raw)) return '116.' + raw.padStart(5, '0');
         if (c.includes('.US')) return '105.' + raw;
@@ -753,17 +792,89 @@
         return '0.' + raw; 
     };
 
+    // 新增：自动补全缺失代码函数
+    async function ensureStockCodes() {
+        let missing = stocks.filter(s => !s.code || s.code.trim() === "");
+        if (missing.length === 0) return alert("所有股票代码完整，无需修复。");
+        
+        if (!confirm(`发现 ${missing.length} 只股票缺失代码 (如"海博思创")。\n是否尝试自动修复？\n\n(修复过程中请勿关闭页面)`)) return;
+
+        let fixedCount = 0;
+        const btn = document.querySelector('.btn-edit-yellow');
+        const originalText = btn.innerText;
+
+        for (let i = 0; i < stocks.length; i++) {
+            const s = stocks[i];
+            if (!s.code || s.code.trim() === "") {
+                btn.innerText = `⏳ 正在搜索: ${s.name}...`;
+                try {
+                    // 动态调用搜索接口
+                    const searchUrl = `https://searchapi.eastmoney.com/api/suggest/get?input=${encodeURIComponent(s.name)}&type=14&token=D43BF722C8E33BD5D50F639205545E43`;
+                    // 尝试用代理请求，如果不行直接jsonp（这里简化为代理fetch）
+                    // 为了兼容性，我们用一个临时的 fetch
+                    const res = await fetch(getProxyUrl() + encodeURIComponent(searchUrl));
+                    const json = await res.json();
+                    
+                    // 解析搜索结果
+                    if(json?.QuotationCodeTable?.Data?.[0]) {
+                        let r = json.QuotationCodeTable.Data[0];
+                        let suffix = "";
+                        if (/^\d{5}$/.test(r.Code)) suffix = r.Code.startsWith('6') ? ".SH" : ".SZ"; 
+                        else if (!/^\d+$/.test(r.Code)) suffix = ".US"; 
+                        else { 
+                            if(r.MarketType == "1") suffix = ".SH"; 
+                            else if(r.MarketType == "2") suffix = ".SZ"; 
+                            else if(r.MarketType == "5") suffix = ".HK"; 
+                        }
+                        s.code = r.Code + suffix;
+                        fixedCount++;
+                    }
+                } catch(e) {
+                    console.error("Auto-fix failed for " + s.name, e);
+                }
+                // 稍微延时防止请求过快
+                await new Promise(r => setTimeout(r, 500));
+            }
+        }
+        
+        btn.innerText = originalText;
+        APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks));
+        renderTable();
+        alert(`✅ 修复完成！\n成功找回 ${fixedCount} 个代码。\n请重新点击“运行选中”测试。`);
+    }
+
     async function fetchHistoryKline(secId) {
         const todayStr = new Date().toISOString().split('T')[0]; const cacheKey = `kline_${secId}`; const cached = await getCache(cacheKey);
         if (cached && cached.date === todayStr) return cached.data;
-        let url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&fields1=f1&fields2=f51,f53&klt=101&fqt=1&end=20500101&lmt=600`;
+        
+        let baseParams = `fields1=f1&fields2=f51,f53&klt=101&end=20500101&lmt=600`;
+        // 默认尝试 fqt=1 (前复权)
+        let url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&${baseParams}&fqt=1`;
+
         try {
-            let res = await fetch(PROXY + encodeURIComponent(url));
+            // 1. 尝试获取前复权数据 (增加 _t 防止代理缓存)
+            let currentProxy = getProxyUrl();
+            let res = await fetch(currentProxy + encodeURIComponent(url) + `&_t=${Date.now()}`);
             let json = await res.json();
             let data = json?.data?.klines || [];
-            if (data.length === 0 && secId.startsWith('105.')) { // 美股修复
-                const altUrl = url.replace('105.', '106.'); const r2 = await fetch(PROXY + encodeURIComponent(altUrl)); const j2 = await r2.json(); const d2 = j2?.data?.klines || []; if(d2.length > 0) data = d2;
+
+            // 2. 如果前复权为空，自动降级尝试不复权 (fqt=0)
+            if (data.length === 0) {
+                 let url2 = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&${baseParams}&fqt=0`;
+                 let res2 = await fetch(currentProxy + encodeURIComponent(url2) + `&_t=${Date.now()}`);
+                 let json2 = await res2.json();
+                 data = json2?.data?.klines || [];
             }
+
+            // 3. 美股特殊逻辑 (如果105开头没数据，尝试106)
+            if (data.length === 0 && secId.startsWith('105.')) { 
+                let altUrl = url.replace('105.', '106.'); 
+                let r3 = await fetch(currentProxy + encodeURIComponent(altUrl) + `&_t=${Date.now()}`); 
+                let j3 = await r3.json(); 
+                let d3 = j3?.data?.klines || []; 
+                if(d3.length > 0) data = d3;
+            }
+            
             if (data.length > 0) await setCache(cacheKey, { date: todayStr, data: data });
             return data;
         } catch (e) { return cached ? cached.data : []; }
@@ -777,7 +888,7 @@
             chunk.forEach(id => { expandedChunk.push(id); if(id.startsWith('105.')) expandedChunk.push(id.replace('105.', '106.')); });
             const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${expandedChunk.join(',')}&fields=f12,f2,f20,f124&invt=2&fltt=2&_=${Date.now()}`;
             try {
-                const res = await fetch(PROXY + encodeURIComponent(url));
+                const res = await fetch(getProxyUrl() + encodeURIComponent(url));
                 const json = await res.json();
                 const diff = json?.data?.diff;
                 if (diff) { (Array.isArray(diff) ? diff : Object.values(diff)).forEach(item => { if (item && item.f2 > 0) resultMap[item.f12] = { price: item.f2, totalShares: (item.f20 / item.f2) / 100000000, timestamp: item.f124 }; }); }
@@ -917,6 +1028,16 @@
 
         if(indices.length === 0) return alert("请至少勾选一只可见的股票");
 
+        // 自动检查是否需要修复
+        let missingCodes = stocks.filter(s => !s.code).length;
+        if(missingCodes > 0) {
+            if(confirm(`发现 ${missingCodes} 只股票缺少代码（如海博思创），这会导致“无K线数据”。\n是否立即自动修复？`)) {
+                await ensureStockCodes();
+                // 修复完后可能顺序变了，建议用户重新点击
+                return;
+            }
+        }
+
         const btn = document.getElementById('btn-run-all'), progress = document.getElementById('batch-progress'), useTiming = document.getElementById('pTimeEnable').checked;
         
         btn.disabled = true; document.getElementById('summary-tbody').innerHTML = ''; document.getElementById('results-container').style.display = 'none'; progress.style.display = 'block';
@@ -954,6 +1075,14 @@
         }
 
         progress.innerHTML = `✅ 完成!`; btn.disabled = false;
+        
+        if(batchResults.length === 0) {
+            alert("❌ 所有股票均回测失败！\n\n建议尝试切换网络线路：\n请点击上方的【网络线路】下拉框，切换为 '线路2' 或 '直连模式'。");
+            progress.style.display = 'none'; // 隐藏进度条
+            btn.disabled = false;
+            return; // 结束运行
+        }
+
         if(batchResults.length > 0) {
             document.getElementById('results-container').style.display = 'block';
             updateSummaryFilterOptions(); toggleSection('summary-content', document.querySelector('#batch-summary-box .section-header'));
@@ -991,6 +1120,10 @@
             let data; if (res.ok) data = JSON.parse(safeB64ToUtf8((await res.json()).content)); 
             else { const raw = await fetch(`https://raw.githubusercontent.com/${cfg.username}/${cfg.repo}/${cfg.branch}/${cfg.path}?t=${Date.now()}`); if(!raw.ok) throw new Error("无数据"); data = await raw.json(); }
             if(Array.isArray(data) && confirm(`覆盖本地 ${stocks.length} 条数据?`)) { stocks = data; APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(false); updateStatus('online', '已同步'); }
+            
+            // 自动检查并修复
+            ensureStockCodes();
+            
         } catch (e) { alert("❌ " + e.message); updateStatus('error', '拉取失败'); } finally { btn.innerText = origin; btn.disabled = false; }
     }
 
@@ -1029,54 +1162,57 @@
             let addedCount = 0;
 
             data.forEach(sourceItem => {
-                if (!sourceItem.code || !sourceItem.name) return; 
+                // if (!sourceItem.code || !sourceItem.name) return; // 移除此检查，允许无代码导入后修复
 
                 // ▼▼▼▼ 代码格式标准化逻辑 (修正版：东财特有前缀识别) ▼▼▼▼
-                let rawCode = sourceItem.code.toString().trim().toUpperCase();
-                let bareCode = rawCode;
-                let suffix = "";
+                let finalCode = "";
+                if(sourceItem.code) {
+                    let rawCode = sourceItem.code.toString().trim().toUpperCase();
+                    let bareCode = rawCode;
+                    let suffix = "";
 
-                // 1. 优先检查原字符串是否自带后缀/前缀字母 (如 00700.HK, sh600519)
-                if (rawCode.includes('.HK') || rawCode.startsWith('HK')) suffix = ".HK";
-                else if (rawCode.includes('.US') || rawCode.startsWith('US')) suffix = ".US";
-                else if (rawCode.includes('.SH') || rawCode.startsWith('SH')) suffix = ".SH";
-                else if (rawCode.includes('.SZ') || rawCode.startsWith('SZ')) suffix = ".SZ";
+                    // 1. 优先检查原字符串是否自带后缀/前缀字母 (如 00700.HK, sh600519)
+                    if (rawCode.includes('.HK') || rawCode.startsWith('HK')) suffix = ".HK";
+                    else if (rawCode.includes('.US') || rawCode.startsWith('US')) suffix = ".US";
+                    else if (rawCode.includes('.SH') || rawCode.startsWith('SH')) suffix = ".SH";
+                    else if (rawCode.includes('.SZ') || rawCode.startsWith('SZ')) suffix = ".SZ";
 
-                // 清洗掉所有字母前后缀
-                bareCode = bareCode.replace(/^(HK|SH|SZ|US)\.?/i, '').replace(/\.(HK|SH|SZ|US)$/i, '');
+                    // 清洗掉所有字母前后缀
+                    bareCode = bareCode.replace(/^(HK|SH|SZ|US)\.?/i, '').replace(/\.(HK|SH|SZ|US)$/i, '');
 
-                // 2. 如果还没有后缀，则根据东财特有的数字前缀进行判定
-                if (!suffix) {
-                    if (/^116\./.test(bareCode)) {
-                        suffix = ".HK"; bareCode = bareCode.replace(/^116\./, '');
-                    } 
-                    else if (/^(105|106|107)\./.test(bareCode)) {
-                        suffix = ".US"; bareCode = bareCode.replace(/^(105|106|107)\./, '');
+                    // 2. 如果还没有后缀，则根据东财特有的数字前缀进行判定
+                    if (!suffix) {
+                        if (/^116\./.test(bareCode)) {
+                            suffix = ".HK"; bareCode = bareCode.replace(/^116\./, '');
+                        } 
+                        else if (/^(105|106|107)\./.test(bareCode)) {
+                            suffix = ".US"; bareCode = bareCode.replace(/^(105|106|107)\./, '');
+                        }
+                        else if (/^0\./.test(bareCode)) {
+                            suffix = ".SZ"; bareCode = bareCode.replace(/^0\./, '');
+                        }
+                        else if (/^1\./.test(bareCode)) {
+                            suffix = ".SH"; bareCode = bareCode.replace(/^1\./, '');
+                        }
+                    } else {
+                        // 即使已经有后缀，也要把东财前缀清理掉 (如: 116.00700.HK -> 00700.HK)
+                        bareCode = bareCode.replace(/^(116|105|106|107|0|1)\./, '');
                     }
-                    else if (/^0\./.test(bareCode)) {
-                        suffix = ".SZ"; bareCode = bareCode.replace(/^0\./, '');
+
+                    // 3. 兜底逻辑：如果仍然没有后缀，根据位数规则推断
+                    if (!suffix) {
+                        if (/^6\d{5}$/.test(bareCode)) suffix = ".SH";       // 6开头 -> 上交所
+                        else if (/^9\d{5}$/.test(bareCode)) suffix = ".SH";  // 9开头 -> B股
+                        else if (/^0\d{5}$/.test(bareCode)) suffix = ".SZ";  // 0开头 -> 深交所
+                        else if (/^3\d{5}$/.test(bareCode)) suffix = ".SZ";  // 3开头 -> 创业板
+                        else if (/^8\d{5}$/.test(bareCode)) suffix = ".SZ";  // 8开头 -> 北交所
+                        else if (/^\d{5}$/.test(bareCode)) suffix = ".HK";   // 5位数字 -> 港股
+                        else if (!/^\d+$/.test(bareCode)) suffix = ".US";    // 非纯数字 -> 美股
+                        else suffix = ".SZ"; // 默认
                     }
-                    else if (/^1\./.test(bareCode)) {
-                        suffix = ".SH"; bareCode = bareCode.replace(/^1\./, '');
-                    }
-                } else {
-                    // 即使已经有后缀，也要把东财前缀清理掉 (如: 116.00700.HK -> 00700.HK)
-                    bareCode = bareCode.replace(/^(116|105|106|107|0|1)\./, '');
+
+                    finalCode = bareCode + suffix;
                 }
-
-                // 3. 兜底逻辑：如果仍然没有后缀，根据位数规则推断
-                if (!suffix) {
-                    if (/^6\d{5}$/.test(bareCode)) suffix = ".SH";       // 6开头 -> 上交所
-                    else if (/^9\d{5}$/.test(bareCode)) suffix = ".SH";  // 9开头 -> B股
-                    else if (/^0\d{5}$/.test(bareCode)) suffix = ".SZ";  // 0开头 -> 深交所
-                    else if (/^3\d{5}$/.test(bareCode)) suffix = ".SZ";  // 3开头 -> 创业板
-                    else if (/^8\d{5}$/.test(bareCode)) suffix = ".SZ";  // 8开头 -> 北交所
-                    else if (/^\d{5}$/.test(bareCode)) suffix = ".HK";   // 5位数字 -> 港股
-                    else if (!/^\d+$/.test(bareCode)) suffix = ".US";    // 非纯数字 -> 美股
-                    else suffix = ".SZ"; // 默认
-                }
-
-                let finalCode = bareCode + suffix;
                 // ▲▲▲▲ 标准化结束 ▲▲▲▲
 
                 const profit = parseFloat(sourceItem.profit) || 0, revenue = parseFloat(sourceItem.revenue) || 0;
@@ -1097,7 +1233,11 @@
             });
 
             APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(true);
-            alert(`✅ 导入成功 (覆盖模式)!\n共导入: ${addedCount} 条数据`); updateStatus('online', '导入完成');
+            
+            // 立即修复代码
+            ensureStockCodes();
+
+            updateStatus('online', '导入完成');
         } catch (e) { console.error(e); alert("❌ 导入失败: " + e.message); updateStatus('error', '导入失败'); }
     }
 
