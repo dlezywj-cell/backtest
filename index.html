@@ -117,19 +117,9 @@
         .summary-table tr.selected td { font-weight: 500; }
         .val-pos { color: #d32f2f; } .val-neg { color: #2e7d32; }
 
-        .list-search-bar { padding: 10px 15px; border-bottom: 1px solid #f0f0f0; background: #fff; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .list-search-bar input { flex: 1; min-width: 120px; border: 1px solid #eee; border-radius: 6px; padding: 8px; font-size: 13px; background: #f9f9f9; outline: none; transition: all 0.2s; }
+        .list-search-bar { padding: 10px 15px; border-bottom: 1px solid #f0f0f0; background: #fff; display: flex; align-items: center; gap: 8px; }
+        .list-search-bar input { flex: 1; border: 1px solid #eee; border-radius: 6px; padding: 8px; font-size: 13px; background: #f9f9f9; outline: none; transition: all 0.2s; }
         .list-search-bar input:focus { background: #fff; border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.1); }
-        
-        /* === 市场筛选按钮样式 === */
-        .market-filter-group { display: flex; gap: 5px; }
-        .filter-btn { border: 1px solid #ddd; background: #fff; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; color: #555; transition: all 0.2s; white-space: nowrap; }
-        .filter-btn:hover { background: #f8f9fa; }
-        .filter-btn.active { background: #007bff; color: #fff; border-color: #007bff; font-weight: 500; }
-        @media (max-width: 600px) {
-            .market-filter-group { width: 100%; margin-top: 5px; justify-content: space-between; }
-            .filter-btn { flex: 1; text-align: center; }
-        }
 
         .table-scroll-box {
             overflow-x: auto;
@@ -313,13 +303,6 @@
         <div class="list-search-bar">
             <span style="font-size:14px">🔍</span>
             <input type="text" id="list-search-input" placeholder="输入名称或代码筛选..." oninput="filterStockList()">
-            <!-- 新增：市场筛选按钮 -->
-            <div class="market-filter-group">
-                <button class="filter-btn active" onclick="setMarketFilter('ALL', this)">全部</button>
-                <button class="filter-btn" onclick="setMarketFilter('A', this)">A股</button>
-                <button class="filter-btn" onclick="setMarketFilter('HK', this)">港股</button>
-                <button class="filter-btn" onclick="setMarketFilter('US', this)">美股</button>
-            </div>
         </div>
 <div class="table-scroll-box">
         <table class="base-table">
@@ -429,8 +412,7 @@
     </div>
     <div id="portfolio-content" class="section-body">
         <div class="form-row">
-            <!-- 默认值改为 0 -->
-            <div class="form-group"><label>剔除门槛 (Min Threshold)</label><input type="number" id="pMinPos" step="0.1" value="0"></div>
+            <div class="form-group"><label>剔除门槛 (Min Threshold)</label><input type="number" id="pMinPos" step="0.1" value="0.4"></div>
             <div class="form-group"></div>
         </div>
         <div style="text-align:right; margin-bottom:10px;">
@@ -611,9 +593,6 @@
 <script>
     // === 1. 基础配置与隔离策略 ===
     const APP_STORAGE = localStorage;
-    // ▼▼▼ 全局变量：当前市场筛选状态 ▼▼▼
-    let currentMarketFilter = 'ALL';
-
     function getGbConfig() {
         return {
             username: APP_STORAGE.getItem('grid_sys_username') || "",
@@ -624,7 +603,7 @@
         };
     }
 
-    const PROXY = 'https://api.allorigins.win/raw?url=';
+    const PROXY = 'https://corsproxy.io/?'; 
     let stocks = JSON.parse(APP_STORAGE.getItem('gridStocks')) || [];
     let myChart = null;
     let batchResults = [];
@@ -680,47 +659,14 @@
         closeSettingsModal(); syncFromGithub();
     }
 
-    // === 市场筛选逻辑 ===
-    function setMarketFilter(type, btn) {
-        currentMarketFilter = type;
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        filterStockList();
-    }
-
     function filterStockList() {
         const term = document.getElementById('list-search-input').value.toLowerCase().trim();
         let visibleCount = 0;
-        const rows = document.querySelectorAll('#stock-tbody tr');
-        
-        rows.forEach((row, index) => {
-            const stock = stocks[index];
+        document.querySelectorAll('#stock-tbody tr').forEach(row => {
             const text = row.innerText.toLowerCase();
-            const matchText = term === '' || text.includes(term);
-            
-            let matchMarket = true;
-            if (currentMarketFilter !== 'ALL') {
-                const c = stock.code.toUpperCase();
-                // 修正后的判断逻辑
-                if (currentMarketFilter === 'HK') {
-                    matchMarket = c.endsWith('.HK');
-                } else if (currentMarketFilter === 'US') {
-                    matchMarket = c.endsWith('.US');
-                } else if (currentMarketFilter === 'A') {
-                    // 其他都是A股
-                    matchMarket = !c.endsWith('.HK') && !c.endsWith('.US');
-                }
-            }
-
-            if (matchText && matchMarket) { 
-                row.style.display = ''; visibleCount++; 
-            } else { 
-                row.style.display = 'none'; 
-            }
+            if (term === '' || text.includes(term)) { row.style.display = ''; visibleCount++; } else { row.style.display = 'none'; }
         });
-        document.getElementById('list-count').innerText = `(${visibleCount}/${stocks.length})`; 
-        // 筛选后重新计算全选框状态
-        checkAllState();
+        document.getElementById('list-count').innerText = `(${visibleCount}/${stocks.length})`; checkAllState();
     }
 
     function toggleCard(id) {
@@ -899,24 +845,10 @@
         return { stockName: stock.name, stockCode: stock.code, history, logs, stats: { ret: (nav-1)*100, stockRet: (history[history.length-1].close/history[0].close-1)*100, maxDD: maxDD * 100, avgLev: history.reduce((a,b)=>a+b.leverage,0)/history.length } };
     }
 
-    // === 4. 运行控制 (已修复：只运行可见且选中的) ===
+    // === 4. 运行控制 ===
     async function runBatchBacktest() {
-        // 修改：使用过滤器获取所有可见的行
-        const allRows = document.querySelectorAll('#stock-tbody tr');
-        const indices = [];
-        
-        allRows.forEach((row, index) => {
-            // 只有当行不是隐藏状态 (display != none) 且 复选框被选中时，才加入回测队列
-            if (row.style.display !== 'none') {
-                const chk = row.querySelector('.stock-chk');
-                if (chk && chk.checked) {
-                    indices.push(index);
-                }
-            }
-        });
-
-        if(indices.length === 0) return alert("请至少勾选一只可见的股票");
-
+        const checked = document.querySelectorAll('.stock-chk:checked'); if(checked.length === 0) return alert("请至少勾选一只股票");
+        const indices = Array.from(checked).map(cb => parseInt(cb.value));
         const btn = document.getElementById('btn-run-all'), progress = document.getElementById('batch-progress'), useTiming = document.getElementById('pTimeEnable').checked;
         
         btn.disabled = true; document.getElementById('summary-tbody').innerHTML = ''; document.getElementById('results-container').style.display = 'none'; progress.style.display = 'block';
@@ -1361,27 +1293,8 @@
         filterStockList(); checkAllState();
     }
 
-    // === 修改：只全选/取消全选“可见”的行 ===
-    function toggleAllStocks(el) { 
-        document.querySelectorAll('#stock-tbody tr').forEach(row => { 
-            // 关键修改：只针对未隐藏(style.display != none)的行操作
-            if (row.style.display !== 'none') { 
-                const chk = row.querySelector('.stock-chk'); 
-                if (chk) chk.checked = el.checked; 
-            } 
-        }); 
-    }
-    
-    // === 修改：判断全选状态时只考虑可见行 ===
-    function checkAllState() { 
-        const rows = Array.from(document.querySelectorAll('#stock-tbody tr')).filter(r => r.style.display !== 'none'); 
-        if (rows.length === 0) { 
-            document.getElementById('check-all').checked = false; 
-            return; 
-        } 
-        document.getElementById('check-all').checked = (rows.filter(r => r.querySelector('.stock-chk').checked).length === rows.length); 
-    }
-    
+    function toggleAllStocks(el) { document.querySelectorAll('#stock-tbody tr').forEach(row => { if (row.style.display !== 'none') { const chk = row.querySelector('.stock-chk'); if (chk) chk.checked = el.checked; } }); }
+    function checkAllState() { const rows = Array.from(document.querySelectorAll('#stock-tbody tr')).filter(r => r.style.display !== 'none'); if (rows.length === 0) { document.getElementById('check-all').checked = false; return; } document.getElementById('check-all').checked = (rows.filter(r => r.querySelector('.stock-chk').checked).length === rows.length); }
     document.addEventListener('change', function(e){ if(e.target.classList.contains('stock-chk')) checkAllState(); });
     function editStock(i) { const s = stocks[i]; document.getElementById('inName').value = s.name; document.getElementById('inCode').value = s.code; document.getElementById('inMin').value = s.minCap; document.getElementById('inMax').value = s.maxCap; document.getElementById('card-config').scrollIntoView({behavior: 'smooth'}); }
     function delStock(i) { if(confirm("确认删除？")) { stocks.splice(i, 1); APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(true); } }
