@@ -1,0 +1,1662 @@
+[
+  {
+    "code": "TSM.US",
+    "name": "台积电",
+    "minCap": 10340,
+    "maxCap": 20680,
+    "profit": 20000,
+    "revenue": 47000,
+    "tags": "AI 半导体 美股",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "GOOG.US",
+    "name": "谷歌-C",
+    "minCap": 31500,
+    "maxCap": 54600,
+    "profit": 1380,
+    "revenue": 4200,
+    "tags": "AI 美股",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "MU.US",
+    "name": "美光科技",
+    "minCap": 2730,
+    "maxCap": 6370,
+    "profit": 0,
+    "revenue": 910,
+    "tags": "AI 半导体 存储 美股",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002158.SZ",
+    "name": "汉钟精机",
+    "minCap": 77.5,
+    "maxCap": 155,
+    "profit": 6.3,
+    "revenue": 31,
+    "tags": "液冷",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002595.SZ",
+    "name": "豪迈科技",
+    "minCap": 520,
+    "maxCap": 900,
+    "profit": 30,
+    "revenue": 130,
+    "tags": "AI 高端制造",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688531.SH",
+    "name": "日联科技",
+    "minCap": 74.89999999999999,
+    "maxCap": 149.79999999999998,
+    "profit": 1.94,
+    "revenue": 10.7,
+    "tags": "半导体",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688789.SH",
+    "name": "宏华数科",
+    "minCap": 128.15,
+    "maxCap": 160.2,
+    "profit": 5.34,
+    "revenue": 23.3,
+    "tags": "出口",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "300415.SZ",
+    "name": "伊之密",
+    "minCap": 109.80000000000001,
+    "maxCap": 131.76,
+    "profit": 7.32,
+    "revenue": 60,
+    "tags": "机械设备",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002204.SZ",
+    "name": "大连重工",
+    "minCap": 91.2,
+    "maxCap": 152,
+    "profit": 7.3,
+    "revenue": 152,
+    "tags": "机械",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "603337.SH",
+    "name": "杰克科技",
+    "minCap": 136,
+    "maxCap": 238,
+    "profit": 9.65,
+    "revenue": 68,
+    "tags": "机械",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "ANET.US",
+    "name": "Arista Networks Inc",
+    "minCap": 1424,
+    "maxCap": 1958,
+    "profit": 34,
+    "revenue": 89,
+    "tags": "AI 美股",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "300373.SZ",
+    "name": "扬杰科技",
+    "minCap": 397.8,
+    "maxCap": 612,
+    "profit": 15.3,
+    "revenue": 86,
+    "tags": "AI 储能 风电 汽车零部件",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688008.SH",
+    "name": "澜起科技",
+    "minCap": 1185,
+    "maxCap": 2370,
+    "profit": 34,
+    "revenue": 79,
+    "tags": "AI 半导体",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002254.SZ",
+    "name": "泰和新材",
+    "minCap": 81.19999999999999,
+    "maxCap": 137.5,
+    "profit": 2.32,
+    "revenue": 55,
+    "tags": "反内卷 化工",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002080.SZ",
+    "name": "中材科技",
+    "minCap": 640,
+    "maxCap": 1120,
+    "profit": 35,
+    "revenue": 320,
+    "tags": "PCB设备",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "600309.SH",
+    "name": "万华化学",
+    "minCap": 2111.2000000000003,
+    "maxCap": 3180,
+    "profit": 159,
+    "revenue": 2639,
+    "tags": "化工",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "600426.SH",
+    "name": "华鲁恒升",
+    "minCap": 668.22,
+    "maxCap": 944,
+    "profit": 47.2,
+    "revenue": 388.5,
+    "tags": "化工",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688012.SH",
+    "name": "中微公司",
+    "minCap": 2088,
+    "maxCap": 2958,
+    "profit": 39,
+    "revenue": 174,
+    "tags": "半导体",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688019.SH",
+    "name": "安集科技",
+    "minCap": 315,
+    "maxCap": 525,
+    "profit": 10.5,
+    "revenue": 33,
+    "tags": "半导体",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "300054.SZ",
+    "name": "鼎龙股份",
+    "minCap": 348.75,
+    "maxCap": 465,
+    "profit": 10,
+    "revenue": 46.5,
+    "tags": "半导体",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "003010.SZ",
+    "name": "若羽臣",
+    "minCap": 104,
+    "maxCap": 208,
+    "profit": 3.5,
+    "revenue": 52,
+    "tags": "消费",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002271.SZ",
+    "name": "东方雨虹",
+    "minCap": 170,
+    "maxCap": 255,
+    "profit": 17,
+    "revenue": 315,
+    "tags": "消费 建材",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "300604.SZ",
+    "name": "长川科技",
+    "minCap": 552,
+    "maxCap": 1104,
+    "profit": 14.2,
+    "revenue": 69,
+    "tags": "半导体",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002027.SZ",
+    "name": "分众传媒",
+    "minCap": 1022,
+    "maxCap": 1403,
+    "profit": 61,
+    "revenue": 146,
+    "tags": "传媒",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002008.SZ",
+    "name": "大族激光",
+    "minCap": 460,
+    "maxCap": 828,
+    "profit": 23,
+    "revenue": 245,
+    "tags": "AI PCB设备",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "301200.SZ",
+    "name": "大族数控",
+    "minCap": 558,
+    "maxCap": 930,
+    "profit": 17,
+    "revenue": 93,
+    "tags": "AI PCB设备",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688333.SH",
+    "name": "铂力特",
+    "minCap": 217.79999999999998,
+    "maxCap": 435.59999999999997,
+    "profit": 3.42,
+    "revenue": 24.2,
+    "tags": "商业航天",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "300337.SZ",
+    "name": "银邦股份",
+    "minCap": 109.5,
+    "maxCap": 216,
+    "profit": 1.2,
+    "revenue": 73,
+    "tags": "商业航天",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688323.SH",
+    "name": "瑞华泰",
+    "minCap": 37.1,
+    "maxCap": 74.2,
+    "profit": 0,
+    "revenue": 5.3,
+    "tags": "商业航天",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "300699.SZ",
+    "name": "光威复材",
+    "minCap": 333,
+    "maxCap": 588,
+    "profit": 9.8,
+    "revenue": 37,
+    "tags": "商业航天",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002171.SZ",
+    "name": "楚江新材",
+    "minCap": 174.20000000000002,
+    "maxCap": 268,
+    "profit": 7.9,
+    "revenue": 670,
+    "tags": "商业航天",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688235.SH",
+    "name": "百济神州-U",
+    "minCap": 4600,
+    "maxCap": 6900,
+    "profit": 52,
+    "revenue": 460,
+    "tags": "医药",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "601899.SH",
+    "name": "紫金矿业",
+    "minCap": 8640,
+    "maxCap": 11520,
+    "profit": 800,
+    "revenue": 4800,
+    "tags": "有色",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "03393.HK",
+    "name": "威胜控股",
+    "minCap": 144,
+    "maxCap": 252,
+    "profit": 14,
+    "revenue": 144,
+    "tags": "电力设备",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "603556.SH",
+    "name": "海兴电力",
+    "minCap": 168,
+    "maxCap": 216,
+    "profit": 12,
+    "revenue": 57,
+    "tags": "电力设备",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "601179.SH",
+    "name": "中国西电",
+    "minCap": 432,
+    "maxCap": 648,
+    "profit": 16.2,
+    "revenue": 270,
+    "tags": "电力设备",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "600089.SH",
+    "name": "特变电工",
+    "minCap": 760,
+    "maxCap": 1368,
+    "profit": 76,
+    "revenue": 1140,
+    "tags": "电力设备",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "603298.SH",
+    "name": "杭叉集团",
+    "minCap": 320,
+    "maxCap": 420,
+    "profit": 25.3,
+    "revenue": 200,
+    "tags": "机械 机器人",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688308.SH",
+    "name": "欧科亿",
+    "minCap": 49.199999999999996,
+    "maxCap": 98.39999999999999,
+    "profit": 1.64,
+    "revenue": 16.64,
+    "tags": "机械设备 刀具",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "000786.SZ",
+    "name": "北新建材",
+    "minCap": 440,
+    "maxCap": 588,
+    "profit": 40,
+    "revenue": 280,
+    "tags": "顺周期 建材",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688257.SH",
+    "name": "新锐股份",
+    "minCap": 60,
+    "maxCap": 180,
+    "profit": 3,
+    "revenue": 30,
+    "tags": "设备 顺周期",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688519.SH",
+    "name": "南亚新材",
+    "minCap": 175,
+    "maxCap": 350,
+    "profit": 5,
+    "revenue": 70,
+    "tags": "PCB",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "600183.SH",
+    "name": "生益科技",
+    "minCap": 1600,
+    "maxCap": 2400,
+    "profit": 60,
+    "revenue": 400,
+    "tags": "PCB设备",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "000703.SZ",
+    "name": "恒逸石化",
+    "minCap": 180,
+    "maxCap": 270,
+    "profit": 18,
+    "revenue": 1150,
+    "tags": "化工",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "000301.SZ",
+    "name": "东方盛虹",
+    "minCap": 700,
+    "maxCap": 1225,
+    "profit": 21,
+    "revenue": 1750,
+    "tags": "化工",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "09988.HK",
+    "name": "阿里巴巴-W",
+    "minCap": 28200,
+    "maxCap": 41443.200000000004,
+    "profit": 1410,
+    "revenue": 12951,
+    "tags": "AI 互联网 港股",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002064.SZ",
+    "name": "华峰化学",
+    "minCap": 544,
+    "maxCap": 870.4000000000001,
+    "profit": 36,
+    "revenue": 272,
+    "tags": "化工",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "000949.SZ",
+    "name": "新乡化纤",
+    "minCap": 87,
+    "maxCap": 139.20000000000002,
+    "profit": 3.1,
+    "revenue": 87,
+    "tags": "化工",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "LITE.US",
+    "name": "Lumentum Holdings Inc",
+    "minCap": 232,
+    "maxCap": 464,
+    "profit": 0,
+    "revenue": 29,
+    "tags": "AI 光模块",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002311.SZ",
+    "name": "海大集团",
+    "minCap": 850,
+    "maxCap": 1243.8,
+    "profit": 50,
+    "revenue": 1382,
+    "tags": "消费 农业",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "TER.US",
+    "name": "泰瑞达",
+    "minCap": 300,
+    "maxCap": 600,
+    "profit": 10,
+    "revenue": 45,
+    "tags": "半导体 美股",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "ASML.US",
+    "name": "阿斯麦",
+    "minCap": 4680,
+    "maxCap": 6624,
+    "profit": 144,
+    "revenue": 468,
+    "tags": "半导体 美股",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "CAT.US",
+    "name": "卡特彼勒",
+    "minCap": 2310,
+    "maxCap": 3465,
+    "profit": 120,
+    "revenue": 770,
+    "tags": "机械 美股",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "LRCX.US",
+    "name": "拉姆研究",
+    "minCap": 1760,
+    "maxCap": 3400,
+    "profit": 68,
+    "revenue": 220,
+    "tags": "半导体 美股",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "03200.HK",
+    "name": "大族数控H",
+    "minCap": 306,
+    "maxCap": 612,
+    "profit": 19,
+    "revenue": 102,
+    "tags": "AIPCB 港股",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "AMAT.US",
+    "name": "应用材料",
+    "minCap": 1860,
+    "maxCap": 2480,
+    "profit": 77,
+    "revenue": 310,
+    "tags": "半导体 美股",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "TXN.US",
+    "name": "德州仪器",
+    "minCap": 1260,
+    "maxCap": 2240,
+    "profit": 56,
+    "revenue": 210,
+    "tags": "半导体 美股",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "ADI.US",
+    "name": "亚德诺",
+    "minCap": 1305,
+    "maxCap": 1740,
+    "profit": 49,
+    "revenue": 145,
+    "tags": "美股",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "SNDK.US",
+    "name": "闪迪",
+    "minCap": 600,
+    "maxCap": 1400,
+    "profit": 30,
+    "revenue": 200,
+    "tags": "半导体 美股",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "WDC.US",
+    "name": "西部数据",
+    "minCap": 540,
+    "maxCap": 1260,
+    "profit": 40,
+    "revenue": 180,
+    "tags": "半导体 美股",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "STX.US",
+    "name": "希捷科技",
+    "minCap": 480,
+    "maxCap": 1120,
+    "profit": 30,
+    "revenue": 160,
+    "tags": "半导体 存储 美股",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "GLW.US",
+    "name": "康宁",
+    "minCap": 600,
+    "maxCap": 1000,
+    "profit": 26,
+    "revenue": 200,
+    "tags": "材料 美股",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "GEV.US",
+    "name": "GE Vernova Inc",
+    "minCap": 1110,
+    "maxCap": 2035,
+    "profit": 37,
+    "revenue": 480,
+    "tags": "美股 AIDC",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "ASX.US",
+    "name": "日月光半导体",
+    "minCap": 257,
+    "maxCap": 462.6,
+    "profit": 21,
+    "revenue": 257,
+    "tags": "美股 半导体",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "COHR.US",
+    "name": "Coherent Corp",
+    "minCap": 304.5,
+    "maxCap": 520,
+    "profit": 13,
+    "revenue": 87,
+    "tags": "美股 AI",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "INTC.US",
+    "name": "英特尔",
+    "minCap": 1820,
+    "maxCap": 2736,
+    "profit": 52,
+    "revenue": 608,
+    "tags": "美股 半导体",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "AMGN.US",
+    "name": "安进",
+    "minCap": 1608,
+    "maxCap": 2208,
+    "profit": 138,
+    "revenue": 402,
+    "tags": "美股 半导体",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "300953.SZ",
+    "name": "震裕科技",
+    "minCap": 250,
+    "maxCap": 437.5,
+    "profit": 9,
+    "revenue": 125,
+    "tags": "机器人 锂电结构件",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "NVDA.US",
+    "name": "英伟达",
+    "minCap": 59500,
+    "maxCap": 119000,
+    "profit": 1700,
+    "revenue": 3000,
+    "tags": "AI 美股",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "DDOG.US",
+    "name": "Datadog Inc-A",
+    "minCap": 400,
+    "maxCap": 800,
+    "profit": 0,
+    "revenue": 40,
+    "tags": "美股 软件",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "300476.SZ",
+    "name": "胜宏科技",
+    "minCap": 2576,
+    "maxCap": 5152,
+    "profit": 100,
+    "revenue": 368,
+    "tags": "AI PCB",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "MPWR.US",
+    "name": "Monolithic Power Systems Inc",
+    "minCap": 440,
+    "maxCap": 700,
+    "profit": 11,
+    "revenue": 35,
+    "tags": "半导体 美股",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002384.SZ",
+    "name": "东山精密",
+    "minCap": 1080,
+    "maxCap": 2160,
+    "profit": 70,
+    "revenue": 540,
+    "tags": "消费电子 光模块 PCB AI 果链",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "300750.SZ",
+    "name": "宁德时代",
+    "minCap": 12240,
+    "maxCap": 17000,
+    "profit": 680,
+    "revenue": 0,
+    "tags": "电池",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002837.SZ",
+    "name": "英维克",
+    "minCap": 239.4,
+    "maxCap": 409.5,
+    "profit": 6.3,
+    "revenue": 65,
+    "tags": "液冷",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "300395.SZ",
+    "name": "菲利华",
+    "minCap": 308,
+    "maxCap": 612.5,
+    "profit": 16,
+    "revenue": 35,
+    "tags": "AI PCB耗材 PCB设备",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "300502.SZ",
+    "name": "新易盛",
+    "minCap": 4080,
+    "maxCap": 8160,
+    "profit": 220,
+    "revenue": 510,
+    "tags": "AI 光模块",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002126.SZ",
+    "name": "银轮股份",
+    "minCap": 288,
+    "maxCap": 432,
+    "profit": 12.7,
+    "revenue": 180,
+    "tags": "汽车零部件 机器人 液冷",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002028.SZ",
+    "name": "思源电气",
+    "minCap": 1120,
+    "maxCap": 1736,
+    "profit": 45,
+    "revenue": 280,
+    "tags": "电力设备 出口",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "605117.SH",
+    "name": "德业股份",
+    "minCap": 429,
+    "maxCap": 825,
+    "profit": 33,
+    "revenue": 165,
+    "tags": "出口 储能",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002222.SZ",
+    "name": "福晶科技",
+    "minCap": 165,
+    "maxCap": 261,
+    "profit": 2.9,
+    "revenue": 11,
+    "tags": "",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "300274.SZ",
+    "name": "阳光电源",
+    "minCap": 1697.5,
+    "maxCap": 3298,
+    "profit": 195,
+    "revenue": 970,
+    "tags": "储能",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "600584.SH",
+    "name": "长电科技",
+    "minCap": 675,
+    "maxCap": 945,
+    "profit": 22,
+    "revenue": 450,
+    "tags": "半导体 封测",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "603986.SH",
+    "name": "兆易创新",
+    "minCap": 1330,
+    "maxCap": 2394,
+    "profit": 29.2,
+    "revenue": 133,
+    "tags": "AI 存储 半导体",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "300308.SZ",
+    "name": "中际旭创",
+    "minCap": 7975,
+    "maxCap": 15950,
+    "profit": 330,
+    "revenue": 725,
+    "tags": "AI 光模块",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "301123.SZ",
+    "name": "奕东电子",
+    "minCap": 87.5,
+    "maxCap": 175,
+    "profit": 3.5,
+    "revenue": 35,
+    "tags": "AI 机器人 液冷",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "301377.SZ",
+    "name": "鼎泰高科",
+    "minCap": 280,
+    "maxCap": 560,
+    "profit": 8.5,
+    "revenue": 40,
+    "tags": "AI PCB设备 钻针",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "605088.SH",
+    "name": "冠盛股份",
+    "minCap": 68,
+    "maxCap": 100,
+    "profit": 4,
+    "revenue": 50,
+    "tags": "汽车零部件 机器人",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "09896.HK",
+    "name": "名创优品",
+    "minCap": 416,
+    "maxCap": 546,
+    "profit": 26,
+    "revenue": 230,
+    "tags": "消费 港股",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "301029.SZ",
+    "name": "怡合达",
+    "minCap": 148.4,
+    "maxCap": 210,
+    "profit": 5.3,
+    "revenue": 30,
+    "tags": "",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "000425.SZ",
+    "name": "徐工机械",
+    "minCap": 930,
+    "maxCap": 1500,
+    "profit": 80,
+    "revenue": 1000,
+    "tags": "工程机械 出口",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002138.SZ",
+    "name": "顺络电子",
+    "minCap": 255.5,
+    "maxCap": 324.79999999999995,
+    "profit": 11.2,
+    "revenue": 73,
+    "tags": "元件",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "TSLA.US",
+    "name": "特斯拉",
+    "minCap": 6250,
+    "maxCap": 12500,
+    "profit": 50,
+    "revenue": 950,
+    "tags": "",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "603005.SH",
+    "name": "晶方科技",
+    "minCap": 200,
+    "maxCap": 280,
+    "profit": 5.8,
+    "revenue": 20,
+    "tags": "半导体",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002484.SZ",
+    "name": "江海股份",
+    "minCap": 246.42,
+    "maxCap": 366.29999999999995,
+    "profit": 9.8,
+    "revenue": 66.6,
+    "tags": "AI 元件",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "600031.SH",
+    "name": "三一重工",
+    "minCap": 1625.4,
+    "maxCap": 2257.5,
+    "profit": 90,
+    "revenue": 903,
+    "tags": "工程机械 出口",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "001309.SZ",
+    "name": "德明利",
+    "minCap": 126,
+    "maxCap": 216,
+    "profit": 3.6,
+    "revenue": 85,
+    "tags": "存储 阿里概念",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "300124.SZ",
+    "name": "汇川技术",
+    "minCap": 2166,
+    "maxCap": 2904,
+    "profit": 66,
+    "revenue": 570,
+    "tags": "工控 自动化",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688362.SH",
+    "name": "甬矽电子",
+    "minCap": 145.6,
+    "maxCap": 224,
+    "profit": 3,
+    "revenue": 56,
+    "tags": "半导体 高端封测",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "600114.SH",
+    "name": "东睦股份",
+    "minCap": 114.4,
+    "maxCap": 183,
+    "profit": 5.2,
+    "revenue": 61,
+    "tags": "消费电子",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "00388.HK",
+    "name": "香港交易所",
+    "minCap": 4200,
+    "maxCap": 6160,
+    "profit": 175,
+    "revenue": 280,
+    "tags": "",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002202.SZ",
+    "name": "金风科技",
+    "minCap": 480,
+    "maxCap": 800,
+    "profit": 41,
+    "revenue": 800,
+    "tags": "风电",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688676.SH",
+    "name": "金盘科技",
+    "minCap": 394.4,
+    "maxCap": 572,
+    "profit": 10.4,
+    "revenue": 116,
+    "tags": "电力设备 出口",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002371.SZ",
+    "name": "北方华创",
+    "minCap": 3250,
+    "maxCap": 4500,
+    "profit": 100,
+    "revenue": 500,
+    "tags": "半导体",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "300627.SZ",
+    "name": "华测导航",
+    "minCap": 205,
+    "maxCap": 287,
+    "profit": 7.6,
+    "revenue": 41,
+    "tags": "",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "02020.HK",
+    "name": "安踏体育",
+    "minCap": 2580,
+    "maxCap": 3440,
+    "profit": 145,
+    "revenue": 860,
+    "tags": "消费",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688518.SH",
+    "name": "联赢激光",
+    "minCap": 44.2,
+    "maxCap": 75,
+    "profit": 3,
+    "revenue": 34,
+    "tags": "光伏设备",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002558.SZ",
+    "name": "巨人网络",
+    "minCap": 425,
+    "maxCap": 800,
+    "profit": 24,
+    "revenue": 50,
+    "tags": "游戏",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002602.SZ",
+    "name": "世纪华通",
+    "minCap": 1100,
+    "maxCap": 1715,
+    "profit": 55,
+    "revenue": 490,
+    "tags": "游戏",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "603179.SH",
+    "name": "新泉股份",
+    "minCap": 204,
+    "maxCap": 290.4,
+    "profit": 13.2,
+    "revenue": 170,
+    "tags": "汽车零部件",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002938.SZ",
+    "name": "鹏鼎控股",
+    "minCap": 656,
+    "maxCap": 1312,
+    "profit": 44,
+    "revenue": 410,
+    "tags": "果链",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "603997.SH",
+    "name": "继峰股份",
+    "minCap": 58.5,
+    "maxCap": 97.5,
+    "profit": 3.9,
+    "revenue": 245,
+    "tags": "汽车零部件",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688072.SH",
+    "name": "拓荆科技",
+    "minCap": 765,
+    "maxCap": 1530,
+    "profit": 18,
+    "revenue": 85,
+    "tags": "半导体",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "000333.SZ",
+    "name": "美的集团",
+    "minCap": 5880,
+    "maxCap": 7200,
+    "profit": 490,
+    "revenue": 4800,
+    "tags": "消费 家电 红利",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002847.SZ",
+    "name": "盐津铺子",
+    "minCap": 127,
+    "maxCap": 222.25,
+    "profit": 8,
+    "revenue": 63.5,
+    "tags": "消费",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "601799.SH",
+    "name": "星宇股份",
+    "minCap": 320,
+    "maxCap": 412.5,
+    "profit": 16.5,
+    "revenue": 160,
+    "tags": "汽车零部件",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "605499.SH",
+    "name": "东鹏饮料",
+    "minCap": 1350,
+    "maxCap": 1620,
+    "profit": 45,
+    "revenue": 215,
+    "tags": "消费",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002444.SZ",
+    "name": "巨星科技",
+    "minCap": 300,
+    "maxCap": 420,
+    "profit": 24,
+    "revenue": 150,
+    "tags": "出口",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "603766.SH",
+    "name": "隆鑫通用",
+    "minCap": 314.6,
+    "maxCap": 382.36,
+    "profit": 24.2,
+    "revenue": 242,
+    "tags": "出口 摩托车",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "601689.SH",
+    "name": "拓普集团",
+    "minCap": 1277.5,
+    "maxCap": 1724.9999999999998,
+    "profit": 36.5,
+    "revenue": 375,
+    "tags": "汽车零部件 机器人",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "000651.SZ",
+    "name": "格力电器",
+    "minCap": 2000,
+    "maxCap": 2600,
+    "profit": 330,
+    "revenue": 2000,
+    "tags": "消费 家电",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "600276.SH",
+    "name": "恒瑞医药",
+    "minCap": 3700,
+    "maxCap": 5180,
+    "profit": 95,
+    "revenue": 370,
+    "tags": "医药",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "300866.SZ",
+    "name": "安克创新",
+    "minCap": 665,
+    "maxCap": 896,
+    "profit": 32,
+    "revenue": 380,
+    "tags": "出口",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "300777.SZ",
+    "name": "中简科技",
+    "minCap": 140,
+    "maxCap": 234,
+    "profit": 5.6,
+    "revenue": 13,
+    "tags": "商业航天",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "000858.SZ",
+    "name": "五粮液",
+    "minCap": 4480,
+    "maxCap": 5760,
+    "profit": 320,
+    "revenue": 910,
+    "tags": "消费 白酒",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "300115.SZ",
+    "name": "长盈精密",
+    "minCap": 440,
+    "maxCap": 770,
+    "profit": 11,
+    "revenue": 220,
+    "tags": "果链 机器人",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "300433.SZ",
+    "name": "蓝思科技",
+    "minCap": 1648,
+    "maxCap": 2163,
+    "profit": 63,
+    "revenue": 1030,
+    "tags": "果链 消费电子",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002594.SZ",
+    "name": "比亚迪",
+    "minCap": 6125,
+    "maxCap": 8750,
+    "profit": 350,
+    "revenue": 8200,
+    "tags": "汽车",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "689009.SH",
+    "name": "九号公司-WD",
+    "minCap": 387,
+    "maxCap": 516,
+    "profit": 20,
+    "revenue": 215,
+    "tags": "出口 两轮车",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "01810.HK",
+    "name": "小米集团-W",
+    "minCap": 8550,
+    "maxCap": 13500,
+    "profit": 450,
+    "revenue": 5700,
+    "tags": "汽车 港股 消费电子",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "301345.SZ",
+    "name": "涛涛车业",
+    "minCap": 100,
+    "maxCap": 180,
+    "profit": 7.5,
+    "revenue": 40,
+    "tags": "出口",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688169.SH",
+    "name": "石头科技",
+    "minCap": 407.00000000000006,
+    "maxCap": 555,
+    "profit": 0,
+    "revenue": 185,
+    "tags": "出口 扫地机",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "301061.SZ",
+    "name": "匠心家居",
+    "minCap": 170,
+    "maxCap": 267,
+    "profit": 8.9,
+    "revenue": 34,
+    "tags": "出口",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "603596.SH",
+    "name": "伯特利",
+    "minCap": 269.8,
+    "maxCap": 372,
+    "profit": 14.2,
+    "revenue": 124,
+    "tags": "汽车零部件",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "603129.SH",
+    "name": "春风动力",
+    "minCap": 360,
+    "maxCap": 450,
+    "profit": 18.6,
+    "revenue": 180,
+    "tags": "出口 摩托车",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002600.SZ",
+    "name": "领益智造",
+    "minCap": 625,
+    "maxCap": 900,
+    "profit": 25,
+    "revenue": 500,
+    "tags": "果链",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "600519.SH",
+    "name": "贵州茅台",
+    "minCap": 17860,
+    "maxCap": 20680,
+    "profit": 940,
+    "revenue": 1900,
+    "tags": "消费 白酒",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "603501.SH",
+    "name": "豪威集团",
+    "minCap": 1687.5,
+    "maxCap": 2437.5,
+    "profit": 62,
+    "revenue": 375,
+    "tags": "半导体 消费电子",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002050.SZ",
+    "name": "三花智控",
+    "minCap": 1320,
+    "maxCap": 2310,
+    "profit": 51,
+    "revenue": 330,
+    "tags": "汽车零部件 机器人",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "301656.SZ",
+    "name": "联合动力",
+    "minCap": 322.5,
+    "maxCap": 645,
+    "profit": 0,
+    "revenue": 215,
+    "tags": "汽车零部件",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688111.SH",
+    "name": "金山办公",
+    "minCap": 1440,
+    "maxCap": 2160,
+    "profit": 23,
+    "revenue": 72,
+    "tags": "AI 软件",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002475.SZ",
+    "name": "立讯精密",
+    "minCap": 4400,
+    "maxCap": 6560,
+    "profit": 220,
+    "revenue": 4100,
+    "tags": "果链 消费电子",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "603486.SH",
+    "name": "科沃斯",
+    "minCap": 360,
+    "maxCap": 567,
+    "profit": 21,
+    "revenue": 225,
+    "tags": "出口 家电 扫地机",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688411.SH",
+    "name": "海博思创",
+    "minCap": 360,
+    "maxCap": 540,
+    "profit": 25,
+    "revenue": 360,
+    "tags": "储能",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688698.SH",
+    "name": "伟创电气",
+    "minCap": 80,
+    "maxCap": 160,
+    "profit": 2.8,
+    "revenue": 20,
+    "tags": "工业控制 机器人",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688305.SH",
+    "name": "科德数控",
+    "minCap": 50.4,
+    "maxCap": 77,
+    "profit": 1.4,
+    "revenue": 7,
+    "tags": "国产替代 数控机床",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002472.SZ",
+    "name": "双环传动",
+    "minCap": 250,
+    "maxCap": 437.5,
+    "profit": 12.5,
+    "revenue": 100,
+    "tags": "汽车零部件 机器人",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "000400.SZ",
+    "name": "许继电气",
+    "minCap": 257.59999999999997,
+    "maxCap": 331.2,
+    "profit": 16.1,
+    "revenue": 184,
+    "tags": "电力设备",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "600885.SH",
+    "name": "宏发股份",
+    "minCap": 480,
+    "maxCap": 640,
+    "profit": 23.5,
+    "revenue": 200,
+    "tags": "元件 继电器",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "002920.SZ",
+    "name": "德赛西威",
+    "minCap": 560,
+    "maxCap": 840,
+    "profit": 29,
+    "revenue": 350,
+    "tags": "汽车零部件 智驾",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688981.SH",
+    "name": "中芯国际",
+    "minCap": 9600,
+    "maxCap": 12800,
+    "profit": 60,
+    "revenue": 800,
+    "tags": "半导体",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "603345.SH",
+    "name": "安井食品",
+    "minCap": 224,
+    "maxCap": 314,
+    "profit": 14,
+    "revenue": 157,
+    "tags": "消费",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "00700.HK",
+    "name": "腾讯控股",
+    "minCap": 50700,
+    "maxCap": 69031.1,
+    "profit": 2535,
+    "revenue": 8317,
+    "tags": "互联网",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "601127.SH",
+    "name": "赛力斯",
+    "minCap": 1600,
+    "maxCap": 2300,
+    "profit": 100,
+    "revenue": 1800,
+    "tags": "汽车 华为",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "601138.SH",
+    "name": "工业富联",
+    "minCap": 5520,
+    "maxCap": 9200,
+    "profit": 335,
+    "revenue": 9200,
+    "tags": "果链 AI",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688052.SH",
+    "name": "纳芯微",
+    "minCap": 301,
+    "maxCap": 430,
+    "profit": 2,
+    "revenue": 43,
+    "tags": "半导体 模拟芯片",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "09985.HK",
+    "name": "卫龙美味",
+    "minCap": 221.4,
+    "maxCap": 369,
+    "profit": 15.5,
+    "revenue": 82,
+    "tags": "消费",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688361.SH",
+    "name": "中科飞测",
+    "minCap": 450,
+    "maxCap": 900,
+    "profit": 4.05,
+    "revenue": 30,
+    "tags": "半导体",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "09992.HK",
+    "name": "泡泡玛特",
+    "minCap": 3900,
+    "maxCap": 7670,
+    "profit": 195,
+    "revenue": 590,
+    "tags": "港股 消费",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "000893.SZ",
+    "name": "亚钾国际",
+    "minCap": 444,
+    "maxCap": 740,
+    "profit": 37,
+    "revenue": 106,
+    "tags": "化工 钾肥",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "MOS.US",
+    "name": "美盛",
+    "minCap": 75,
+    "maxCap": 100,
+    "profit": 10,
+    "revenue": 130,
+    "tags": "化工 美股 钾肥",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "STM.US",
+    "name": "意法半导体",
+    "minCap": 252,
+    "maxCap": 434,
+    "profit": 12.2,
+    "revenue": 140,
+    "tags": "美股 半导体",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "NTR.US",
+    "name": "Nutrien Ltd",
+    "minCap": 270,
+    "maxCap": 390,
+    "profit": 30,
+    "revenue": 300,
+    "tags": "美股 钾肥",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "688208.SH",
+    "name": "道通科技",
+    "minCap": 180,
+    "maxCap": 300,
+    "profit": 9,
+    "revenue": 50,
+    "tags": "出口 充电桩",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "600563.SH",
+    "name": "法拉电子",
+    "minCap": 227.5,
+    "maxCap": 348,
+    "profit": 13,
+    "revenue": 58,
+    "tags": "元件",
+    "lastMod": "2026-02-13"
+  },
+  {
+    "code": "603228.SH",
+    "name": "景旺电子",
+    "minCap": 700,
+    "maxCap": 1100,
+    "profit": 25,
+    "revenue": 200,
+    "tags": "AI PCB",
+    "lastMod": "2026-02-13"
+  }
+]
