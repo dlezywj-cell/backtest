@@ -1,3 +1,4 @@
+html
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -442,7 +443,7 @@
         <div style="text-align:right; margin-bottom:10px;">
             <button class="btn btn-orange" onclick="runPortfolioStrategy()" style="width:100%">🔄 重新计算组合</button>
             <div style="font-size:11px; color:#666; margin-top:5px; text-align:left; line-height:1.4;">
-                逻辑：<b>动态等权</b>。自动剔除"建议杠杆 < 门槛"的无效股票。<br>
+                逻辑：<b>动态等权</b>。自动剔除“建议杠杆 < 门槛”的无效股票。<br>
                 资金仅在满足条件的股票中平分。若无股票满足，则空仓。
             </div>
         </div>
@@ -802,7 +803,7 @@
         btn.innerText = originalText;
         APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks));
         renderTable();
-        alert(`✅ 修复完成！\n成功找回 ${fixedCount} 个代码。\n请重新点击"运行选中"测试。`);
+        alert(`✅ 修复完成！\n成功找回 ${fixedCount} 个代码。\n请重新点击“运行选中”测试。`);
     }
 
     // JSONP 通用请求函数 (核心)
@@ -1013,7 +1014,7 @@
         // 自动检查是否需要修复
         let missingCodes = stocks.filter(s => !s.code).length;
         if(missingCodes > 0) {
-            if(confirm(`发现 ${missingCodes} 只股票缺少代码（如海博思创），这会导致"无K线数据"。`)) {
+            if(confirm(`发现 ${missingCodes} 只股票缺少代码（如海博思创），这会导致“无K线数据”。\n是否立即自动修复？`)) {
                 await ensureStockCodes();
                 return;
             }
@@ -1081,7 +1082,7 @@
         const cfg = getGbConfig(); if (!cfg.token) { openSettingsModal(); return; }
         
         // 提示 VPN
-        if(!confirm("⚠️ 警告：连接 GitHub 需要开启 VPN。`)) return;
+        if(!confirm("⚠️ 警告：连接 GitHub 需要开启 VPN。\n\n请确认 VPN 已开启后再点击【确定】。")) return;
 
         const btn = document.getElementById('btn-push'), origin = btn.innerText; btn.innerText = "⏳ 连接中..."; btn.disabled = true;
         try {
@@ -1333,7 +1334,6 @@
         let seriesList = [ {name: '组合净值', type: 'line', data: hist.map(h=>h.nav), itemStyle: {color: '#d32f2f'}, lineStyle: {width: 2}, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0, markArea: stageMarkArea, z: 10}, {name: '实际总杠杆', type: 'line', data: hist.map(h=>h.totalLev), itemStyle: {color: '#1976d2'}, lineStyle: {width: 1}, showSymbol: false, xAxisIndex: 1, yAxisIndex: 1, areaStyle: {opacity: 0.2}} ];
         if (benchHist) seriesList.push({name: '基准(不择时)', type: 'line', data: benchHist.map(h=>h.nav), itemStyle: {color: '#333'}, lineStyle: {width: 2, type: 'dashed'}, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0, z: 1});
 
-        // ========== 修改部分：增加当日涨跌幅显示 ==========
         portfolioChart.setOption({
             tooltip: { 
                 trigger: 'axis', 
@@ -1342,20 +1342,21 @@
                     if(!params.length) return ''; 
                     const idx = params[0].dataIndex; 
                     const item = hist[idx]; 
-                    const benchItem = benchHist ? benchHist[idx] : null;
+                    const benchItem = benchHist ? benchHist[idx] : null; 
                     
-                    // 计算当日涨跌幅
-                    let dailyChangeVal = 0;
-                    let dailyChangeStr = '0.00%';
-                    if (idx > 0) {
-                        const prevNav = hist[idx - 1].nav;
-                        dailyChangeVal = (item.nav - prevNav) / prevNav * 100;
-                        dailyChangeStr = (dailyChangeVal >= 0 ? '+' : '') + dailyChangeVal.toFixed(2) + '%';
+                    // --- 修改开始：计算当日涨跌幅 ---
+                    let dailyChg = 0;
+                    if(idx > 0) {
+                        let prevNav = hist[idx-1].nav;
+                        dailyChg = (item.nav - prevNav) / prevNav * 100;
                     }
-                    
+                    let color = dailyChg >= 0 ? '#d32f2f' : '#2e7d32';
+                    let sign = dailyChg > 0 ? '+' : '';
+                    // --- 修改结束 ---
+
                     let h = `<div style="font-weight:bold">${item.date}</div>`; 
-                    h += `<div style="font-size:11px;">组合净值: <b>${item.nav.toFixed(3)}</b></div>`; 
-                    h += `<div style="font-size:11px;">当日涨跌: <b style="color:${dailyChangeVal >= 0 ? '#d32f2f' : '#2e7d32'}">${dailyChangeStr}</b></div>`;
+                    h += `<div style="font-size:11px;">组合净值: <b>${item.nav.toFixed(3)}</b> <span style="color:${color}; margin-left:4px;">(${sign}${dailyChg.toFixed(2)}%)</span></div>`; 
+                    
                     if (benchItem) h += `<div style="font-size:11px;">基准(不择时): <b>${benchItem.nav.toFixed(3)}</b></div>`; 
                     h += `<div style="font-size:11px;">实际总杠杆: <b>${item.totalLev.toFixed(2)}x</b></div>`; 
                     return h; 
@@ -1368,7 +1369,6 @@
             dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
             series: seriesList
         });
-        // ========== 修改结束 ==========
     }
 
     function updateDetailPanel(hist, index) {
@@ -1494,7 +1494,7 @@
         filterStockList(); checkAllState();
     }
 
-    // === 修改：只全选/取消全选"可见"的行 ===
+    // === 修改：只全选/取消全选“可见”的行 ===
     function toggleAllStocks(el) { 
         document.querySelectorAll('#stock-tbody tr').forEach(row => { 
             // 关键修改：只针对未隐藏(style.display != none)的行操作
