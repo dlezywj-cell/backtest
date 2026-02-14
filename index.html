@@ -1,4 +1,3 @@
-html
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -7,108 +6,63 @@ html
     <title>估值杠杆策略 (免插件直连版)</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
-        /* === 基础变量 === */
         :root { --primary: #007bff; --bg: #f4f6f9; --card: #fff; --text: #333; --border: #eee; --selected: #e3f2fd; }
         body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; padding-bottom: 80px; font-size: 14px; }
         .container { max-width: 800px; margin: 0 auto; }
-
-        /* === 卡片框架 === */
         .card { background: var(--card); border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 12px; overflow: hidden; transition: all 0.3s; }
         .card-header { padding: 12px 15px; background: #fff; border-bottom: 1px solid transparent; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 15px; user-select: none; cursor: pointer;}
         .header-title { flex: 1; display: flex; align-items: center; gap: 5px; }
-
         .card-body { display: none; padding: 15px; }
         .card.open .card-body { display: block; }
         .card.open .card-header { border-bottom-color: var(--border); }
-
         .arrow { font-size: 12px; color: #999; transition: transform 0.3s; }
         .card.open .arrow { transform: rotate(180deg); }
-
-        /* === 区域折叠头 (Section) === */
         .section-header { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f8f9fa; border-radius: 6px; cursor: pointer; margin-bottom: 5px; user-select: none; border: 1px solid #eee; transition: background 0.2s; }
         .section-header:active { background: #e9ecef; }
         .section-header span { font-weight: 600; font-size: 13px; color: #555; }
-
         .section-header .header-arrow { transform: rotate(0deg); transition: transform 0.3s; }
         .section-header.expanded .header-arrow { transform: rotate(180deg); } 
-
         .section-body { display: block; animation: fadeIn 0.3s; padding: 5px; border: 1px solid #f8f9fa; border-top: none; margin-bottom: 15px; }
         .section-body.collapsed { display: none; } 
-
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        /* === 表单与按钮 === */
         .form-row { display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-end; }
         .form-group { flex: 1; min-width: 0; }
         .form-group label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; }
         .form-group input { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
-
         .run-bar { display: flex; gap: 10px; align-items: flex-end; background:#f8f9fa; padding:10px; border-radius:6px; margin-top:0; }
         @media (max-width: 600px) {
             .run-bar { flex-wrap: wrap; }
             .run-bar .form-group { min-width: 45%; flex: 1; }
             .run-bar #btn-run-all { width: 100%; margin-top: 8px; padding: 12px; font-size: 16px; font-weight: bold; }
         }
-
         #adv-settings { background: #fff; border: 1px dashed #ddd; padding: 10px; border-radius: 6px; margin-top: 5px; display: none; }
         #adv-settings .form-row { margin-bottom: 8px; }
         #adv-settings label { color: #888; }
         #adv-settings input { padding: 6px; font-size: 13px; background: #fafafa; }
         .toggle-link { display: block; text-align: right; margin-top: 5px; margin-bottom: 5px; color: #007bff; font-size: 12px; cursor: pointer; user-select: none; }
-
         .btn { border: none; border-radius: 6px; padding: 10px; color: #fff; cursor: pointer; font-weight: 500; display:flex; align-items:center; justify-content:center; transition: opacity 0.2s; }
         .btn:active { opacity: 0.8; }
         .btn:disabled { background: #ccc !important; cursor: not-allowed; }
         .btn-blue { background: #007bff; } .btn-green { background: #28a745; } .btn-purple { background: #6f42c1; } .btn-gray { background: #6c757d; }
-
         .btn-orange { background: #fd7e14; transition: all 0.3s ease; }
-
-        .btn-orange.unsaved { 
-            background-color: #dc3545 !important; 
-            font-weight: 800;
-            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
-            animation: pulse-red 2s infinite;
-        }
+        .btn-orange.unsaved { background-color: #dc3545 !important; font-weight: 800; box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); animation: pulse-red 2s infinite; }
         @keyframes pulse-red {
             0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
             70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(220, 53, 69, 0); }
             100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
         }
-
         .btn-icon-square { width: 28px; height: 28px; padding: 0; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1; }
         .btn-edit-yellow { background: #ffca28; color: #333; }
         .btn-del-red { background: #ef5350; color: #fff; }
-
         .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin-bottom: 15px; margin-top: 15px; }
         .stat-item { background: #f8f9fa; padding: 8px; border-radius: 6px; }
         .stat-val { font-size: 16px; font-weight: bold; }
         .stat-lbl { font-size: 11px; color: #888; }
         .win { color: #d32f2f; } .loss { color: #2e7d32; }
         #chart-box { width: 100%; height: 400px; }
-
-        .summary-wrapper { 
-            overflow-x: auto; 
-            overflow-y: auto; 
-            margin-bottom: 15px; 
-            border: 1px solid #eee; 
-            border-radius: 6px; 
-            max-height: 400px; 
-        }
+        .summary-wrapper { overflow-x: auto; overflow-y: auto; margin-bottom: 15px; border: 1px solid #eee; border-radius: 6px; max-height: 400px; }
         .summary-table { width: 100%; font-size: 13px; border-collapse: collapse; background: #fff; min-width: 300px; }
-
-        .summary-table th { 
-            background: #f1f3f5; 
-            padding: 10px 8px; 
-            color: #555; 
-            font-weight: 600; 
-            font-size: 12px; 
-            text-align: right; 
-            white-space: nowrap; 
-            position: sticky; 
-            top: 0;
-            z-index: 10;
-            box-shadow: 0 1px 0 #ddd;
-        }
+        .summary-table th { background: #f1f3f5; padding: 10px 8px; color: #555; font-weight: 600; font-size: 12px; text-align: right; white-space: nowrap; position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 0 #ddd; }
         .summary-table th:first-child { text-align: left; }
         .summary-table td { padding: 12px 8px; border-bottom: 1px solid #eee; text-align: right; }
         .summary-table td:first-child { text-align: left; }
@@ -117,12 +71,9 @@ html
         .summary-table tr.selected { background: #e3f2fd !important; border-left: 3px solid #007bff; }
         .summary-table tr.selected td { font-weight: 500; }
         .val-pos { color: #d32f2f; } .val-neg { color: #2e7d32; }
-
         .list-search-bar { padding: 10px 15px; border-bottom: 1px solid #f0f0f0; background: #fff; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .list-search-bar input { flex: 1; min-width: 120px; border: 1px solid #eee; border-radius: 6px; padding: 8px; font-size: 13px; background: #f9f9f9; outline: none; transition: all 0.2s; }
         .list-search-bar input:focus { background: #fff; border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.1); }
-        
-        /* === 市场筛选按钮样式 === */
         .market-filter-group { display: flex; gap: 5px; }
         .filter-btn { border: 1px solid #ddd; background: #fff; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; color: #555; transition: all 0.2s; white-space: nowrap; }
         .filter-btn:hover { background: #f8f9fa; }
@@ -131,55 +82,28 @@ html
             .market-filter-group { width: 100%; margin-top: 5px; justify-content: space-between; }
             .filter-btn { flex: 1; text-align: center; }
         }
-
-        .table-scroll-box {
-            overflow-x: auto;
-            overflow-y: auto;
-            max-height: 420px;
-        }
-
+        .table-scroll-box { overflow-x: auto; overflow-y: auto; max-height: 420px; }
         .base-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-
-        .base-table th { 
-            background: #f8f9fa; 
-            padding: 10px; 
-            text-align: left; 
-            font-size: 12px; 
-            color:#666; 
-            border-bottom: 1px solid #ddd;
-            position: sticky; 
-            top: 0;
-            z-index: 10;
-            box-shadow: 0 1px 0 #ddd;
-        }
+        .base-table th { background: #f8f9fa; padding: 10px; text-align: left; font-size: 12px; color:#666; border-bottom: 1px solid #ddd; position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 0 #ddd; }
         .base-table td { padding: 12px 5px; border-bottom: 1px solid #eee; text-align: left; font-size: 13px; vertical-align: middle; transition: all 0.2s; }
-
         .base-table tbody tr:hover { background-color: #f0f7ff; }
         .base-table tbody tr:hover td { border-bottom-color: #d0e3fc; }
-
         .op-btn-group { display: flex; justify-content: center; gap: 8px; } 
         input[type="checkbox"] { width: 18px; height: 18px; vertical-align: middle; cursor: pointer; }
-
         .log-table { width: 100%; min-width: 750px; border-collapse: collapse; table-layout: fixed; }
         .log-table th { background: #fff; color: #666; font-size: 12px; position: sticky; top: 0; border-bottom: 2px solid #eee; text-align: left; padding: 8px 5px; z-index: 5; }
         .log-table td { padding: 8px 5px; border-bottom: 1px solid #f0f0f0; font-size: 12px; white-space: nowrap; vertical-align: middle; }
-
         .log-col-date { width: 15%; }
         .log-col-action { width: 10%; text-align: center !important; }
         .log-col-val { width: 15%; text-align: center !important; }
         .log-col-mas { width: 20%; font-size: 10px; color: #888; line-height: 1.2; font-family: monospace; }
         .log-col-reason { width: 40%; }
-
         .badge { padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #fff; font-weight: normal; }
         .bg-red { background: #d32f2f; } .bg-green { background: #2e7d32; } .bg-gray { background: #999; }
-
-        /* 弹窗样式 */
+        /* ========== 弹窗样式（关键！） ========== */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; }
-        .modal-box { background: #fff; padding: 20px; border-radius: 12px; width: 85%; max-width: 320px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-
-        .daily-log-header {
-            padding: 8px 10px; background: #fff; border: 1px solid #eee; margin-top: -1px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 13px; transition: background 0.2s;
-        }
+        .modal-box { background: #fff; padding: 20px; border-radius: 12px; width: 85%; max-width: 320px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 1000; }
+        .daily-log-header { padding: 8px 10px; background: #fff; border: 1px solid #eee; margin-top: -1px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 13px; transition: background 0.2s; }
         .daily-log-header:hover { background: #f9f9f9; }
         .daily-log-body { display: none; padding: 8px 10px; background: #fafafa; border: 1px solid #eee; border-top: none; }
         .daily-log-body.open { display: block; }
@@ -187,7 +111,6 @@ html
         .daily-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
         .arrow-daily { font-size: 10px; color: #999; transform: rotate(0deg); transition: transform 0.2s; }
         .daily-log-header.open .arrow-daily { transform: rotate(90deg); }
-
         .combo-box { position: relative; max-width: 70%; flex: 1; }
         .combo-input { width: 100%; padding: 8px 30px 8px 10px; border: 1px solid #ddd; border-radius: 6px; outline: none; font-weight: bold; color: #333; box-sizing: border-box; font-size: 16px; background: #fff; transition: border 0.2s; }
         .combo-input:focus { border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.1); }
@@ -201,15 +124,11 @@ html
         .combo-option.active { background: #e3f2fd; color: #007bff; font-weight: bold; }
         .combo-code { color: #999; font-size: 12px; margin-left: 8px; font-weight: normal; }
         .combo-option:hover .combo-code { color: #6699cc; }
-
-        /* 新增：收益榜筛选栏样式 */
         .summary-filter-bar { display: flex; gap: 8px; padding: 0 0 10px 0; background: #fff; border-bottom: 1px solid #eee; margin-bottom: 0; }
         .summary-filter-bar input, .summary-filter-bar select { border: 1px solid #ddd; padding: 6px 10px; border-radius: 6px; font-size: 12px; outline: none; background: #f9f9f9; transition: all 0.2s; }
         .summary-filter-bar input:focus, .summary-filter-bar select:focus { border-color: #007bff; background: #fff; }
         .summary-filter-bar input { flex: 1; }
         .summary-filter-bar select { max-width: 140px; color: #555; }
-
-        /* 新增：右上角状态栏样式 */
         .sync-info { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-left: 10px; padding-left: 10px; border-left: 1px solid #eee; }
         .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; transition: background 0.3s; }
         .sync-dot.online { background: #34c759; box-shadow: 0 0 6px rgba(52, 199, 89, 0.4); }
@@ -219,50 +138,14 @@ html
         .settings-icon { font-size: 16px; color: #555; cursor: pointer; opacity: 0.7; transition: opacity 0.2s; margin-left: 5px; }
         .settings-icon:hover { opacity: 1; transform: rotate(30deg); transition: transform 0.3s; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
-
-        /* 设置弹窗表单样式 */
         .settings-form .form-group { margin-bottom: 15px; }
         .settings-form label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
         .settings-form input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
         .settings-tip { font-size: 12px; color: #888; margin-top: 3px; }
-
-        /* === 修改：持仓详情滚动列表样式 (手机端优化) === */
-        #holdings-detail-panel {
-            display: none;
-            margin-top: 10px;
-            border: 1px solid #ddd;
-            background: #fff;
-            border-radius: 6px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-        .detail-header-bar {
-            padding: 8px 12px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #eee;
-            font-weight: bold;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-radius: 6px 6px 0 0;
-            font-size: 13px;
-        }
-        .detail-scroll-box {
-            /* 固定高度，确保滚动区域固定 */
-            height: 250px; 
-            overflow-y: auto;
-            padding: 0;
-            -webkit-overflow-scrolling: touch;
-            overscroll-behavior: contain; /* 防止滚动传导到页面 */
-            background: #fff;
-        }
-        .detail-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 12px;
-            border-bottom: 1px solid #f5f5f5;
-            font-size: 12px;
-            align-items: center;
-        }
+        #holdings-detail-panel { display: none; margin-top: 10px; border: 1px solid #ddd; background: #fff; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .detail-header-bar { padding: 8px 12px; background: #f8f9fa; border-bottom: 1px solid #eee; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-radius: 6px 6px 0 0; font-size: 13px; }
+        .detail-scroll-box { height: 250px; overflow-y: auto; padding: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; background: #fff; }
+        .detail-row { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid #f5f5f5; font-size: 12px; align-items: center; }
         .detail-row:last-child { border-bottom: none; }
         .detail-row:nth-child(even) { background: #fafafa; }
         .detail-name { display: flex; align-items: center; gap: 6px; font-weight: 500; }
@@ -271,12 +154,10 @@ html
 </head>
 <body>
 <div class="container">
-<!-- 配置卡片 -->
 <div class="card open" id="card-config">
     <div class="card-header" onclick="toggleCard('card-config')">
         <div class="header-title"><span>⚙️ 策略配置</span></div>
         <div style="display:flex; align-items:center;">
-            <!-- 新增：右上角状态和设置 -->
             <div class="sync-info">
                 <div id="syncDot" class="sync-dot"></div>
                 <span id="statusTxt" class="status-txt" onclick="syncFromGithub()">未连接</span>
@@ -291,26 +172,22 @@ html
             <button class="btn btn-blue" style="margin-bottom:1px; width:40px;" onclick="searchStock()">🔍</button>
             <div class="form-group" style="flex:1.5"><label>代码 (自动)</label><input type="text" id="inCode" readonly></div>
         </div>
-        
         <div class="form-row">
             <div class="form-group"><label>最低市值(亿)</label><input type="number" id="inMin" placeholder="2500"></div>
             <div class="form-group"><label>最高市值(亿)</label><input type="number" id="inMax" placeholder="4000"></div>
         </div>
         <div style="display:flex; gap:10px; margin-top:15px; border-top:1px solid #eee; padding-top:15px;">
             <button class="btn btn-purple" style="flex:1" id="btn-pull" onclick="syncFromGithub()">☁️ 拉取(覆盖)</button>
-            <!-- ⬇️ 导入按钮 ⬇️ -->
             <button class="btn btn-gray" style="flex:1" onclick="importMergeFromGithub()">📥 导入(StockData)</button>
             <button class="btn btn-orange" style="flex:1" id="btn-push" onclick="uploadToGithub()">🚀 保存配置</button>
             <button class="btn btn-green" style="flex:1" onclick="saveStock()">💾 存本地</button>
         </div>
-        <!-- 修复按钮 -->
         <div style="margin-top:10px;">
              <button class="btn btn-edit-yellow" style="width:100%; font-size:12px; padding:6px;" onclick="ensureStockCodes()">🔧 自动修复缺失代码 (解决无K线数据问题)</button>
         </div>
         <div style="font-size:11px; color:#666; margin-top:5px; text-align:center;">💡 提示：<b style="color:red">回测时请关闭 VPN (直连最快)</b>，同步GitHub时请开启 VPN。</div>
     </div>
 </div>
-<!-- 列表卡片 -->
 <div class="card open" id="card-list">
     <div class="card-header" onclick="toggleCard('card-list')">
         <div class="header-title"><span>📋 监控列表</span><span id="list-count" style="font-weight:normal;margin-left:5px;color:#999;"></span></div>
@@ -320,7 +197,6 @@ html
         <div class="list-search-bar">
             <span style="font-size:14px">🔍</span>
             <input type="text" id="list-search-input" placeholder="输入名称或代码筛选..." oninput="filterStockList()">
-            <!-- 新增：市场筛选按钮 -->
             <div class="market-filter-group">
                 <button class="filter-btn active" onclick="setMarketFilter('ALL', this)">全部</button>
                 <button class="filter-btn" onclick="setMarketFilter('A', this)">A股</button>
@@ -328,22 +204,14 @@ html
                 <button class="filter-btn" onclick="setMarketFilter('US', this)">美股</button>
             </div>
         </div>
-<div class="table-scroll-box">
-        <table class="base-table">
-            <thead>
-                <tr>
-                    <th>股票信息</th>
-                    <th style="width:30%;">市值区间</th>
-                    <th style="text-align:center; width:90px;">操作</th>
-                    <th style="width:40px; text-align:center;"><input type="checkbox" id="check-all" onchange="toggleAllStocks(this)" checked></th>
-                </tr>
-            </thead>
-            <tbody id="stock-tbody"></tbody>
-        </table>
+        <div class="table-scroll-box">
+            <table class="base-table">
+                <thead><tr><th>股票信息</th><th style="width:30%;">市值区间</th><th style="text-align:center; width:90px;">操作</th><th style="width:40px; text-align:center;"><input type="checkbox" id="check-all" onchange="toggleAllStocks(this)" checked></th></tr></thead>
+                <tbody id="stock-tbody"></tbody>
+            </table>
+        </div>
     </div>
 </div>
-</div>
-<!-- 结果卡片 -->
 <div class="card open" id="card-result">
     <div class="card-header" onclick="toggleCard('card-result')">
         <div class="header-title"><span>📊 实时回测结果</span></div>
@@ -355,252 +223,190 @@ html
             <div class="form-group"><label>结束日期</label><input type="date" id="inEndDate"></div>
             <button class="btn btn-blue" id="btn-run-all" onclick="runBatchBacktest()">🚀 运行选中 (免代理模式)</button>
         </div>
-<div class="toggle-link" onclick="toggleAdvSettings()">🛠 高级参数设置 ▼</div>
-<div id="adv-settings">
-    <div style="font-size:12px; color:#007bff; margin-bottom:8px; font-weight:bold;">基础设定</div>
-    <div class="form-row">
-        <div class="form-group"><label>最大杠杆率 (MaxLev)</label><input type="number" id="pMaxLev" step="0.1" value="2.0"></div>
-        <div class="form-group"></div>
-    </div>
-    <div style="border-top:1px dashed #eee; margin:8px 0;"></div>
-    <div style="font-size:12px; color:#28a745; margin-bottom:8px; font-weight:bold;">低估区 (市值 < 下限)</div>
-    <div class="form-row">
-        <div class="form-group"><label>敏感度 (越小越迟钝)</label><input type="number" id="pLowSens" value="12"></div>
-        <div class="form-group"><label>最大减仓比例 (0-1)</label><input type="number" id="pLowRed" step="0.1" value="0.3"></div>
-    </div>
-    <div style="border-top:1px dashed #eee; margin:8px 0;"></div>
-    <div style="font-size:12px; color:#666; margin-bottom:8px; font-weight:bold;">常态/高估区</div>
-    <div class="form-row">
-        <div class="form-group"><label>敏感度 (默认25)</label><input type="number" id="pNormSens" value="25"></div>
-        <div class="form-group"><label>最大减仓比例 (0-1)</label><input type="number" id="pNormRed" step="0.1" value="0.8"></div>
-    </div>
-    
-    <!-- ▼▼▼ 全局择时策略 ▼▼▼ -->
-    <div style="border-top:1px dashed #eee; margin:8px 0;"></div>
-    <div style="font-size:12px; color:#fd7e14; margin-bottom:8px; font-weight:bold;">全局择时策略 (Global Timing)</div>
-    <div class="form-row">
-        <div class="form-group" style="flex:0.8; display:flex; align-items:flex-end; padding-bottom:10px;">
-            <input type="checkbox" id="pTimeEnable" style="width:16px; height:16px; margin-right:5px; cursor:pointer;">
-            <label for="pTimeEnable" style="margin:0; cursor:pointer; font-weight:bold; color:#333;" title="开启后将先预演全市场状态，判定为下跌区间时强制降仓">开启下跌区间择时</label>
+        <div class="toggle-link" onclick="toggleAdvSettings()">🛠 高级参数设置 ▼</div>
+        <div id="adv-settings">
+            <div style="font-size:12px; color:#007bff; margin-bottom:8px; font-weight:bold;">基础设定</div>
+            <div class="form-row">
+                <div class="form-group"><label>最大杠杆率 (MaxLev)</label><input type="number" id="pMaxLev" step="0.1" value="2.0"></div>
+                <div class="form-group"></div>
+            </div>
+            <div style="border-top:1px dashed #eee; margin:8px 0;"></div>
+            <div style="font-size:12px; color:#28a745; margin-bottom:8px; font-weight:bold;">低估区 (市值 < 下限)</div>
+            <div class="form-row">
+                <div class="form-group"><label>敏感度 (越小越迟钝)</label><input type="number" id="pLowSens" value="12"></div>
+                <div class="form-group"><label>最大减仓比例 (0-1)</label><input type="number" id="pLowRed" step="0.1" value="0.3"></div>
+            </div>
+            <div style="border-top:1px dashed #eee; margin:8px 0;"></div>
+            <div style="font-size:12px; color:#666; margin-bottom:8px; font-weight:bold;">常态/高估区</div>
+            <div class="form-row">
+                <div class="form-group"><label>敏感度 (默认25)</label><input type="number" id="pNormSens" value="25"></div>
+                <div class="form-group"><label>最大减仓比例 (0-1)</label><input type="number" id="pNormRed" step="0.1" value="0.8"></div>
+            </div>
+            <div style="border-top:1px dashed #eee; margin:8px 0;"></div>
+            <div style="font-size:12px; color:#fd7e14; margin-bottom:8px; font-weight:bold;">全局择时策略</div>
+            <div class="form-row">
+                <div class="form-group" style="flex:0.8; display:flex; align-items:flex-end; padding-bottom:10px;">
+                    <input type="checkbox" id="pTimeEnable" style="width:16px; height:16px; margin-right:5px; cursor:pointer;">
+                    <label for="pTimeEnable" style="margin:0; cursor:pointer; font-weight:bold; color:#333;" title="开启后将先预演全市场状态，判定为下跌区间时强制降仓">开启下跌区间择时</label>
+                </div>
+                <div class="form-group">
+                    <label>区间持仓系数 (0-1)</label>
+                    <input type="number" id="pTimeRatio" step="0.1" value="0.0" placeholder="0=空仓, 0.5=半仓">
+                </div>
+            </div>
+            <div style="font-size:11px; color:#999; margin-bottom:5px;">* 注：开启后回测时间会加倍（需运行两遍，Pass 1 判定状态，Pass 2 执行降仓）</div>
         </div>
-        <div class="form-group">
-            <label>区间持仓系数 (0-1)</label>
-            <input type="number" id="pTimeRatio" step="0.1" value="0.0" placeholder="0=空仓, 0.5=半仓">
-        </div>
-    </div>
-    <div style="font-size:11px; color:#999; margin-bottom:5px;">* 注：开启后回测时间会加倍（需运行两遍，Pass 1 判定状态，Pass 2 执行降仓）</div>
-</div>
-<div id="batch-progress" style="display:none; margin:12px 0; padding:10px; background:#e3f2fd; color:#0056b3; font-size:13px; border-radius:4px; text-align:center; border:1px solid #b3e5fc;">
-    准备就绪
-</div>
-<!-- 结果统一展示容器 -->
-<div id="results-container" style="display:none; margin-top:15px;">
-
-<!-- 1. 收益排行榜 -->
-<div id="batch-summary-box" style="margin-bottom:15px;">
-    <div class="section-header expanded" onclick="toggleSection('summary-content', this)">
-        <span>📈 收益排行榜</span> 
-        <span class="arrow header-arrow">▼</span>
-    </div>
-    <div id="summary-content" class="section-body">
-        <!-- 新增：搜索和筛选栏 -->
-        <div class="summary-filter-bar">
-            <input type="text" id="summary-search" placeholder="🔍 搜股票/代码..." oninput="filterSummaryTable()">
-            <select id="summary-filter-reason" onchange="filterSummaryTable()">
-                <option value="">全部原因</option>
-            </select>
-        </div>
-
-        <div class="summary-wrapper">
-            <table class="summary-table">
-                <thead>
-                    <tr>
-                        <th>股票</th>
-                        <th>策略收益</th>
-                        <th>最大回撤</th>
-                        <th>最新变动</th>
-                        <th style="text-align:left; padding-left:10px;">最新原因</th>
-                    </tr>
-                </thead>
-                <tbody id="summary-tbody"></tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- 2. 组合策略 -->
-<div id="portfolio-section" style="margin-bottom:15px;">
-    <div class="section-header expanded" onclick="toggleSection('portfolio-content', this)">
-        <span>💰 组合策略 (Portfolio)</span> 
-        <span class="arrow header-arrow">▼</span>
-    </div>
-    <div id="portfolio-content" class="section-body">
-        <div class="form-row">
-            <!-- 默认值改为 0 -->
-            <div class="form-group"><label>剔除门槛 (Min Threshold)</label><input type="number" id="pMinPos" step="0.1" value="0"></div>
-            <div class="form-group"></div>
-        </div>
-        <div style="text-align:right; margin-bottom:10px;">
-            <button class="btn btn-orange" onclick="runPortfolioStrategy()" style="width:100%">🔄 重新计算组合</button>
-            <div style="font-size:11px; color:#666; margin-top:5px; text-align:left; line-height:1.4;">
-                逻辑：<b>动态等权</b>。自动剔除“建议杠杆 < 门槛”的无效股票。<br>
-                资金仅在满足条件的股票中平分。若无股票满足，则空仓。
+        <div id="batch-progress" style="display:none; margin:12px 0; padding:10px; background:#e3f2fd; color:#0056b3; font-size:13px; border-radius:4px; text-align:center; border:1px solid #b3e5fc;">准备就绪</div>
+        <div id="results-container" style="display:none; margin-top:15px;">
+            <div id="batch-summary-box" style="margin-bottom:15px;">
+                <div class="section-header expanded" onclick="toggleSection('summary-content', this)">
+                    <span>📈 收益排行榜</span> 
+                    <span class="arrow header-arrow">▼</span>
+                </div>
+                <div id="summary-content" class="section-body">
+                    <div class="summary-filter-bar">
+                        <input type="text" id="summary-search" placeholder="🔍 搜股票/代码..." oninput="filterSummaryTable()">
+                        <select id="summary-filter-reason" onchange="filterSummaryTable()"><option value="">全部原因</option></select>
+                    </div>
+                    <div class="summary-wrapper">
+                        <table class="summary-table"><thead><tr><th>股票</th><th>策略收益</th><th>最大回撤</th><th>最新变动</th><th style="text-align:left; padding-left:10px;">最新原因</th></tr></thead><tbody id="summary-tbody"></tbody></table>
+                    </div>
+                </div>
+            </div>
+            <div id="portfolio-section" style="margin-bottom:15px;">
+                <div class="section-header expanded" onclick="toggleSection('portfolio-content', this)">
+                    <span>💰 组合策略</span> 
+                    <span class="arrow header-arrow">▼</span>
+                </div>
+                <div id="portfolio-content" class="section-body">
+                    <div class="form-row">
+                        <div class="form-group"><label>剔除门槛</label><input type="number" id="pMinPos" step="0.1" value="0"></div>
+                        <div class="form-group"></div>
+                    </div>
+                    <div style="text-align:right; margin-bottom:10px;">
+                        <button class="btn btn-orange" onclick="runPortfolioStrategy()" style="width:100%">🔄 重新计算组合</button>
+                        <div style="font-size:11px; color:#666; margin-top:5px; text-align:left; line-height:1.4;">逻辑：<b>动态等权</b>。自动剔除"建议杠杆 < 门槛"的无效股票。<br>资金仅在满足条件的股票中平分。若无股票满足，则空仓。</div>
+                    </div>
+                    <div class="stat-grid">
+                        <div class="stat-item"><div class="stat-val" id="port-ret">--</div><div class="stat-lbl">组合总收益</div></div>
+                        <div class="stat-item"><div class="stat-val" id="port-dd">--</div><div class="stat-lbl">最大回撤</div></div>
+                        <div class="stat-item"><div class="stat-val" id="port-lev">--</div><div class="stat-lbl">平均占用杠杆</div></div>
+                    </div>
+                    <div id="portfolio-chart" style="width: 100%; height: 350px;"></div>
+                </div>
+            </div>
+            <div id="holdings-section" style="margin-bottom:15px;">
+                <div class="section-header" onclick="toggleSection('holdings-content', this)">
+                    <span>📚 每日持仓结构</span> 
+                    <span class="arrow header-arrow">▼</span>
+                </div>
+                <div id="holdings-content" class="section-body collapsed">
+                    <div id="holdings-chart" style="width: 100%; height: 400px;"></div>
+                    <div style="text-align:center; font-size:11px; color:#999; margin-top:5px; margin-bottom:10px;">提示：手指在图表上滑动，下方明细列表将实时更新。</div>
+                    <div id="holdings-detail-panel">
+                        <div class="detail-header-bar"><span id="detail-date-title">持仓详情</span></div>
+                        <div class="detail-scroll-box" id="detail-list-content"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="trade-log-section" style="margin-bottom:15px;">
+                <div class="section-header" onclick="toggleSection('trade-log-content', this)">
+                    <span>📝 每日调仓明细</span> 
+                    <span class="arrow header-arrow">▼</span>
+                </div>
+                <div id="trade-log-content" class="section-body collapsed" style="padding:0; border:none; max-height:400px; overflow-y:auto;">
+                    <div id="trade-log-list"></div>
+                </div>
+            </div>
+            <div id="status-dist-section" style="margin-bottom:15px;">
+                <div class="section-header" onclick="toggleSection('status-dist-content', this)">
+                    <span>🚥 每日状态占比</span> 
+                    <span class="arrow header-arrow">▼</span>
+                </div>
+                <div id="status-dist-content" class="section-body collapsed">
+                    <div id="status-chart" style="width: 100%; height: 350px;"></div>
+                    <div style="text-align:center; font-size:11px; color:#999; margin-top:5px;">统计每日处于不同技术形态的股票数量。红色=上涨趋势，绿色=下跌趋势，灰色=风控/止损，蓝色=震荡。</div>
+                </div>
+            </div>
+            <div id="status-detail-section" style="margin-bottom:15px;">
+                <div class="section-header" onclick="toggleSection('status-detail-content', this)">
+                    <span>📋 各状态股票明细</span> 
+                    <span class="arrow header-arrow">▼</span>
+                </div>
+                <div id="status-detail-content" class="section-body collapsed">
+                    <div id="status-detail-container" style="display:flex; flex-wrap:wrap; gap:10px;"></div>
+                </div>
+            </div>
+            <div id="trend-log-section" style="margin-bottom:15px;">
+                <div class="section-header" onclick="toggleSection('trend-log-content', this)">
+                    <span>🗂 每日趋势变更日志</span> 
+                    <span class="arrow header-arrow">▼</span>
+                </div>
+                <div id="trend-log-content" class="section-body collapsed" style="padding:0; border:none; max-height:400px; overflow-y:auto;">
+                    <div id="trend-log-list"></div>
+                </div>
+            </div>
+            <div id="contribution-section" style="margin-bottom:15px;">
+                <div class="section-header" onclick="toggleSection('contribution-content', this)">
+                    <span>💰 累计盈亏贡献</span> 
+                    <span class="arrow header-arrow">▼</span>
+                </div>
+                <div id="contribution-content" class="section-body collapsed">
+                    <div id="contribution-chart" style="width: 100%; height: 400px;"></div>
+                    <div style="text-align:center; font-size:11px; color:#999; margin-top:5px;">展示每只股票对组合总收益的累计点数贡献。</div>
+                </div>
             </div>
         </div>
-        <div class="stat-grid">
-            <div class="stat-item"><div class="stat-val" id="port-ret">--</div><div class="stat-lbl">组合总收益</div></div>
-            <div class="stat-item"><div class="stat-val" id="port-dd">--</div><div class="stat-lbl">最大回撤</div></div>
-            <div class="stat-item"><div class="stat-val" id="port-lev">--</div><div class="stat-lbl">平均占用杠杆</div></div>
-        </div>
-        <div id="portfolio-chart" style="width: 100%; height: 350px;"></div>
-    </div>
-</div>
-
-<!-- 3. 每日持仓结构 -->
-<div id="holdings-section" style="margin-bottom:15px;">
-    <div class="section-header" onclick="toggleSection('holdings-content', this)">
-        <span>📚 每日持仓结构 (Holdings Structure)</span> 
-        <span class="arrow header-arrow">▼</span>
-    </div>
-    <div id="holdings-content" class="section-body collapsed">
-        <div id="holdings-chart" style="width: 100%; height: 400px;"></div>
-        <div style="text-align:center; font-size:11px; color:#999; margin-top:5px; margin-bottom:10px;">
-            提示：手指在图表上滑动，下方明细列表将实时更新。
-        </div>
-        <!-- 持仓详情滚动列表 -->
-        <div id="holdings-detail-panel">
-            <div class="detail-header-bar">
-                <span id="detail-date-title">持仓详情</span>
-                <!-- 去掉了关闭按钮，作为固定面板展示 -->
+        <div id="detail-view" style="display:none; border-top: 2px dashed #eee; margin-top: 20px; padding-top: 15px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <div class="combo-box" id="detail-combo">
+                    <input type="text" class="combo-input" id="detail-combo-input" placeholder="点击选择或输入搜索..." oninput="filterDetailCombo()" onfocus="openDetailCombo()" onclick="this.select()">
+                    <span class="combo-arrow" onclick="toggleDetailCombo(event)">▼</span>
+                    <div class="combo-options" id="detail-combo-list"></div>
+                </div>
+                <span style="font-size:11px; background:#e3f2fd; padding:3px 8px; border-radius:4px; color:#007bff; font-weight:500;">当前选中</span>
             </div>
-            <div class="detail-scroll-box" id="detail-list-content">
-                <!-- 内容通过JS填充 -->
+            <div class="stat-grid">
+                <div class="stat-item"><div class="stat-val" id="val-ret">--</div><div class="stat-lbl">策略收益</div></div>
+                <div class="stat-item"><div class="stat-val" id="val-stock">--</div><div class="stat-lbl">股价涨跌</div></div>
+                <div class="stat-item"><div class="stat-val" id="val-lev">--</div><div class="stat-lbl">平均杠杆</div></div>
+            </div>
+            <div id="chart-box"></div>
+            <div style="margin-top:20px;">
+                <div class="section-header" onclick="toggleSection('log-content', this)">
+                    <span>📜 交易日志 <span id="log-count" style="font-weight:normal; color:#999; font-size:12px;"></span></span> 
+                    <span class="arrow header-arrow">▼</span>
+                </div>
+                <div id="log-content" class="section-body collapsed" style="border:1px solid #eee; border-radius:6px; border-top:0;">
+                    <div style="max-height: 300px; overflow: auto; -webkit-overflow-scrolling: touch;">
+                        <table class="log-table">
+                            <thead style="background:#f9f9f9;"><tr><th class="log-col-date">日期</th><th class="log-col-action">动作</th><th class="log-col-val">变动</th><th class="log-col-mas">均线(5/10/20)</th><th class="log-col-reason">原因</th></tr></thead>
+                            <tbody id="log-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
-
-<!-- 4. 交易明细 -->
-<div id="trade-log-section" style="margin-bottom:15px;">
-    <div class="section-header" onclick="toggleSection('trade-log-content', this)">
-        <span>📝 每日调仓明细 (Trading Signals)</span> 
-        <span class="arrow header-arrow">▼</span>
-    </div>
-    <div id="trade-log-content" class="section-body collapsed" style="padding:0; border:none; max-height:400px; overflow-y:auto;">
-        <div id="trade-log-list"></div>
-    </div>
 </div>
 
-<!-- 5. 每日状态分布 -->
-<div id="status-dist-section" style="margin-bottom:15px;">
-    <div class="section-header" onclick="toggleSection('status-dist-content', this)">
-        <span>🚥 每日状态占比 (Market Status)</span> 
-        <span class="arrow header-arrow">▼</span>
-    </div>
-    <div id="status-dist-content" class="section-body collapsed">
-        <div id="status-chart" style="width: 100%; height: 350px;"></div>
-        <div style="text-align:center; font-size:11px; color:#999; margin-top:5px;">
-            统计每日处于不同技术形态的股票数量。红色=上涨趋势，绿色=下跌趋势，灰色=风控/止损，蓝色=震荡。
-        </div>
-    </div>
-</div>
-
-<!-- 5.1 新增：各状态股票明细卡片 -->
-<div id="status-detail-section" style="margin-bottom:15px;">
-    <div class="section-header" onclick="toggleSection('status-detail-content', this)">
-        <span>📋 各状态股票明细 (Status Breakdown)</span> 
-        <span class="arrow header-arrow">▼</span>
-    </div>
-    <div id="status-detail-content" class="section-body collapsed">
-        <div id="status-detail-container" style="display:flex; flex-wrap:wrap; gap:10px;">
-            <!-- 内容由JS生成 -->
-        </div>
-    </div>
-</div>
-
-<!-- 5.5 新增：趋势变更日志 -->
-<div id="trend-log-section" style="margin-bottom:15px;">
-    <div class="section-header" onclick="toggleSection('trend-log-content', this)">
-        <span>🗂 每日趋势变更日志 (Trend Log)</span> 
-        <span class="arrow header-arrow">▼</span>
-    </div>
-    <div id="trend-log-content" class="section-body collapsed" style="padding:0; border:none; max-height:400px; overflow-y:auto;">
-        <div id="trend-log-list"></div>
-    </div>
-</div>
-
-<!-- 6. 各股盈亏贡献堆叠图 -->
-<div id="contribution-section" style="margin-bottom:15px;">
-    <div class="section-header" onclick="toggleSection('contribution-content', this)">
-        <span>💰 累计盈亏贡献 (Profit Contribution)</span> 
-        <span class="arrow header-arrow">▼</span>
-    </div>
-    <div id="contribution-content" class="section-body collapsed">
-        <div id="contribution-chart" style="width: 100%; height: 400px;"></div>
-        <div style="text-align:center; font-size:11px; color:#999; margin-top:5px;">
-            展示每只股票对组合总收益的累计点数贡献 (Stacked P&L)。
-        </div>
-    </div>
-</div>
-</div> <!-- end results-container -->
-<!-- 单只详情展示区 -->
-<div id="detail-view" style="display:none; border-top: 2px dashed #eee; margin-top: 20px; padding-top: 15px;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <div class="combo-box" id="detail-combo">
-            <input type="text" class="combo-input" id="detail-combo-input" placeholder="点击选择或输入搜索..." oninput="filterDetailCombo()" onfocus="openDetailCombo()" onclick="this.select()">
-            <span class="combo-arrow" onclick="toggleDetailCombo(event)">▼</span>
-            <div class="combo-options" id="detail-combo-list"></div>
-        </div>
-<span style="font-size:11px; background:#e3f2fd; padding:3px 8px; border-radius:4px; color:#007bff; font-weight:500;">当前选中</span>
-</div>
-<div class="stat-grid">
-    <div class="stat-item"><div class="stat-val" id="val-ret">--</div><div class="stat-lbl">策略收益</div></div>
-    <div class="stat-item"><div class="stat-val" id="val-stock">--</div><div class="stat-lbl">股价涨跌</div></div>
-    <div class="stat-item"><div class="stat-val" id="val-lev">--</div><div class="stat-lbl">平均杠杆</div></div>
-</div>
-<div id="chart-box"></div>
-<div style="margin-top:20px;">
-    <div class="section-header" onclick="toggleSection('log-content', this)">
-        <span>📜 交易日志 <span id="log-count" style="font-weight:normal; color:#999; font-size:12px;"></span></span> 
-        <span class="arrow header-arrow">▼</span>
-    </div>
-    <div id="log-content" class="section-body collapsed" style="border:1px solid #eee; border-radius:6px; border-top:0;">
-        <div style="max-height: 300px; overflow: auto; -webkit-overflow-scrolling: touch;">
-            <table class="log-table">
-                <thead style="background:#f9f9f9;">
-                    <tr>
-                        <th class="log-col-date">日期</th>
-                        <th class="log-col-action">动作</th>
-                        <th class="log-col-val">变动</th>
-                        <th class="log-col-mas">均线(5/10/20)</th>
-                        <th class="log-col-reason">原因</th>
-                    </tr>
-                </thead>
-                <tbody id="log-tbody"></tbody>
-            </table>
-        </div>
-    </div>
-</div>
-</div>
-</div>
-</div>
-
-<!-- Settings Modal (New Standard) -->
+<!-- ========== Settings Modal (弹窗HTML) ========== -->
 <div id="settings-modal" class="modal">
     <div class="modal-box">
         <h3>⚙️ 策略配置 (隔离版)</h3>
         <div class="settings-form">
             <div class="form-group">
-                <label>用户名 (GitHub User)</label>
+                <label>用户名</label>
                 <input type="text" id="cfg-username" placeholder="GitHub 用户名">
             </div>
             <div class="form-group">
-                <label>仓库名 (Repository)</label>
+                <label>仓库名</label>
                 <input type="text" id="cfg-repo" placeholder="仓库名">
                 <div class="settings-tip">数据将自动保存为: data.json (不与主页串台)</div>
             </div>
             <div class="form-group">
-                <label>分支 (Branch)</label>
+                <label>分支</label>
                 <input type="text" id="cfg-branch" placeholder="main">
             </div>
             <div class="form-group">
@@ -616,16 +422,14 @@ html
 </div>
 
 <script>
-    // === 1. 基础配置与隔离策略 ===
     const APP_STORAGE = localStorage;
-    // ▼▼▼ 全局变量：当前市场筛选状态 ▼▼▼
     let currentMarketFilter = 'ALL';
 
     function getGbConfig() {
         return {
             username: APP_STORAGE.getItem('grid_sys_username') || "",
             repo: APP_STORAGE.getItem('grid_sys_repo') || "backtest",
-            path: "data.json", // 强制写死
+            path: "data.json",
             branch: APP_STORAGE.getItem('grid_sys_branch') || "main",
             token: APP_STORAGE.getItem('grid_sys_token') || "" 
         };
@@ -637,7 +441,6 @@ html
     let benchmarkResults = []; 
     let portfolioChart = null, holdingsChart = null, statusChart = null, contributionChart = null; 
 
-    // IndexedDB
     const DB_NAME = 'StockHistoryDB_BatchV2'; 
     const STORE_NAME = 'klines_store';
     const dbPromise = new Promise((resolve, reject) => {
@@ -654,7 +457,6 @@ html
         const db = await dbPromise; const tx = db.transaction(STORE_NAME, 'readwrite'); tx.objectStore(STORE_NAME).put(val, key); return new Promise(r => { tx.oncomplete = () => r(); tx.onerror = () => r(); });
     }
 
-    // === UI 工具 ===
     function checkUnsavedStatus() {
         const dirty = APP_STORAGE.getItem('gridHasUnsavedChanges') === 'true';
         const btn = document.getElementById('btn-push');
@@ -673,20 +475,32 @@ html
         if(dot) dot.className = 'sync-dot ' + state; if(txt) txt.innerText = text || (state === 'syncing' ? '同步中' : '在线');
     }
 
+    // ========== 弹窗函数（关键！） ==========
     function openSettingsModal() {
         const cfg = getGbConfig();
-        document.getElementById('cfg-username').value = cfg.username; document.getElementById('cfg-repo').value = cfg.repo; document.getElementById('cfg-branch').value = cfg.branch; document.getElementById('cfg-token').value = cfg.token;
+        document.getElementById('cfg-username').value = cfg.username; 
+        document.getElementById('cfg-repo').value = cfg.repo; 
+        document.getElementById('cfg-branch').value = cfg.branch; 
+        document.getElementById('cfg-token').value = cfg.token;
         document.getElementById('settings-modal').style.display = 'flex';
     }
-    function closeSettingsModal() { document.getElementById('settings-modal').style.display = 'none'; }
+    function closeSettingsModal() { 
+        document.getElementById('settings-modal').style.display = 'none'; 
+    }
     function saveSettings() {
-        const u = document.getElementById('cfg-username').value.trim(); const r = document.getElementById('cfg-repo').value.trim(); const b = document.getElementById('cfg-branch').value.trim(); const t = document.getElementById('cfg-token').value.trim();
+        const u = document.getElementById('cfg-username').value.trim(); 
+        const r = document.getElementById('cfg-repo').value.trim(); 
+        const b = document.getElementById('cfg-branch').value.trim(); 
+        const t = document.getElementById('cfg-token').value.trim();
         if(!u || !r || !t) return alert("请填写完整");
-        APP_STORAGE.setItem('grid_sys_username', u); APP_STORAGE.setItem('grid_sys_repo', r); APP_STORAGE.setItem('grid_sys_branch', b); APP_STORAGE.setItem('grid_sys_token', t);
-        closeSettingsModal(); syncFromGithub();
+        APP_STORAGE.setItem('grid_sys_username', u); 
+        APP_STORAGE.setItem('grid_sys_repo', r); 
+        APP_STORAGE.setItem('grid_sys_branch', b); 
+        APP_STORAGE.setItem('grid_sys_token', t);
+        closeSettingsModal(); 
+        syncFromGithub();
     }
 
-    // === 市场筛选逻辑 ===
     function setMarketFilter(type, btn) {
         currentMarketFilter = type;
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -698,34 +512,21 @@ html
         const term = document.getElementById('list-search-input').value.toLowerCase().trim();
         let visibleCount = 0;
         const rows = document.querySelectorAll('#stock-tbody tr');
-        
         rows.forEach((row, index) => {
             const stock = stocks[index];
             const text = row.innerText.toLowerCase();
             const matchText = term === '' || text.includes(term);
-            
             let matchMarket = true;
             if (currentMarketFilter !== 'ALL') {
                 const c = stock.code ? stock.code.toUpperCase() : "";
-                // 修正后的判断逻辑
-                if (currentMarketFilter === 'HK') {
-                    matchMarket = c.endsWith('.HK');
-                } else if (currentMarketFilter === 'US') {
-                    matchMarket = c.endsWith('.US');
-                } else if (currentMarketFilter === 'A') {
-                    // 其他都是A股
-                    matchMarket = !c.endsWith('.HK') && !c.endsWith('.US');
-                }
+                if (currentMarketFilter === 'HK') matchMarket = c.endsWith('.HK');
+                else if (currentMarketFilter === 'US') matchMarket = c.endsWith('.US');
+                else if (currentMarketFilter === 'A') matchMarket = !c.endsWith('.HK') && !c.endsWith('.US');
             }
-
-            if (matchText && matchMarket) { 
-                row.style.display = ''; visibleCount++; 
-            } else { 
-                row.style.display = 'none'; 
-            }
+            if (matchText && matchMarket) { row.style.display = ''; visibleCount++; } 
+            else { row.style.display = 'none'; }
         });
         document.getElementById('list-count').innerText = `(${visibleCount}/${stocks.length})`; 
-        // 筛选后重新计算全选框状态
         checkAllState();
     }
 
@@ -748,11 +549,10 @@ html
     function toggleDailyLog(headerEl) { headerEl.classList.toggle('open'); headerEl.nextElementSibling.classList.toggle('open'); }
     function toggleAdvSettings() { const el = document.getElementById('adv-settings'); el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none'; }
 
-    // === 2. 核心数据工具 (JSONP直连模式 - 免代理) ===
     function safeB64ToUtf8(str) { return decodeURIComponent(escape(window.atob(str.replace(/\s/g, '')))); }
     function utf8ToB64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
     const getEmSecId = c => { 
-        if (!c) return "0.000000"; // 防止空代码报错
+        if (!c) return "0.000000";
         let raw = c.replace(/\.[A-Z]+$/, '');
         if (/^\d{5}$/.test(raw)) return '116.' + raw.padStart(5, '0');
         if (c.includes('.US')) return '105.' + raw;
@@ -760,26 +560,20 @@ html
         return '0.' + raw; 
     };
 
-    // 新增：自动补全缺失代码函数
     async function ensureStockCodes() {
         let missing = stocks.filter(s => !s.code || s.code.trim() === "");
         if (missing.length === 0) return alert("所有股票代码完整，无需修复。");
-        
-        if (!confirm(`发现 ${missing.length} 只股票缺失代码 (如"海博思创")。\n是否尝试自动修复？\n\n(修复过程中请勿关闭页面)`)) return;
-
+        if (!confirm(`发现 ${missing.length} 只股票缺失代码。\n是否尝试自动修复？`)) return;
         let fixedCount = 0;
         const btn = document.querySelector('.btn-edit-yellow');
         const originalText = btn.innerText;
-
         for (let i = 0; i < stocks.length; i++) {
             const s = stocks[i];
             if (!s.code || s.code.trim() === "") {
                 btn.innerText = `⏳ 正在搜索: ${s.name}...`;
                 try {
-                    // 使用 JSONP 搜索
                     const searchUrl = `https://searchapi.eastmoney.com/api/suggest/get?input=${encodeURIComponent(s.name)}&type=14&token=D43BF722C8E33BD5D50F639205545E43`;
                     const json = await jsonpRequest(searchUrl);
-                    
                     if(json?.QuotationCodeTable?.Data?.[0]) {
                         let r = json.QuotationCodeTable.Data[0];
                         let suffix = "";
@@ -793,40 +587,24 @@ html
                         s.code = r.Code + suffix;
                         fixedCount++;
                     }
-                } catch(e) {
-                    console.error("Auto-fix failed for " + s.name, e);
-                }
-                await new Promise(r => setTimeout(r, 200)); // 少量延时
+                } catch(e) { console.error("Auto-fix failed for " + s.name, e); }
+                await new Promise(r => setTimeout(r, 200));
             }
         }
-        
         btn.innerText = originalText;
         APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks));
         renderTable();
-        alert(`✅ 修复完成！\n成功找回 ${fixedCount} 个代码。\n请重新点击“运行选中”测试。`);
+        alert(`✅ 修复完成！成功找回 ${fixedCount} 个代码。`);
     }
 
-    // JSONP 通用请求函数 (核心)
     function jsonpRequest(url, callbackParamName = 'cb') {
         return new Promise((resolve, reject) => {
             const callbackName = 'jsonp_cb_' + Math.random().toString(36).substr(2, 9);
             const script = document.createElement('script');
-            
-            // 拼接 URL
             const hasQuery = url.includes('?');
             script.src = `${url}${hasQuery ? '&' : '?'}${callbackParamName}=${callbackName}`;
-            script.onerror = () => {
-                delete window[callbackName];
-                document.body.removeChild(script);
-                reject(new Error("JSONP Load Failed"));
-            };
-
-            window[callbackName] = (data) => {
-                delete window[callbackName];
-                document.body.removeChild(script);
-                resolve(data);
-            };
-
+            script.onerror = () => { delete window[callbackName]; document.body.removeChild(script); reject(new Error("JSONP Load Failed")); };
+            window[callbackName] = (data) => { delete window[callbackName]; document.body.removeChild(script); resolve(data); };
             document.body.appendChild(script);
         });
     }
@@ -834,30 +612,22 @@ html
     async function fetchHistoryKline(secId) {
         const todayStr = new Date().toISOString().split('T')[0]; const cacheKey = `kline_${secId}`; const cached = await getCache(cacheKey);
         if (cached && cached.date === todayStr) return cached.data;
-        
         let baseParams = `fields1=f1&fields2=f51,f53&klt=101&end=20500101&lmt=600`;
         let url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&${baseParams}&fqt=1`;
-
         try {
-            // 1. 尝试获取前复权数据 (JSONP)
             let json = await jsonpRequest(url);
             let data = json?.data?.klines || [];
-
-            // 2. 降级尝试不复权
             if (data.length === 0) {
-                 let url2 = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&${baseParams}&fqt=0`;
-                 let json2 = await jsonpRequest(url2);
-                 data = json2?.data?.klines || [];
+                let url2 = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&${baseParams}&fqt=0`;
+                let json2 = await jsonpRequest(url2);
+                data = json2?.data?.klines || [];
             }
-
-            // 3. 美股特殊逻辑
             if (data.length === 0 && secId.startsWith('105.')) { 
                 let altUrl = url.replace('105.', '106.'); 
                 let j3 = await jsonpRequest(altUrl); 
                 let d3 = j3?.data?.klines || []; 
                 if(d3.length > 0) data = d3;
             }
-            
             if (data.length > 0) await setCache(cacheKey, { date: todayStr, data: data });
             return data;
         } catch (e) { return cached ? cached.data : []; }
@@ -871,7 +641,6 @@ html
             chunk.forEach(id => { expandedChunk.push(id); if(id.startsWith('105.')) expandedChunk.push(id.replace('105.', '106.')); });
             const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${expandedChunk.join(',')}&fields=f12,f2,f20,f124&invt=2&fltt=2&_=${Date.now()}`;
             try {
-                // JSONP Realtime
                 const json = await jsonpRequest(url);
                 const diff = json?.data?.diff;
                 if (diff) { (Array.isArray(diff) ? diff : Object.values(diff)).forEach(item => { if (item && item.f2 > 0) resultMap[item.f12] = { price: item.f2, totalShares: (item.f20 / item.f2) / 100000000, timestamp: item.f124 }; }); }
@@ -880,7 +649,6 @@ html
         return resultMap;
     }
 
-    // === 3. 计算逻辑 ===
     function calculateMA_Array(data, dayCount) {
         let result = new Array(data.length).fill(null);
         for (let i = 0; i < data.length; i++) {
@@ -929,11 +697,9 @@ html
 
         let emSecId = getEmSecId(stock.code); let rawCode = emSecId.split('.')[1];
         const klines = await fetchHistoryKline(emSecId); if(!klines || klines.length === 0) throw new Error("无K线数据");
-        
         let rawData = [];
         const minCap = stock.minCap, maxCap = stock.maxCap, midCap = (minCap + maxCap) / 2.0;
         let totalShares = realtimeData[rawCode]?.totalShares || 100.0;
-
         klines.forEach(k => {
             const p = k.split(','); if (p[0] >= startDate && p[0] <= endDate) {
                 let close = parseFloat(p[1]), mv = close * totalShares;
@@ -941,8 +707,6 @@ html
             }
         });
         if (rawData.length === 0) throw new Error("区间无数据");
-
-        // 拼接实时数据
         const rt = realtimeData[rawCode];
         if (rt && endDate >= new Date().toISOString().split('T')[0]) {
             const rtMv = rt.price * rt.totalShares; const lastK = rawData[rawData.length - 1];
@@ -950,26 +714,19 @@ html
             const item = { date: rtDate, close: rt.price, mv: rtMv, valScore: (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap)) };
             if (rtDate > lastK.date) rawData.push(item); else if (rtDate === lastK.date) rawData[rawData.length - 1] = item;
         }
-
         const ma5 = calculateMA_Array(rawData, 5), ma10 = calculateMA_Array(rawData, 10), ma20 = calculateMA_Array(rawData, 20);
         const getLev = (mv) => (mv <= minCap) ? maxLev : (mv >= maxCap) ? 0.0 : maxLev * Math.exp(-2.5 * ((mv - minCap) / (maxCap - minCap)));
-
         let nav = 1.0, peak = 1.0, prevL = getLev(rawData[0].mv), inProt = false, history = [], logs = [], maxDD = 0;
         history.push({date: rawData[0].date, nav:1.0, close:rawData[0].close, leverage:prevL, status: "震荡整理", reason: "初始建仓"});
-
         for(let i=1; i<rawData.length; i++) {
             const d = rawData[i], prevD = rawData[i-1]; const r = d.close / prevD.close - 1;
             const m5 = ma5[i], m10 = ma10[i], m20 = ma20[i];
             let targetL = getLev(d.mv), newL = targetL, reason = "估值驱动", status = "震荡整理";
-            
             const isTechUp = (m5 > m10 && m5 > m20 && d.close > m20), isTechDown = (m5 < m10 && m5 < m20 && d.close < m20);
             const isUp = isTechUp && r > 0, isDown = isTechDown && r < 0;
-
             nav *= (1 + prevL * r); if(nav > peak) peak = nav;
             let dd = (peak - nav)/peak; if(dd > maxDD) maxDD = dd;
-
             if(dd > 0.15 && !inProt) { if(d.mv > minCap * 1.05) { inProt = true; newL = prevL * 0.4; reason = "回撤止损"; peak = nav; } else reason = "低估跳过止损"; }
-            
             if(inProt) { status = "触发风控"; if(isUp && d.valScore > 0) { inProt = false; newL = targetL; reason = "趋势恢复"; } else { newL = isDown ? prevL * 0.5 : 0; reason = "保护中"; } }
             else {
                 if(isTechUp) status = "上涨趋势"; else if(isTechDown) status = "下跌趋势";
@@ -984,7 +741,6 @@ html
                 if (useTiming && globalStageMap && globalStageMap[d.date] === 'bear') { newL *= timeRatio; reason = `📉 下跌区间降仓(${timeRatio})`; }
             }
             if (reason === "估值驱动" && status === "上涨趋势") reason = "估值驱动-上涨趋势";
-            
             const diff = newL - prevL;
             let actHtml = diff > 0.005 ? `<span class="badge bg-red">加仓</span>` : diff < -0.005 ? `<span class="badge bg-green">减仓</span>` : `<span class="badge bg-gray">持仓</span>`;
             logs.push({ date: d.date, action: actHtml, val: `${prevL.toFixed(2)}→${newL.toFixed(2)}`, reason, mas: `M5:${m5?.toFixed(2)}<br>M10:${m10?.toFixed(2)}` }); 
@@ -993,42 +749,26 @@ html
         return { stockName: stock.name, stockCode: stock.code, history, logs, stats: { ret: (nav-1)*100, stockRet: (history[history.length-1].close/history[0].close-1)*100, maxDD: maxDD * 100, avgLev: history.reduce((a,b)=>a+b.leverage,0)/history.length } };
     }
 
-    // === 4. 运行控制 (已修复：只运行可见且选中的) ===
     async function runBatchBacktest() {
-        // 修改：使用过滤器获取所有可见的行
         const allRows = document.querySelectorAll('#stock-tbody tr');
         const indices = [];
-        
         allRows.forEach((row, index) => {
-            // 只有当行不是隐藏状态 (display != none) 且 复选框被选中时，才加入回测队列
             if (row.style.display !== 'none') {
                 const chk = row.querySelector('.stock-chk');
-                if (chk && chk.checked) {
-                    indices.push(index);
-                }
+                if (chk && chk.checked) indices.push(index);
             }
         });
-
         if(indices.length === 0) return alert("请至少勾选一只可见的股票");
-
-        // 自动检查是否需要修复
         let missingCodes = stocks.filter(s => !s.code).length;
         if(missingCodes > 0) {
-            if(confirm(`发现 ${missingCodes} 只股票缺少代码（如海博思创），这会导致“无K线数据”。\n是否立即自动修复？`)) {
-                await ensureStockCodes();
-                return;
-            }
+            if(confirm(`发现 ${missingCodes} 只股票缺少代码。是否立即自动修复？`)) { await ensureStockCodes(); return; }
         }
-
         const btn = document.getElementById('btn-run-all'), progress = document.getElementById('batch-progress'), useTiming = document.getElementById('pTimeEnable').checked;
-        
         btn.disabled = true; document.getElementById('summary-tbody').innerHTML = ''; document.getElementById('results-container').style.display = 'none'; progress.style.display = 'block';
         benchmarkResults = [];
-
         const secIds = indices.map(i => getEmSecId(stocks[i].code));
         progress.innerHTML = `获取行情(免代理直连)...`;
         let rtMap = {}; try { rtMap = await fetchBatchRealtimeData(secIds); } catch(e) {}
-
         const runLoop = async (idxs, stageMap = null) => {
             let res = [], active = 0, finished = 0, total = idxs.length;
             return new Promise(resolve => {
@@ -1045,7 +785,6 @@ html
                 }; next();
             });
         };
-
         if (useTiming) {
             progress.innerHTML = "预演市场状态 (Pass 1)...";
             benchmarkResults = (await runLoop([...indices], null)).sort((a,b)=>a.index-b.index);
@@ -1055,35 +794,18 @@ html
         } else {
             batchResults = (await runLoop([...indices], null)).sort((a,b)=>a.index-b.index);
         }
-
         progress.innerHTML = `✅ 完成!`; btn.disabled = false;
-        
-        if(batchResults.length === 0) {
-            alert("❌ 所有股票回测失败！请检查网络是否通畅（回测时请关闭 VPN）。");
-            progress.style.display = 'none'; 
-            btn.disabled = false;
-            return; 
-        }
-
+        if(batchResults.length === 0) { alert("❌ 所有股票回测失败！"); progress.style.display = 'none'; btn.disabled = false; return; }
         if(batchResults.length > 0) {
             document.getElementById('results-container').style.display = 'block';
             updateSummaryFilterOptions(); toggleSection('summary-content', document.querySelector('#batch-summary-box .section-header'));
-            runPortfolioStrategy(); 
-            renderStatusDistribution(); 
-            renderTrendLog(); 
-            renderDetailCombo(); 
-            renderStatusDetails();
-            showDetail(batchResults[0].index);
+            runPortfolioStrategy(); renderStatusDistribution(); renderTrendLog(); renderDetailCombo(); renderStatusDetails(); showDetail(batchResults[0].index);
         }
     }
 
-    // === 5. 辅助与渲染 (涉及 GitHub，需提示 VPN) ===
     async function uploadToGithub() {
         const cfg = getGbConfig(); if (!cfg.token) { openSettingsModal(); return; }
-        
-        // 提示 VPN
-        if(!confirm("⚠️ 警告：连接 GitHub 需要开启 VPN。\n\n请确认 VPN 已开启后再点击【确定】。")) return;
-
+        if(!confirm("⚠️ 连接 GitHub 需要开启 VPN。\n\n请确认 VPN 已开启。")) return;
         const btn = document.getElementById('btn-push'), origin = btn.innerText; btn.innerText = "⏳ 连接中..."; btn.disabled = true;
         try {
             const url = `https://api.github.com/repos/${cfg.username}/${cfg.repo}/contents/${cfg.path}`;
@@ -1091,14 +813,12 @@ html
             let sha = null; if (get.ok) sha = (await get.json()).sha;
             await fetch(url, { method: "PUT", headers: { "Authorization": `token ${cfg.token}` }, body: JSON.stringify({ message: "Update", content: utf8ToB64(JSON.stringify(stocks, null, 2)), sha, branch: cfg.branch }) });
             alert("✅ 同步成功!"); setLocalChanges(false); updateStatus('online', '已同步');
-        } catch (e) { alert("❌ 同步失败: " + e.message + "\n\n请检查 VPN 是否稳定。"); updateStatus('error', '上传失败'); } finally { btn.innerText = origin; btn.disabled = false; }
+        } catch (e) { alert("❌ 同步失败: " + e.message); updateStatus('error', '上传失败'); } finally { btn.innerText = origin; btn.disabled = false; }
     }
 
     async function syncFromGithub() {
         const cfg = getGbConfig(); if (!cfg.token) { openSettingsModal(); return; }
-
-        if(!confirm("⚠️ 警告：连接 GitHub 需要开启 VPN。\n\n请确认 VPN 已开启后再点击【确定】。")) return;
-
+        if(!confirm("⚠️ 连接 GitHub 需要开启 VPN。\n\n请确认 VPN 已开启。")) return;
         const btn = document.getElementById('btn-pull'), origin = btn.innerText; btn.innerText = "⏳ 连接中..."; btn.disabled = true;
         try {
             const url = `https://api.github.com/repos/${cfg.username}/${cfg.repo}/contents/${cfg.path}`;
@@ -1107,26 +827,18 @@ html
             let data; if (res.ok) data = JSON.parse(safeB64ToUtf8((await res.json()).content)); 
             else { const raw = await fetch(`https://raw.githubusercontent.com/${cfg.username}/${cfg.repo}/${cfg.branch}/${cfg.path}?t=${Date.now()}`); if(!raw.ok) throw new Error("无数据"); data = await raw.json(); }
             if(Array.isArray(data) && confirm(`覆盖本地 ${stocks.length} 条数据?`)) { stocks = data; APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(false); updateStatus('online', '已同步'); }
-            
-            // 自动检查并修复
             ensureStockCodes();
-            
-        } catch (e) { alert("❌ 拉取失败: " + e.message + "\n\n请检查 VPN 是否稳定。"); updateStatus('error', '拉取失败'); } finally { btn.innerText = origin; btn.disabled = false; }
+        } catch (e) { alert("❌ 拉取失败: " + e.message); updateStatus('error', '拉取失败'); } finally { btn.innerText = origin; btn.disabled = false; }
     }
 
-    // ▼▼▼▼▼▼▼▼▼▼ 导入合并逻辑 ▼▼▼▼▼▼▼▼▼▼
     async function importMergeFromGithub() {
         const cfg = getGbConfig(); let token = cfg.token;
         if (!token) { openSettingsModal(); return; }
-        
-        if(!confirm("⚠️ 警告：从 GitHub 导入数据需要开启 VPN。\n\n请确认 VPN 已开启后再点击【确定】。")) return;
-
+        if(!confirm("⚠️ 从 GitHub 导入数据需要开启 VPN。")) return;
         const DATA_REPO_USER = "dlezywj-cell";
         const DATA_REPO_NAME = "stockdata";
-        
-        let targetPath = prompt(`从 ${DATA_REPO_USER}/${DATA_REPO_NAME} 导入 (将覆盖当前数据):\n请输入文件名:`, "data.json");
+        let targetPath = prompt(`从 ${DATA_REPO_USER}/${DATA_REPO_NAME} 导入:\n请输入文件名:`, "data.json");
         if (!targetPath) return;
-
         updateStatus('syncing', '正在计算并导入...');
         try {
             let data = [];
@@ -1136,7 +848,6 @@ html
                 const url = `https://api.github.com/repos/${DATA_REPO_USER}/${DATA_REPO_NAME}/contents/${targetPath.trim()}`;
                 const headers = { "Accept": "application/vnd.github.v3+json" }; if(token) headers["Authorization"] = `token ${token.trim()}`;
                 let res = await fetch(url, { headers });
-                
                 if (res.ok) { const json = await res.json(); data = JSON.parse(safeB64ToUtf8(json.content)); } 
                 else { 
                     const rawUrl = `https://raw.githubusercontent.com/${DATA_REPO_USER}/${DATA_REPO_NAME}/main/${targetPath.trim()}?t=${Date.now()}`; 
@@ -1144,34 +855,25 @@ html
                 }
             }
             if (!Array.isArray(data)) throw new Error("源数据格式必须是数组 [...]");
-
-            // ⚠️ 覆盖模式：先清空当前列表
             stocks = [];
             let addedCount = 0;
-
             data.forEach(sourceItem => {
                 let finalCode = "";
                 if(sourceItem.code) {
                     let rawCode = sourceItem.code.toString().trim().toUpperCase();
                     let bareCode = rawCode;
                     let suffix = "";
-
                     if (rawCode.includes('.HK') || rawCode.startsWith('HK')) suffix = ".HK";
                     else if (rawCode.includes('.US') || rawCode.startsWith('US')) suffix = ".US";
                     else if (rawCode.includes('.SH') || rawCode.startsWith('SH')) suffix = ".SH";
                     else if (rawCode.includes('.SZ') || rawCode.startsWith('SZ')) suffix = ".SZ";
-
                     bareCode = bareCode.replace(/^(HK|SH|SZ|US)\.?/i, '').replace(/\.(HK|SH|SZ|US)$/i, '');
-
                     if (!suffix) {
                         if (/^116\./.test(bareCode)) { suffix = ".HK"; bareCode = bareCode.replace(/^116\./, ''); } 
                         else if (/^(105|106|107)\./.test(bareCode)) { suffix = ".US"; bareCode = bareCode.replace(/^(105|106|107)\./, ''); }
                         else if (/^0\./.test(bareCode)) { suffix = ".SZ"; bareCode = bareCode.replace(/^0\./, ''); }
                         else if (/^1\./.test(bareCode)) { suffix = ".SH"; bareCode = bareCode.replace(/^1\./, ''); }
-                    } else {
-                        bareCode = bareCode.replace(/^(116|105|106|107|0|1)\./, '');
-                    }
-
+                    } else { bareCode = bareCode.replace(/^(116|105|106|107|0|1)\./, ''); }
                     if (!suffix) {
                         if (/^6\d{5}$/.test(bareCode)) suffix = ".SH";
                         else if (/^9\d{5}$/.test(bareCode)) suffix = ".SH";
@@ -1184,24 +886,18 @@ html
                     }
                     finalCode = bareCode + suffix;
                 }
-
                 const profit = parseFloat(sourceItem.profit) || 0, revenue = parseFloat(sourceItem.revenue) || 0;
                 const lowPE = parseFloat(sourceItem.lowPE) || 0, highPE = parseFloat(sourceItem.highPE) || 0;
                 const lowPS = parseFloat(sourceItem.lowPS) || 0, highPS = parseFloat(sourceItem.highPS) || 0;
-
                 const valPE_Low = profit * lowPE, valPE_High = profit * highPE;
                 const valPS_Low = revenue * lowPS, valPS_High = revenue * highPS;
-
                 let minCandidates = []; if (valPE_Low > 0) minCandidates.push(valPE_Low); if (valPS_Low > 0) minCandidates.push(valPS_Low);
                 let calcMin = minCandidates.length > 0 ? Math.min(...minCandidates) : (sourceItem.minCap || 2000);
-
                 let maxCandidates = []; if (valPE_High > 0) maxCandidates.push(valPE_High); if (valPS_High > 0) maxCandidates.push(valPS_High);
                 let calcMax = maxCandidates.length > 0 ? Math.min(...maxCandidates) : (sourceItem.maxCap || 4000);
-
                 const newItem = { code: finalCode, name: sourceItem.name, minCap: calcMin, maxCap: calcMax, profit, revenue, tags: sourceItem.tags || "", lastMod: new Date().toISOString().split('T')[0] };
                 stocks.push(newItem); addedCount++;
             });
-
             APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(true);
             ensureStockCodes();
             updateStatus('online', '导入完成');
@@ -1211,20 +907,10 @@ html
     function calculateMarketStagesMarkArea() {
         if (!batchResults || batchResults.length === 0) return { data: [] };
         let statsMap = {}; let allDates = new Set();
-        batchResults.forEach(res => {
-            res.history.forEach(day => {
-                if (!statsMap[day.date]) statsMap[day.date] = { up: 0, down: 0, sideways: 0, risk: 0 }; 
-                allDates.add(day.date);
-                if (day.status === '上涨趋势') statsMap[day.date].up++;
-                else if (day.status === '下跌趋势') statsMap[day.date].down++;
-                else if (day.status === '震荡整理') statsMap[day.date].sideways++;
-                else if (day.status === '触发风控') statsMap[day.date].risk++;
-            });
-        });
+        batchResults.forEach(res => { res.history.forEach(day => { if (!statsMap[day.date]) statsMap[day.date] = { up: 0, down: 0, sideways: 0, risk: 0 }; allDates.add(day.date); if (day.status === '上涨趋势') statsMap[day.date].up++; else if (day.status === '下跌趋势') statsMap[day.date].down++; else if (day.status === '震荡整理') statsMap[day.date].sideways++; else if (day.status === '触发风控') statsMap[day.date].risk++; }); });
         const dates = Array.from(allDates).sort();
         if (dates.length < 2) return { data: [] };
-        let markData = []; let currentStage = null; let stageStartDate = null; let toleranceCount = 0;  
-        let bullSeq = 0, bearSeq = 0;
+        let markData = []; let currentStage = null; let stageStartDate = null; let toleranceCount = 0; let bullSeq = 0, bearSeq = 0;
         for (let i = 1; i < dates.length; i++) {
             const curr = statsMap[dates[i]]; const prev = statsMap[dates[i-1]];
             const currDown = curr.down + curr.risk; const prevDown = prev.down + prev.risk;
@@ -1232,7 +918,6 @@ html
             if (curr.up > prev.up) bullVotes += 2.0; else if (curr.up < prev.up) bearVotes += 1.5;
             if ((curr.up + curr.sideways) > (prev.up + prev.sideways)) bullVotes += 1.0; else if ((curr.up + curr.sideways) < (prev.up + prev.sideways)) bearVotes += 1.0;
             if (currDown < prevDown) bullVotes += 2.0; else if (currDown > prevDown) bearVotes += 1.5;
-
             const isBullDay = bullVotes > bearVotes; const isBearDay = bearVotes > bullVotes;
             if (currentStage === null) {
                 if (isBullDay) { bullSeq++; bearSeq = 0; } else if (isBearDay) { bearSeq++; bullSeq = 0; } else { bullSeq = 0; bearSeq = 0; }
@@ -1268,20 +953,16 @@ html
     function calculatePortfolioHistory(resultsInput) {
         if (!resultsInput || resultsInput.length === 0) return null;
         let minPosThreshold = parseFloat(document.getElementById('pMinPos').value) || 0.4; 
-        
         let dateMap = {}; 
         resultsInput.forEach((res) => { res.history.forEach(day => { if (!dateMap[day.date]) dateMap[day.date] = { date: day.date, stocks: {} }; dateMap[day.date].stocks[res.stockName] = { close: day.close, idealLev: day.leverage, reason: day.reason }; }); });
         const sortedDates = Object.keys(dateMap).sort(); if (sortedDates.length < 2) return null;
-        
         let portNav = 1.0, portHistory = [], maxDD = 0, peak = 1.0; 
         let lastValidData = {}, prevAllocatedLevs = {}, accContribution = {}; 
         resultsInput.forEach((res) => { accContribution[res.stockName] = 0; });
-
         for (let i = 0; i < sortedDates.length; i++) {
             const currDate = sortedDates[i]; const rawDayData = dateMap[currDate]; const prevValidData = { ...lastValidData };
             resultsInput.forEach((res) => { if (rawDayData.stocks[res.stockName]) lastValidData[res.stockName] = rawDayData.stocks[res.stockName]; });
             let dailyContribBreakdown = {}; 
-            
             if (i > 0) {
                 let dayPnLComponent = 0;
                 resultsInput.forEach((res) => {
@@ -1296,10 +977,8 @@ html
                 const dd = (peak - portNav) / peak; if (dd > maxDD) maxDD = dd;
             }
             resultsInput.forEach((res) => { dailyContribBreakdown[res.stockName] = accContribution[res.stockName]; });
-            
             let currentValidStocks = {}, activeCount = 0;
             resultsInput.forEach((res) => { const sData = lastValidData[res.stockName]; if (sData && sData.idealLev >= minPosThreshold) { currentValidStocks[res.stockName] = sData.idealLev; activeCount++; } });
-            
             let dailyBreakdown = {}, currentCalculatedSumAlloc = 0; 
             resultsInput.forEach((res) => {
                 if (currentValidStocks[res.stockName] !== undefined && activeCount > 0) { const alloc = currentValidStocks[res.stockName] / activeCount; prevAllocatedLevs[res.stockName] = alloc; dailyBreakdown[res.stockName] = alloc; currentCalculatedSumAlloc += alloc; } 
@@ -1316,13 +995,13 @@ html
         if (!mainStats) return alert("有效日期数据不足");
         const useTiming = document.getElementById('pTimeEnable').checked;
         let benchStats = (useTiming && benchmarkResults.length > 0) ? calculatePortfolioHistory(benchmarkResults) : null;
-
         renderPortfolioStats(mainStats.history, mainStats.maxDD, (benchStats ? benchStats.history : null)); 
         renderHoldingsChart(mainStats.history); 
         renderTradeLog(mainStats.history, mainStats.dateMap); 
         renderContributionChart(mainStats.history);
     }
 
+    // ========== 修改部分：renderPortfolioStats 函数 ==========
     function renderPortfolioStats(hist, maxDD, benchHist) {
         const last = hist[hist.length - 1]; const ret = (last.nav - 1) * 100; const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
         document.getElementById('port-ret').innerText = ret.toFixed(2) + '%'; document.getElementById('port-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
@@ -1342,21 +1021,20 @@ html
                     if(!params.length) return ''; 
                     const idx = params[0].dataIndex; 
                     const item = hist[idx]; 
-                    const benchItem = benchHist ? benchHist[idx] : null; 
+                    const benchItem = benchHist ? benchHist[idx] : null;
                     
-                    // --- 修改开始：计算当日涨跌幅 ---
-                    let dailyChg = 0;
-                    if(idx > 0) {
-                        let prevNav = hist[idx-1].nav;
-                        dailyChg = (item.nav - prevNav) / prevNav * 100;
+                    // 计算当日涨跌幅
+                    let dailyChangeVal = 0;
+                    let dailyChangeStr = '0.00%';
+                    if (idx > 0) {
+                        const prevNav = hist[idx - 1].nav;
+                        dailyChangeVal = (item.nav - prevNav) / prevNav * 100;
+                        dailyChangeStr = (dailyChangeVal >= 0 ? '+' : '') + dailyChangeVal.toFixed(2) + '%';
                     }
-                    let color = dailyChg >= 0 ? '#d32f2f' : '#2e7d32';
-                    let sign = dailyChg > 0 ? '+' : '';
-                    // --- 修改结束 ---
-
-                    let h = `<div style="font-weight:bold">${item.date}</div>`; 
-                    h += `<div style="font-size:11px;">组合净值: <b>${item.nav.toFixed(3)}</b> <span style="color:${color}; margin-left:4px;">(${sign}${dailyChg.toFixed(2)}%)</span></div>`; 
                     
+                    let h = `<div style="font-weight:bold">${item.date}</div>`; 
+                    h += `<div style="font-size:11px;">组合净值: <b>${item.nav.toFixed(3)}</b></div>`; 
+                    h += `<div style="font-size:11px;">当日涨跌: <b style="color:${dailyChangeVal >= 0 ? '#d32f2f' : '#2e7d32'}">${dailyChangeStr}</b></div>`;
                     if (benchItem) h += `<div style="font-size:11px;">基准(不择时): <b>${benchItem.nav.toFixed(3)}</b></div>`; 
                     h += `<div style="font-size:11px;">实际总杠杆: <b>${item.totalLev.toFixed(2)}x</b></div>`; 
                     return h; 
@@ -1493,28 +1171,16 @@ html
         tb.innerHTML = stocks.map((s, i) => `<tr> <td><b>${s.name}</b> <span style="color:#999;font-size:12px">${s.code}</span></td> <td> ${Math.round(s.minCap)}-${Math.round(s.maxCap)}亿 <div style="font-size:10px; color:#aaa; margin-top:2px;">${s.lastMod || ''}</div> </td> <td style="text-align:center;"><div class="op-btn-group"><button class="btn btn-edit-yellow btn-icon-square" onclick="editStock(${i})">✎</button><button class="btn btn-del-red btn-icon-square" onclick="delStock(${i})">✕</button></div></td> <td style="text-align:center;"><input type="checkbox" class="stock-chk" value="${i}" checked></td> </tr>`).join('');
         filterStockList(); checkAllState();
     }
-
-    // === 修改：只全选/取消全选“可见”的行 ===
     function toggleAllStocks(el) { 
         document.querySelectorAll('#stock-tbody tr').forEach(row => { 
-            // 关键修改：只针对未隐藏(style.display != none)的行操作
-            if (row.style.display !== 'none') { 
-                const chk = row.querySelector('.stock-chk'); 
-                if (chk) chk.checked = el.checked; 
-            } 
+            if (row.style.display !== 'none') { const chk = row.querySelector('.stock-chk'); if (chk) chk.checked = el.checked; } 
         }); 
     }
-    
-    // === 修改：判断全选状态时只考虑可见行 ===
     function checkAllState() { 
         const rows = Array.from(document.querySelectorAll('#stock-tbody tr')).filter(r => r.style.display !== 'none'); 
-        if (rows.length === 0) { 
-            document.getElementById('check-all').checked = false; 
-            return; 
-        } 
+        if (rows.length === 0) { document.getElementById('check-all').checked = false; return; } 
         document.getElementById('check-all').checked = (rows.filter(r => r.querySelector('.stock-chk').checked).length === rows.length); 
     }
-    
     document.addEventListener('change', function(e){ if(e.target.classList.contains('stock-chk')) checkAllState(); });
     function editStock(i) { const s = stocks[i]; document.getElementById('inName').value = s.name; document.getElementById('inCode').value = s.code; document.getElementById('inMin').value = s.minCap; document.getElementById('inMax').value = s.maxCap; document.getElementById('card-config').scrollIntoView({behavior: 'smooth'}); }
     function delStock(i) { if(confirm("确认删除？")) { stocks.splice(i, 1); APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(true); } }
@@ -1551,7 +1217,6 @@ html
             series: [{name:'股价', type:'line', yAxisIndex:0, data:hist.map(h=>h.close), itemStyle:{color:'#999'}, showSymbol:false}, {name:'净值', type:'line', yAxisIndex:1, data:hist.map(h=>h.nav), itemStyle:{color:'#d32f2f'}, showSymbol:false}, {name:'杠杆', type:'line', xAxisIndex:1, yAxisIndex:2, data:hist.map(h=>h.leverage), itemStyle:{color:'#28a745'}, step:'end', showSymbol:false, areaStyle:{opacity:0.1}}]
         });
     }
-
     function renderDetailCombo() { 
         const list = document.getElementById('detail-combo-list'); list.innerHTML = '';
         batchResults.forEach(res => { const div = document.createElement('div'); div.className = 'combo-option'; div.innerHTML = `<span>${res.stockName}</span><span class="combo-code">${res.stockCode}</span>`; div.onclick = (e) => { e.stopPropagation(); showDetail(res.index); list.classList.remove('show'); }; div.dataset.index = res.index; div.dataset.searchText = (res.stockName + res.stockCode).toLowerCase(); list.appendChild(div); });
