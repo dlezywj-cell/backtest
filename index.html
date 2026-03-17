@@ -148,7 +148,9 @@
         .detail-row { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid #f5f5f5; font-size: 12px; align-items: center; }
         .detail-row:last-child { border-bottom: none; }
         .detail-row:nth-child(even) { background: #fafafa; }
-        .detail-name { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+        .detail-name { display: flex; align-items: center; gap: 6px; font-weight: 500; flex: 1.5; }
+        .detail-change { flex: 1; text-align: center; font-weight: bold; font-family: monospace; }
+        .detail-weight { flex: 1; text-align: right; }
         .detail-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
     </style>
 </head>
@@ -304,7 +306,13 @@
                     <div id="holdings-chart" style="width: 100%; height: 400px;"></div>
                     <div style="text-align:center; font-size:11px; color:#999; margin-top:5px; margin-bottom:10px;">提示：手指在图表上滑动，下方明细列表将实时更新。</div>
                     <div id="holdings-detail-panel">
-                        <div class="detail-header-bar"><span id="detail-date-title">持仓详情</span></div>
+                        <div class="detail-header-bar">
+                            <span id="detail-date-title">持仓详情</span>
+                            <div style="font-size:10px; color:#888; display:flex; gap:35px; margin-right:15px;">
+                                <span>单日涨跌</span>
+                                <span>持仓权重</span>
+                            </div>
+                        </div>
                         <div class="detail-scroll-box" id="detail-list-content"></div>
                     </div>
                 </div>
@@ -439,6 +447,7 @@
     let myChart = null;
     let batchResults = [];
     let benchmarkResults = []; 
+    let globalDateMap = null; // 用于存储价格数据供详情面板使用
     let portfolioChart = null, holdingsChart = null, statusChart = null, contributionChart = null; 
 
     const DB_NAME = 'StockHistoryDB_BatchV2'; 
@@ -993,6 +1002,7 @@
         if (!batchResults || batchResults.length === 0) return alert("请先运行回测");
         const mainStats = calculatePortfolioHistory(batchResults);
         if (!mainStats) return alert("有效日期数据不足");
+        globalDateMap = mainStats.dateMap; // 保存供详情列表引用
         const useTiming = document.getElementById('pTimeEnable').checked;
         let benchStats = (useTiming && benchmarkResults.length > 0) ? calculatePortfolioHistory(benchmarkResults) : null;
         renderPortfolioStats(mainStats.history, mainStats.maxDD, (benchStats ? benchStats.history : null)); 
@@ -1001,45 +1011,17 @@
         renderContributionChart(mainStats.history);
     }
 
-    // ========== 修改部分：renderPortfolioStats 函数 ==========
     function renderPortfolioStats(hist, maxDD, benchHist) {
         const last = hist[hist.length - 1]; const ret = (last.nav - 1) * 100; const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
         document.getElementById('port-ret').innerText = ret.toFixed(2) + '%'; document.getElementById('port-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
         document.getElementById('port-lev').innerText = avgLev.toFixed(2) + 'x';
         document.getElementById('port-dd').innerText = (maxDD * 100).toFixed(2) + '%'; document.getElementById('port-dd').className = 'stat-val loss';
-        
         const dom = document.getElementById('portfolio-chart'); if (portfolioChart) portfolioChart.dispose(); portfolioChart = echarts.init(dom); portfolioChart.group = 'stockGroup'; 
         const dates = hist.map(h => h.date); const stageMarkArea = calculateMarketStagesMarkArea();
         let seriesList = [ {name: '组合净值', type: 'line', data: hist.map(h=>h.nav), itemStyle: {color: '#d32f2f'}, lineStyle: {width: 2}, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0, markArea: stageMarkArea, z: 10}, {name: '实际总杠杆', type: 'line', data: hist.map(h=>h.totalLev), itemStyle: {color: '#1976d2'}, lineStyle: {width: 1}, showSymbol: false, xAxisIndex: 1, yAxisIndex: 1, areaStyle: {opacity: 0.2}} ];
         if (benchHist) seriesList.push({name: '基准(不择时)', type: 'line', data: benchHist.map(h=>h.nav), itemStyle: {color: '#333'}, lineStyle: {width: 2, type: 'dashed'}, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0, z: 1});
-
         portfolioChart.setOption({
-            tooltip: { 
-                trigger: 'axis', 
-                axisPointer: {type: 'cross', link: {xAxisIndex: 'all'}}, 
-                formatter: function(params) { 
-                    if(!params.length) return ''; 
-                    const idx = params[0].dataIndex; 
-                    const item = hist[idx]; 
-                    const benchItem = benchHist ? benchHist[idx] : null;
-                    
-                    // 计算当日涨跌幅
-                    let dailyChangeVal = 0;
-                    let dailyChangeStr = '0.00%';
-                    if (idx > 0) {
-                        const prevNav = hist[idx - 1].nav;
-                        dailyChangeVal = (item.nav - prevNav) / prevNav * 100;
-                        dailyChangeStr = (dailyChangeVal >= 0 ? '+' : '') + dailyChangeVal.toFixed(2) + '%';
-                    }
-                    
-                    let h = `<div style="font-weight:bold">${item.date}</div>`; 
-                    h += `<div style="font-size:11px;">组合净值: <b>${item.nav.toFixed(3)}</b></div>`; 
-                    h += `<div style="font-size:11px;">当日涨跌: <b style="color:${dailyChangeVal >= 0 ? '#d32f2f' : '#2e7d32'}">${dailyChangeStr}</b></div>`;
-                    if (benchItem) h += `<div style="font-size:11px;">基准(不择时): <b>${benchItem.nav.toFixed(3)}</b></div>`; 
-                    h += `<div style="font-size:11px;">实际总杠杆: <b>${item.totalLev.toFixed(2)}x</b></div>`; 
-                    return h; 
-                }
-            },
+            tooltip: { trigger: 'axis', axisPointer: {type: 'cross', link: {xAxisIndex: 'all'}}, formatter: function(params) { if(!params.length) return ''; const idx = params[0].dataIndex; const item = hist[idx]; const benchItem = benchHist ? benchHist[idx] : null; let h = `<div style="font-weight:bold">${item.date}</div>`; h += `<div style="font-size:11px;">组合净值: <b>${item.nav.toFixed(3)}</b></div>`; if (benchItem) h += `<div style="font-size:11px;">基准(不择时): <b>${benchItem.nav.toFixed(3)}</b></div>`; h += `<div style="font-size:11px;">实际总杠杆: <b>${item.totalLev.toFixed(2)}x</b></div>`; return h; } },
             legend: { top: 0, data: ['组合净值', '实际总杠杆', benchHist ? '基准(不择时)' : null].filter(Boolean) },
             grid: [{ left: '12%', right: '8%', top: '15%', height: '55%' }, { left: '12%', right: '8%', top: '75%', height: '15%' }],
             xAxis: [{type:'category', data:dates, gridIndex:0, axisLabel:{show:false}}, {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}}],
@@ -1050,12 +1032,52 @@
     }
 
     function updateDetailPanel(hist, index) {
-        const item = hist[index]; if(!item) return;
+        const item = hist[index]; if(!item || !globalDateMap) return;
         const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
-        let list = []; Object.keys(item.breakdown).forEach(name => { if(item.breakdown[name] > 0.001) list.push({name: name, val: item.breakdown[name]}); });
+        const dates = hist.map(h => h.date);
+        const currDate = dates[index];
+        const prevDate = index > 0 ? dates[index-1] : null;
+        
+        let list = []; 
+        Object.keys(item.breakdown).forEach(name => { 
+            if(item.breakdown[name] > 0.001) {
+                // 计算该股单日涨跌幅
+                const currStockData = globalDateMap[currDate]?.stocks[name];
+                const prevStockData = prevDate ? globalDateMap[prevDate]?.stocks[name] : null;
+                let changePct = 0;
+                if (currStockData && prevStockData && prevStockData.close > 0) {
+                    changePct = (currStockData.close / prevStockData.close - 1) * 100;
+                } else if (currStockData && !prevDate) {
+                    changePct = 0; // 第一天设为0
+                }
+                list.push({name: name, val: item.breakdown[name], change: changePct}); 
+            }
+        });
+        
         list.sort((a, b) => b.val - a.val);
         let html = '';
-        list.forEach((p, i) => { const posPct = (p.val / maxLev * 100).toFixed(2) + '%'; const dotColor = i === 0 ? '#d32f2f' : '#007bff'; html += `<div class="detail-row"><div class="detail-name"><span style="color:#999; font-size:10px;">${i+1}.</span><div class="detail-dot" style="background:${dotColor}"></div>${p.name}</div><div><b>${p.val.toFixed(3)}x</b><span style="color:#888; font-size:11px; margin-left:5px;">(${posPct})</span></div></div>`; });
+        list.forEach((p, i) => { 
+            const posPct = (p.val / maxLev * 100).toFixed(2) + '%'; 
+            const dotColor = i === 0 ? '#d32f2f' : '#007bff'; 
+            const changeStr = (p.change >= 0 ? '+' : '') + p.change.toFixed(2) + '%';
+            const changeCol = p.change > 0 ? '#d32f2f' : (p.change < 0 ? '#2e7d32' : '#999');
+            
+            html += `
+                <div class="detail-row">
+                    <div class="detail-name">
+                        <span style="color:#999; font-size:10px;">${i+1}.</span>
+                        <div class="detail-dot" style="background:${dotColor}"></div>
+                        ${p.name}
+                    </div>
+                    <div class="detail-change" style="color:${changeCol}">
+                        ${changeStr}
+                    </div>
+                    <div class="detail-weight">
+                        <b>${p.val.toFixed(3)}x</b>
+                        <span style="color:#888; font-size:11px; margin-left:2px;">(${posPct})</span>
+                    </div>
+                </div>`; 
+        });
         if (list.length === 0) html = '<div style="padding:20px; text-align:center; color:#999;">该日无持仓 (空仓)</div>';
         document.getElementById('detail-date-title').innerText = `${item.date} 持仓明细 (共${list.length}只)`;
         document.getElementById('detail-list-content').innerHTML = html;
