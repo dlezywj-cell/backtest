@@ -1049,14 +1049,21 @@
         });
     }
 
+    // 全局变量，用于记录排序状态 (默认为权重排序 'weight')
+    let currentHoldingsSortMode = 'weight'; 
+
     function updateDetailPanel(hist, index) {
         const item = hist[index]; if(!item) return;
+        // 保存当前数据引用，以便点击排序按钮时重绘
+        window.lastDetailHist = hist;
+        window.lastDetailIndex = index;
+
         const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
         let list = []; 
         
+        // 1. 提取基础数据
         Object.keys(item.breakdown).forEach(name => { 
             if(item.breakdown[name] > 0.001) {
-                // 获取该股票在该日期的涨跌幅
                 let stockRes = batchResults.find(r => r.stockName === name);
                 let changePct = 0;
                 if (stockRes) {
@@ -1070,8 +1077,33 @@
                 list.push({name: name, val: item.breakdown[name], change: changePct}); 
             } 
         });
-        
-        list.sort((a, b) => b.val - a.val);
+
+        // 2. 执行排序逻辑
+        if (currentHoldingsSortMode === 'weight') {
+            list.sort((a, b) => b.val - a.val); // 按持仓权重降序
+        } else {
+            list.sort((a, b) => b.change - a.change); // 按当日涨跌幅降序
+        }
+
+        // 3. 动态更新标题栏 (注入排序按钮)
+        const headerBar = document.querySelector('.detail-header-bar');
+        if (headerBar) {
+            headerBar.innerHTML = `
+                <span style="font-size:12px;">${item.date} (${list.length}只)</span>
+                <div style="display:flex; gap:5px;">
+                    <button onclick="currentHoldingsSortMode='weight'; updateDetailPanel(window.lastDetailHist, window.lastDetailIndex)" 
+                            style="font-size:10px; padding:2px 5px; cursor:pointer; background:${currentHoldingsSortMode==='weight'?'#007bff':'#eee'}; color:${currentHoldingsSortMode==='weight'?'#fff':'#666'}; border:none; border-radius:3px;">
+                        ⚖️权重
+                    </button>
+                    <button onclick="currentHoldingsSortMode='change'; updateDetailPanel(window.lastDetailHist, window.lastDetailIndex)" 
+                            style="font-size:10px; padding:2px 5px; cursor:pointer; background:${currentHoldingsSortMode==='change'?'#007bff':'#eee'}; color:${currentHoldingsSortMode==='change'?'#fff':'#666'}; border:none; border-radius:3px;">
+                        📈涨跌
+                    </button>
+                </div>
+            `;
+        }
+
+        // 4. 生成列表 HTML
         let html = '';
         list.forEach((p, i) => { 
             const posPct = (p.val / maxLev * 100).toFixed(2) + '%'; 
@@ -1087,7 +1119,7 @@
                     ${p.name}
                 </div>
                 <div style="display:flex; align-items:center; gap:10px;">
-                    <span style="color:${changeColor}; font-size:12px; font-weight:500; min-width:55px; text-align:right;">${changeTxt}</span>
+                    <span style="color:${changeColor}; font-size:12px; font-weight:bold; min-width:55px; text-align:right;">${changeTxt}</span>
                     <div style="text-align:right; min-width:70px;">
                         <b>${p.val.toFixed(3)}x</b>
                         <div style="color:#888; font-size:10px;">占比 ${posPct}</div>
@@ -1097,7 +1129,6 @@
         });
         
         if (list.length === 0) html = '<div style="padding:20px; text-align:center; color:#999;">该日无持仓 (空仓)</div>';
-        document.getElementById('detail-date-title').innerText = `${item.date} 持仓明细 (共${list.length}只)`;
         document.getElementById('detail-list-content').innerHTML = html;
         document.getElementById('holdings-detail-panel').style.display = 'block';
     }
