@@ -1052,10 +1052,50 @@
     function updateDetailPanel(hist, index) {
         const item = hist[index]; if(!item) return;
         const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
-        let list = []; Object.keys(item.breakdown).forEach(name => { if(item.breakdown[name] > 0.001) list.push({name: name, val: item.breakdown[name]}); });
+        let list = []; 
+        
+        Object.keys(item.breakdown).forEach(name => { 
+            if(item.breakdown[name] > 0.001) {
+                // 获取该股票在该日期的涨跌幅
+                let stockRes = batchResults.find(r => r.stockName === name);
+                let changePct = 0;
+                if (stockRes) {
+                    let dayIdx = stockRes.history.findIndex(h => h.date === item.date);
+                    if (dayIdx > 0) {
+                        let curP = stockRes.history[dayIdx].close;
+                        let preP = stockRes.history[dayIdx-1].close;
+                        changePct = ((curP - preP) / preP) * 100;
+                    }
+                }
+                list.push({name: name, val: item.breakdown[name], change: changePct}); 
+            } 
+        });
+        
         list.sort((a, b) => b.val - a.val);
         let html = '';
-        list.forEach((p, i) => { const posPct = (p.val / maxLev * 100).toFixed(2) + '%'; const dotColor = i === 0 ? '#d32f2f' : '#007bff'; html += `<div class="detail-row"><div class="detail-name"><span style="color:#999; font-size:10px;">${i+1}.</span><div class="detail-dot" style="background:${dotColor}"></div>${p.name}</div><div><b>${p.val.toFixed(3)}x</b><span style="color:#888; font-size:11px; margin-left:5px;">(${posPct})</span></div></div>`; });
+        list.forEach((p, i) => { 
+            const posPct = (p.val / maxLev * 100).toFixed(2) + '%'; 
+            const dotColor = i === 0 ? '#d32f2f' : '#007bff'; 
+            const changeColor = p.change >= 0 ? '#d32f2f' : '#2e7d32';
+            const changeTxt = (p.change >= 0 ? '+' : '') + p.change.toFixed(2) + '%';
+
+            html += `
+            <div class="detail-row">
+                <div class="detail-name">
+                    <span style="color:#999; font-size:10px;">${i+1}.</span>
+                    <div class="detail-dot" style="background:${dotColor}"></div>
+                    ${p.name}
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="color:${changeColor}; font-size:12px; font-weight:500; min-width:55px; text-align:right;">${changeTxt}</span>
+                    <div style="text-align:right; min-width:70px;">
+                        <b>${p.val.toFixed(3)}x</b>
+                        <div style="color:#888; font-size:10px;">占比 ${posPct}</div>
+                    </div>
+                </div>
+            </div>`; 
+        });
+        
         if (list.length === 0) html = '<div style="padding:20px; text-align:center; color:#999;">该日无持仓 (空仓)</div>';
         document.getElementById('detail-date-title').innerText = `${item.date} 持仓明细 (共${list.length}只)`;
         document.getElementById('detail-list-content').innerHTML = html;
