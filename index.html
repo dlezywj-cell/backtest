@@ -100,7 +100,6 @@
         .log-col-reason { width: 40%; }
         .badge { padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #fff; font-weight: normal; }
         .bg-red { background: #d32f2f; } .bg-green { background: #2e7d32; } .bg-gray { background: #999; }
-        /* ========== 弹窗样式（关键！） ========== */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; }
         .modal-box { background: #fff; padding: 20px; border-radius: 12px; width: 85%; max-width: 320px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 1000; }
         .daily-log-header { padding: 8px 10px; background: #fff; border: 1px solid #eee; margin-top: -1px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 13px; transition: background 0.2s; }
@@ -150,6 +149,27 @@
         .detail-row:nth-child(even) { background: #fafafa; }
         .detail-name { display: flex; align-items: center; gap: 6px; font-weight: 500; }
         .detail-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+        /* ===== 新增：自动刷新状态栏样式 ===== */
+        #auto-refresh-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            background: #f0f7ff; border: 1px solid #b3d8fd; border-radius: 6px;
+            padding: 8px 12px; margin-bottom: 10px; font-size: 12px; color: #0056b3;
+        }
+        #auto-refresh-bar .refresh-left { display: flex; align-items: center; gap: 8px; }
+        #refresh-dot { width: 8px; height: 8px; border-radius: 50%; background: #34c759; display: inline-block; }
+        #refresh-dot.running { background: #007bff; animation: pulse 1s infinite; }
+        #refresh-dot.waiting { background: #34c759; }
+        #refresh-dot.off { background: #ccc; }
+        #refresh-countdown { font-weight: bold; color: #007bff; min-width: 30px; }
+        .refresh-toggle { background: none; border: 1px solid #007bff; color: #007bff; border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer; }
+        .refresh-toggle:hover { background: #007bff; color: #fff; }
+        /* ===== 新增：信号变化高亮动画 ===== */
+        @keyframes highlight-new {
+            0% { background-color: #fff9c4; }
+            100% { background-color: transparent; }
+        }
+        .signal-changed { animation: highlight-new 2s ease-out; }
     </style>
 </head>
 <body>
@@ -223,6 +243,18 @@
             <div class="form-group"><label>结束日期</label><input type="date" id="inEndDate"></div>
             <button class="btn btn-blue" id="btn-run-all" onclick="runBatchBacktest()">🚀 运行选中 (免代理模式)</button>
         </div>
+
+        <!-- ===== 新增：自动刷新状态栏 ===== -->
+        <div id="auto-refresh-bar">
+            <div class="refresh-left">
+                <span id="refresh-dot" class="off"></span>
+                <span id="refresh-status-txt">自动刷新未启动</span>
+                <span>·</span>
+                <span>下次刷新：<b id="refresh-countdown">--</b></span>
+            </div>
+            <button class="refresh-toggle" onclick="toggleAutoRefresh()">暂停</button>
+        </div>
+
         <div class="toggle-link" onclick="toggleAdvSettings()">🛠 高级参数设置 ▼</div>
         <div id="adv-settings">
             <div style="font-size:12px; color:#007bff; margin-bottom:8px; font-weight:bold;">基础设定</div>
@@ -391,7 +423,7 @@
 </div>
 </div>
 
-<!-- ========== Settings Modal (弹窗HTML) ========== -->
+<!-- Settings Modal -->
 <div id="settings-modal" class="modal">
     <div class="modal-box">
         <h3>⚙️ 策略配置 (隔离版)</h3>
@@ -441,6 +473,14 @@
     let benchmarkResults = []; 
     let portfolioChart = null, holdingsChart = null, statusChart = null, contributionChart = null; 
 
+    // ===== 新增：自动刷新相关变量 =====
+    let autoRefreshEnabled = true;       // 是否启用自动刷新
+    let autoRefreshInterval = 5 * 60;   // 刷新间隔（秒），默认5分钟
+    let autoRefreshCountdown = autoRefreshInterval;
+    let autoRefreshTimer = null;
+    let countdownTimer = null;
+    let prevSignalMap = {};              // 记录上一次的信号状态，用于变化检测
+
     const DB_NAME = 'StockHistoryDB_BatchV2'; 
     const STORE_NAME = 'klines_store';
     const dbPromise = new Promise((resolve, reject) => {
@@ -475,7 +515,153 @@
         if(dot) dot.className = 'sync-dot ' + state; if(txt) txt.innerText = text || (state === 'syncing' ? '同步中' : '在线');
     }
 
-    // ========== 弹窗函数（关键！） ==========
+    // ===== 新增：判断是否在A股交易时间 =====
+    function isATradingTime() {
+        const now = new Date();
+        const day = now.getDay(); // 0=日, 6=六
+        if (day === 0 || day === 6) return false;
+        const h = now.getHours(), m = now.getMinutes();
+        const totalMin = h * 60 + m;
+        // 9:15 - 15:05（含盘前竞价）
+        return totalMin >= 9 * 60 + 15 && totalMin <= 15 * 60 + 5;
+    }
+
+    // ===== 新增：请求桌面通知权限 =====
+    function requestNotificationPermission() {
+        if ("Notification" in window && Notification.permission === "default") {
+            Notification.requestPermission();
+        }
+    }
+
+    // ===== 新增：发送桌面通知 =====
+    function sendDesktopNotification(title, body) {
+        if (!("Notification" in window) || Notification.permission !== "granted") return;
+        try {
+            new Notification(title, { body: body, icon: "" });
+        } catch(e) {}
+    }
+
+    // ===== 新增：检测信号变化并通知 =====
+    function detectAndNotifySignalChanges() {
+        if (batchResults.length === 0) return;
+        let changes = [];
+        batchResults.forEach(res => {
+            const last = res.history[res.history.length - 1];
+            const key = res.stockCode;
+            const prevStatus = prevSignalMap[key];
+            const currStatus = last.status;
+
+            if (prevStatus && prevStatus !== currStatus) {
+                changes.push({ name: res.stockName, from: prevStatus, to: currStatus });
+                // 高亮表格行
+                const row = document.getElementById(`row-${res.index}`);
+                if (row) {
+                    row.classList.remove('signal-changed');
+                    void row.offsetWidth; // 触发重排，让动画重新播放
+                    row.classList.add('signal-changed');
+                }
+            }
+            prevSignalMap[key] = currStatus;
+        });
+
+        if (changes.length > 0) {
+            const body = changes.map(c => `${c.name}: ${c.from} → ${c.to}`).join('\n');
+            sendDesktopNotification(`📊 ${changes.length}只股票信号变化`, body);
+        }
+    }
+
+    // ===== 新增：更新刷新状态栏显示 =====
+    function updateRefreshBar(state, secondsLeft) {
+        const dot = document.getElementById('refresh-dot');
+        const txt = document.getElementById('refresh-status-txt');
+        const countdown = document.getElementById('refresh-countdown');
+        const btn = document.querySelector('.refresh-toggle');
+
+        if (!autoRefreshEnabled) {
+            dot.className = 'off';
+            txt.innerText = '自动刷新已暂停';
+            countdown.innerText = '--';
+            btn.innerText = '启动';
+            return;
+        }
+
+        if (state === 'running') {
+            dot.className = 'running';
+            txt.innerText = '刷新中...';
+            countdown.innerText = '--';
+        } else if (state === 'waiting') {
+            dot.className = 'waiting';
+            const inTrading = isATradingTime();
+            txt.innerText = inTrading ? '交易时间内，自动刷新中' : '非交易时间（等待开市）';
+            countdown.innerText = secondsLeft + 's';
+        } else if (state === 'off-hours') {
+            dot.className = 'off';
+            txt.innerText = '非交易时间（等待开市）';
+            countdown.innerText = secondsLeft + 's';
+        }
+        btn.innerText = '暂停';
+    }
+
+    // ===== 新增：启动倒计时显示 =====
+    function startCountdown() {
+        if (countdownTimer) clearInterval(countdownTimer);
+        autoRefreshCountdown = autoRefreshInterval;
+        countdownTimer = setInterval(() => {
+            if (!autoRefreshEnabled) return;
+            autoRefreshCountdown--;
+            if (autoRefreshCountdown < 0) autoRefreshCountdown = autoRefreshInterval;
+            const inTrading = isATradingTime();
+            updateRefreshBar(inTrading ? 'waiting' : 'off-hours', autoRefreshCountdown);
+        }, 1000);
+    }
+
+    // ===== 新增：启动自动刷新 =====
+    function startAutoRefresh() {
+        if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+        startCountdown();
+
+        autoRefreshTimer = setInterval(async () => {
+            if (!autoRefreshEnabled) return;
+            if (!isATradingTime()) return; // 非交易时间不刷新
+
+            updateRefreshBar('running');
+            await runBatchBacktest();        // 重跑（K线缓存命中，只更新实时价）
+            detectAndNotifySignalChanges();  // 检测变化
+            autoRefreshCountdown = autoRefreshInterval;
+            startCountdown();
+        }, autoRefreshInterval * 1000);
+    }
+
+    // ===== 新增：暂停/启动切换 =====
+    function toggleAutoRefresh() {
+        autoRefreshEnabled = !autoRefreshEnabled;
+        if (autoRefreshEnabled) {
+            startAutoRefresh();
+        } else {
+            if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+            if (countdownTimer) clearInterval(countdownTimer);
+            updateRefreshBar('paused');
+        }
+    }
+
+    // ===== 新增：页面加载自动运行 =====
+    async function autoRunOnLoad() {
+        if (stocks.length === 0) return;
+        // 请求通知权限
+        requestNotificationPermission();
+        // 初始化信号记录（防止第一次误报）
+        prevSignalMap = {};
+        // 自动运行回测
+        await runBatchBacktest();
+        // 记录初始信号（第一次不发通知）
+        batchResults.forEach(res => {
+            const last = res.history[res.history.length - 1];
+            prevSignalMap[res.stockCode] = last.status;
+        });
+        // 启动自动刷新
+        startAutoRefresh();
+    }
+
     function openSettingsModal() {
         const cfg = getGbConfig();
         document.getElementById('cfg-username').value = cfg.username; 
@@ -758,7 +944,7 @@
                 if (chk && chk.checked) indices.push(index);
             }
         });
-        if(indices.length === 0) return alert("请至少勾选一只可见的股票");
+        if(indices.length === 0) return;
         let missingCodes = stocks.filter(s => !s.code).length;
         if(missingCodes > 0) {
             if(confirm(`发现 ${missingCodes} 只股票缺少代码。是否立即自动修复？`)) { await ensureStockCodes(); return; }
@@ -795,7 +981,7 @@
             batchResults = (await runLoop([...indices], null)).sort((a,b)=>a.index-b.index);
         }
         progress.innerHTML = `✅ 完成!`; btn.disabled = false;
-        if(batchResults.length === 0) { alert("❌ 所有股票回测失败！"); progress.style.display = 'none'; btn.disabled = false; return; }
+        if(batchResults.length === 0) { progress.style.display = 'none'; btn.disabled = false; return; }
         if(batchResults.length > 0) {
             document.getElementById('results-container').style.display = 'block';
             updateSummaryFilterOptions(); toggleSection('summary-content', document.querySelector('#batch-summary-box .section-header'));
@@ -1001,7 +1187,6 @@
         renderContributionChart(mainStats.history);
     }
 
-    // ========== 修改部分：renderPortfolioStats 函数 ==========
     function renderPortfolioStats(hist, maxDD, benchHist) {
         const last = hist[hist.length - 1]; const ret = (last.nav - 1) * 100; const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
         document.getElementById('port-ret').innerText = ret.toFixed(2) + '%'; document.getElementById('port-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
@@ -1022,8 +1207,6 @@
                     const idx = params[0].dataIndex; 
                     const item = hist[idx]; 
                     const benchItem = benchHist ? benchHist[idx] : null;
-                    
-                    // 计算当日涨跌幅
                     let dailyChangeVal = 0;
                     let dailyChangeStr = '0.00%';
                     if (idx > 0) {
@@ -1031,7 +1214,6 @@
                         dailyChangeVal = (item.nav - prevNav) / prevNav * 100;
                         dailyChangeStr = (dailyChangeVal >= 0 ? '+' : '') + dailyChangeVal.toFixed(2) + '%';
                     }
-                    
                     let h = `<div style="font-weight:bold">${item.date}</div>`; 
                     h += `<div style="font-size:11px;">组合净值: <b>${item.nav.toFixed(3)}</b></div>`; 
                     h += `<div style="font-size:11px;">当日涨跌: <b style="color:${dailyChangeVal >= 0 ? '#d32f2f' : '#2e7d32'}">${dailyChangeStr}</b></div>`;
@@ -1049,19 +1231,14 @@
         });
     }
 
-    // 全局变量，用于记录排序状态 (默认为权重排序 'weight')
     let currentHoldingsSortMode = 'weight'; 
 
     function updateDetailPanel(hist, index) {
         const item = hist[index]; if(!item) return;
-        // 保存当前数据引用，以便点击排序按钮时重绘
         window.lastDetailHist = hist;
         window.lastDetailIndex = index;
-
         const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
         let list = []; 
-        
-        // 1. 提取基础数据
         Object.keys(item.breakdown).forEach(name => { 
             if(item.breakdown[name] > 0.001) {
                 let stockRes = batchResults.find(r => r.stockName === name);
@@ -1077,15 +1254,11 @@
                 list.push({name: name, val: item.breakdown[name], change: changePct}); 
             } 
         });
-
-        // 2. 执行排序逻辑
         if (currentHoldingsSortMode === 'weight') {
-            list.sort((a, b) => b.val - a.val); // 按持仓权重降序
+            list.sort((a, b) => b.val - a.val);
         } else {
-            list.sort((a, b) => b.change - a.change); // 按当日涨跌幅降序
+            list.sort((a, b) => b.change - a.change);
         }
-
-        // 3. 动态更新标题栏 (注入排序按钮)
         const headerBar = document.querySelector('.detail-header-bar');
         if (headerBar) {
             headerBar.innerHTML = `
@@ -1102,15 +1275,12 @@
                 </div>
             `;
         }
-
-        // 4. 生成列表 HTML
         let html = '';
         list.forEach((p, i) => { 
             const posPct = (p.val / maxLev * 100).toFixed(2) + '%'; 
             const dotColor = i === 0 ? '#d32f2f' : '#007bff'; 
             const changeColor = p.change >= 0 ? '#d32f2f' : '#2e7d32';
             const changeTxt = (p.change >= 0 ? '+' : '') + p.change.toFixed(2) + '%';
-
             html += `
             <div class="detail-row">
                 <div class="detail-name">
@@ -1127,7 +1297,6 @@
                 </div>
             </div>`; 
         });
-        
         if (list.length === 0) html = '<div style="padding:20px; text-align:center; color:#999;">该日无持仓 (空仓)</div>';
         document.getElementById('detail-list-content').innerHTML = html;
         document.getElementById('holdings-detail-panel').style.display = 'block';
@@ -1308,7 +1477,34 @@
 
     echarts.connect('stockGroup');
     window.addEventListener('beforeunload', (e) => { if (APP_STORAGE.getItem('gridHasUnsavedChanges') === 'true') { e.preventDefault(); e.returnValue = ''; } });
-    (async function autoSync() { const cfg = getGbConfig(); if(cfg.token) { updateStatus('syncing'); try { const u = `https://api.github.com/repos/${cfg.username}/${cfg.repo}/contents/${cfg.path}`, h = {"Authorization":`token ${cfg.token}`,"Accept":"application/vnd.github.v3+json"}; let r = await fetch(u, {headers:h}); let d = r.ok ? JSON.parse(safeB64ToUtf8((await r.json()).content)) : await (await fetch(`https://raw.githubusercontent.com/${cfg.username}/${cfg.repo}/${cfg.branch}/${cfg.path}`)).json(); if(Array.isArray(d)) { stocks = d; APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(false); updateStatus('online'); } } catch(e){ updateStatus('error'); } } })();
+
+    // ===== 自动同步 + 自动运行（页面启动入口）=====
+    (async function init() {
+        const cfg = getGbConfig();
+        // 先尝试GitHub同步（有token时）
+        if (cfg.token) {
+            updateStatus('syncing');
+            try {
+                const u = `https://api.github.com/repos/${cfg.username}/${cfg.repo}/contents/${cfg.path}`;
+                const h = {"Authorization":`token ${cfg.token}`,"Accept":"application/vnd.github.v3+json"};
+                let r = await fetch(u, {headers:h});
+                let d = r.ok 
+                    ? JSON.parse(safeB64ToUtf8((await r.json()).content)) 
+                    : await (await fetch(`https://raw.githubusercontent.com/${cfg.username}/${cfg.repo}/${cfg.branch}/${cfg.path}`)).json();
+                if(Array.isArray(d)) {
+                    stocks = d;
+                    APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks));
+                    renderTable();
+                    setLocalChanges(false);
+                    updateStatus('online');
+                }
+            } catch(e) {
+                updateStatus('error');
+            }
+        }
+        // 无论同步是否成功，都自动运行回测
+        await autoRunOnLoad();
+    })();
 </script>
 </body>
 </html>
