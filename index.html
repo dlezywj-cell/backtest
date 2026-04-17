@@ -156,7 +156,6 @@ html
         .detail-name { display: flex; align-items: center; gap: 6px; font-weight: 500; }
         .detail-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 
-        /* 新增：贡献网格布局样式 */
         .contrib-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1.2fr; gap: 4px; align-items: center; width: 100%; font-size: 11px; min-width: 320px; }
         .contrib-grid > div:first-child { text-align: left; padding-right: 5px; }
         .contrib-grid > div { text-align: right; white-space: nowrap; }
@@ -253,6 +252,7 @@ html
     </div>
     <div class="card-body">
         <div class="run-bar">
+            <!-- 快捷日期设置面板 -->
             <div class="quick-date-bar">
                 <span class="quick-date-label">快捷时间:</span>
                 <button class="quick-date-btn" onclick="setQuickDate('1y')">近一年</button>
@@ -265,6 +265,7 @@ html
             <button class="btn btn-blue" id="btn-run-all" onclick="runBatchBacktest()">🚀 运行选中</button>
         </div>
 
+        <!-- 自动刷新状态栏 -->
         <div id="auto-refresh-bar">
             <div class="refresh-left">
                 <span id="refresh-dot" class="off"></span>
@@ -411,6 +412,16 @@ html
                         <div class="detail-header-bar"><span id="contrib-detail-date-title">贡献详情</span></div>
                         <div class="detail-scroll-box" id="contrib-detail-list-content"></div>
                     </div>
+                </div>
+            </div>
+            <!-- 新增：每日动量排行榜 -->
+            <div id="ranking-log-section" style="margin-bottom:15px;">
+                <div class="section-header" onclick="toggleSection('ranking-log-content', this)">
+                    <span>🏆 每日动量排行榜 (近3日贡献)</span> 
+                    <span class="arrow header-arrow">▼</span>
+                </div>
+                <div id="ranking-log-content" class="section-body collapsed" style="padding:0; border:none; max-height:400px; overflow-y:auto;">
+                    <div id="ranking-log-list"></div>
                 </div>
             </div>
         </div>
@@ -1260,6 +1271,7 @@ html
         renderHoldingsChart(mainStats.history); 
         renderTradeLog(mainStats.history, mainStats.dateMap); 
         renderContributionChart(mainStats.history);
+        renderRankingLog(mainStats.history); // 新增：渲染每日动量排行榜
     }
 
     function renderPortfolioStats(hist, maxDD, benchHist) {
@@ -1317,7 +1329,7 @@ html
     }
 
     let currentHoldingsSortMode = 'weight'; 
-    let currentContribSortMode = '1d'; // 新增：多维贡献默认按当日排序
+    let currentContribSortMode = '1d'; 
 
     function updateDetailPanel(hist, index) {
         const item = hist[index]; if(!item) return;
@@ -1458,7 +1470,62 @@ html
         if (!hasContent) container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无趋势变更记录</div>';
     }
 
-    // 新增：多维贡献面板的刷新核心逻辑
+    // 新增：每日动量排行榜的核心渲染逻辑
+    function renderRankingLog(hist) {
+        const container = document.getElementById('ranking-log-list'); container.innerHTML = '';
+        let hasContent = false;
+
+        for (let i = hist.length - 1; i >= 0; i--) {
+            const todayItem = hist[i];
+            let list =[];
+            
+            Object.keys(todayItem.contribBreakdown).forEach(name => {
+                let valCum = todayItem.contribBreakdown[name] || 0;
+                let val3d = valCum - (hist[i-3] ? (hist[i-3].contribBreakdown[name] || 0) : 0);
+                if (Math.abs(val3d) > 0.0001) { 
+                    list.push({ name: name, d3: val3d * 100 });
+                }
+            });
+
+            if (list.length === 0) continue;
+
+            let positives = list.filter(item => item.d3 > 0).sort((a, b) => b.d3 - a.d3);
+            let negatives = list.filter(item => item.d3 < 0).sort((a, b) => a.d3 - b.d3);
+
+            if (positives.length === 0 && negatives.length === 0) continue;
+            hasContent = true;
+
+            let top10 = positives.slice(0, 10);
+            let bottom10 = negatives.slice(0, 10);
+
+            const isLatest = (i === hist.length - 1);
+            const header = document.createElement('div');
+            header.className = 'daily-log-header' + (isLatest ? ' open' : '');
+            header.onclick = function() { toggleDailyLog(this); };
+            header.innerHTML = `<div style="font-weight:bold;">${todayItem.date}</div><span class="arrow-daily">▶</span>`;
+            
+            const body = document.createElement('div');
+            body.className = 'daily-log-body' + (isLatest ? ' open' : '');
+            
+            let topHtml = top10.map(p => `<span style="white-space:nowrap; display:inline-block; margin-bottom:4px;">${p.name} <b style="color:#d32f2f">+${p.d3.toFixed(2)}%</b></span>`).join('<span style="color:#ccc; margin:0 6px;">|</span>');
+            let bottomHtml = bottom10.map(p => `<span style="white-space:nowrap; display:inline-block; margin-bottom:4px;">${p.name} <b style="color:#2e7d32">${p.d3.toFixed(2)}%</b></span>`).join('<span style="color:#ccc; margin:0 6px;">|</span>');
+            
+            let contentHtml = '';
+            if (top10.length > 0) {
+                contentHtml += `<div style="margin-bottom:12px; border-bottom:1px dashed #eee; padding-bottom:6px;"><span style="display:inline-block; color:#fff; background:#d32f2f; padding:3px 8px; border-radius:4px; font-size:11px; margin-bottom:6px; font-weight:bold;">🔥 领涨 Top10</span><div style="font-size:12px; line-height:1.6;">${topHtml}</div></div>`;
+            }
+            if (bottom10.length > 0) {
+                contentHtml += `<div><span style="display:inline-block; color:#fff; background:#2e7d32; padding:3px 8px; border-radius:4px; font-size:11px; margin-bottom:6px; font-weight:bold;">❄️ 领跌 Bot10</span><div style="font-size:12px; line-height:1.6;">${bottomHtml}</div></div>`;
+            }
+
+            body.innerHTML = contentHtml;
+            container.appendChild(header);
+            container.appendChild(body);
+        }
+        
+        if (!hasContent) container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无数据</div>';
+    }
+
     function updateContribDetailPanel(hist, index) {
         const item = hist[index]; if(!item) return;
         window.lastContribHist = hist;
@@ -1467,18 +1534,15 @@ html
         let list =[];
         Object.keys(item.contribBreakdown).forEach(name => {
             let valCum = item.contribBreakdown[name] || 0;
-            // 核心推演逻辑：近N日贡献 = 今日累计值 - N天前的累计值
             let val1d = valCum - (hist[index-1] ? (hist[index-1].contribBreakdown[name] || 0) : 0);
             let val3d = valCum - (hist[index-3] ? (hist[index-3].contribBreakdown[name] || 0) : 0);
             let val5d = valCum - (hist[index-5] ? (hist[index-5].contribBreakdown[name] || 0) : 0);
             
-            // 过滤：只显示这段时间有过贡献波动的股票
             if (Math.abs(valCum) > 0.0001 || Math.abs(val1d) > 0.0001) { 
                 list.push({name: name, cum: valCum * 100, d1: val1d * 100, d3: val3d * 100, d5: val5d * 100}); 
             }
         });
         
-        // 动态多维排序
         list.sort((a, b) => {
             if (currentContribSortMode === '1d') return b.d1 - a.d1;
             if (currentContribSortMode === '3d') return b.d3 - a.d3;
@@ -1491,7 +1555,6 @@ html
             headerBar.innerHTML = `<span style="font-size:12px;">${item.date} (${list.length}只)</span><span style="font-size:11px; color:#999; font-weight:normal;">点击下方表头可排序</span>`;
         }
         
-        // 构建带有表头的网格
         let html = `
         <div class="detail-row" style="background:#f8f9fa; position:sticky; top:0; z-index:2; border-bottom:1px solid #ddd; padding:8px 8px;">
             <div class="contrib-grid" style="font-weight:bold;">
