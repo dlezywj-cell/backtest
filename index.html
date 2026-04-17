@@ -149,12 +149,20 @@ html
         
         #holdings-detail-panel, #contribution-detail-panel { display: none; margin-top: 10px; border: 1px solid #ddd; background: #fff; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .detail-header-bar { padding: 8px 12px; background: #f8f9fa; border-bottom: 1px solid #eee; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-radius: 6px 6px 0 0; font-size: 13px; }
-        .detail-scroll-box { height: 250px; overflow-y: auto; padding: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; background: #fff; }
+        .detail-scroll-box { height: 250px; overflow-x: auto; overflow-y: auto; padding: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; background: #fff; }
         .detail-row { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid #f5f5f5; font-size: 12px; align-items: center; }
         .detail-row:last-child { border-bottom: none; }
         .detail-row:nth-child(even) { background: #fafafa; }
         .detail-name { display: flex; align-items: center; gap: 6px; font-weight: 500; }
         .detail-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+        /* 新增：贡献网格布局样式 */
+        .contrib-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1.2fr; gap: 4px; align-items: center; width: 100%; font-size: 11px; min-width: 320px; }
+        .contrib-grid > div:first-child { text-align: left; padding-right: 5px; }
+        .contrib-grid > div { text-align: right; white-space: nowrap; }
+        .sort-header { cursor: pointer; color: #666; transition: color 0.2s; user-select: none; text-decoration: underline; text-decoration-style: dotted; text-decoration-color: #ccc; }
+        .sort-header:hover { color: #007bff; text-decoration-color: #007bff; }
+        .sort-header.active { color: #007bff; font-weight: bold; text-decoration-style: solid; }
 
         /* ===== 自动刷新状态栏样式 ===== */
         #auto-refresh-bar {
@@ -245,7 +253,6 @@ html
     </div>
     <div class="card-body">
         <div class="run-bar">
-            <!-- 快捷日期设置面板 -->
             <div class="quick-date-bar">
                 <span class="quick-date-label">快捷时间:</span>
                 <button class="quick-date-btn" onclick="setQuickDate('1y')">近一年</button>
@@ -258,7 +265,6 @@ html
             <button class="btn btn-blue" id="btn-run-all" onclick="runBatchBacktest()">🚀 运行选中</button>
         </div>
 
-        <!-- 自动刷新状态栏 -->
         <div id="auto-refresh-bar">
             <div class="refresh-left">
                 <span id="refresh-dot" class="off"></span>
@@ -395,12 +401,12 @@ html
             </div>
             <div id="contribution-section" style="margin-bottom:15px;">
                 <div class="section-header" onclick="toggleSection('contribution-content', this)">
-                    <span>💰 累计盈亏贡献</span> 
+                    <span>💰 累计盈亏贡献 (多维拆分)</span> 
                     <span class="arrow header-arrow">▼</span>
                 </div>
                 <div id="contribution-content" class="section-body collapsed">
                     <div id="contribution-chart" style="width: 100%; height: 400px;"></div>
-                    <div style="text-align:center; font-size:11px; color:#999; margin-top:5px; margin-bottom:10px;">展示每只股票对组合总收益的累计点数贡献。手指在图表上滑动，下方明细列表将实时更新。</div>
+                    <div style="text-align:center; font-size:11px; color:#999; margin-top:5px; margin-bottom:10px;">展示每只股票对组合总收益的累计贡献点数。手指在图表上滑动，下方明细列表将实时更新。</div>
                     <div id="contribution-detail-panel">
                         <div class="detail-header-bar"><span id="contrib-detail-date-title">贡献详情</span></div>
                         <div class="detail-scroll-box" id="contrib-detail-list-content"></div>
@@ -757,7 +763,6 @@ html
     function safeB64ToUtf8(str) { return decodeURIComponent(escape(window.atob(str.replace(/\s/g, '')))); }
     function utf8ToB64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
     
-    // 【核心修复1】加入强大的去空格机制，防止代码末尾隐藏不可见空格导致提取失败
     const getEmSecId = c => { 
         if (!c) return "0.000000";
         c = c.trim().toUpperCase(); 
@@ -817,7 +822,6 @@ html
         });
     }
 
-    // 【核心修复2】完全回退到你验证过没问题的原版提取逻辑（仅增加了107美交所的兜底）
     async function fetchHistoryKline(secId) {
         const todayStr = new Date().toISOString().split('T')[0]; 
         const cacheKey = `kline_${secId}`; 
@@ -855,7 +859,6 @@ html
         }
     }
 
-    // 【核心修复3】完全回退到你验证过没问题的原版拼装逻辑
     async function fetchBatchRealtimeData(secIds) {
         if(secIds.length === 0) return {};
         const BATCH_SIZE = 30; let resultMap = {};
@@ -1314,6 +1317,7 @@ html
     }
 
     let currentHoldingsSortMode = 'weight'; 
+    let currentContribSortMode = '1d'; // 新增：多维贡献默认按当日排序
 
     function updateDetailPanel(hist, index) {
         const item = hist[index]; if(!item) return;
@@ -1454,6 +1458,7 @@ html
         if (!hasContent) container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无趋势变更记录</div>';
     }
 
+    // 新增：多维贡献面板的刷新核心逻辑
     function updateContribDetailPanel(hist, index) {
         const item = hist[index]; if(!item) return;
         window.lastContribHist = hist;
@@ -1461,29 +1466,64 @@ html
 
         let list =[];
         Object.keys(item.contribBreakdown).forEach(name => {
-            let val = item.contribBreakdown[name];
-            if (Math.abs(val) > 0.0001) { 
-                list.push({name: name, val: val * 100}); 
+            let valCum = item.contribBreakdown[name] || 0;
+            // 核心推演逻辑：近N日贡献 = 今日累计值 - N天前的累计值
+            let val1d = valCum - (hist[index-1] ? (hist[index-1].contribBreakdown[name] || 0) : 0);
+            let val3d = valCum - (hist[index-3] ? (hist[index-3].contribBreakdown[name] || 0) : 0);
+            let val5d = valCum - (hist[index-5] ? (hist[index-5].contribBreakdown[name] || 0) : 0);
+            
+            // 过滤：只显示这段时间有过贡献波动的股票
+            if (Math.abs(valCum) > 0.0001 || Math.abs(val1d) > 0.0001) { 
+                list.push({name: name, cum: valCum * 100, d1: val1d * 100, d3: val3d * 100, d5: val5d * 100}); 
             }
         });
-        list.sort((a, b) => b.val - a.val);
+        
+        // 动态多维排序
+        list.sort((a, b) => {
+            if (currentContribSortMode === '1d') return b.d1 - a.d1;
+            if (currentContribSortMode === '3d') return b.d3 - a.d3;
+            if (currentContribSortMode === '5d') return b.d5 - a.d5;
+            return b.cum - a.cum;
+        });
 
         const headerBar = document.querySelector('#contribution-detail-panel .detail-header-bar');
         if (headerBar) {
-            headerBar.innerHTML = `<span style="font-size:12px;">${item.date} (${list.length}只)</span>`;
+            headerBar.innerHTML = `<span style="font-size:12px;">${item.date} (${list.length}只)</span><span style="font-size:11px; color:#999; font-weight:normal;">点击下方表头可排序</span>`;
         }
-        let html = '';
+        
+        // 构建带有表头的网格
+        let html = `
+        <div class="detail-row" style="background:#f8f9fa; position:sticky; top:0; z-index:2; border-bottom:1px solid #ddd; padding:8px 8px;">
+            <div class="contrib-grid" style="font-weight:bold;">
+                <div>股票名称</div>
+                <div class="sort-header ${currentContribSortMode==='1d'?'active':''}" onclick="currentContribSortMode='1d'; updateContribDetailPanel(window.lastContribHist, window.lastContribIndex)">当日</div>
+                <div class="sort-header ${currentContribSortMode==='3d'?'active':''}" onclick="currentContribSortMode='3d'; updateContribDetailPanel(window.lastContribHist, window.lastContribIndex)">近3日</div>
+                <div class="sort-header ${currentContribSortMode==='5d'?'active':''}" onclick="currentContribSortMode='5d'; updateContribDetailPanel(window.lastContribHist, window.lastContribIndex)">近5日</div>
+                <div class="sort-header ${currentContribSortMode==='cum'?'active':''}" onclick="currentContribSortMode='cum'; updateContribDetailPanel(window.lastContribHist, window.lastContribIndex)">累计</div>
+            </div>
+        </div>`;
+
         list.forEach((p, i) => {
-            const color = p.val >= 0 ? '#d32f2f' : '#2e7d32';
-            const sign = p.val >= 0 ? '+' : '';
+            const cCum = p.cum >= 0 ? '#d32f2f' : '#2e7d32';
+            const c1d = p.d1 >= 0 ? '#d32f2f' : '#2e7d32';
+            const c3d = p.d3 >= 0 ? '#d32f2f' : '#2e7d32';
+            const c5d = p.d5 >= 0 ? '#d32f2f' : '#2e7d32';
+            
+            const sCum = p.cum > 0 ? '+' : '';
+            const s1d = p.d1 > 0 ? '+' : '';
+            const s3d = p.d3 > 0 ? '+' : '';
+            const s5d = p.d5 > 0 ? '+' : '';
+
             html += `
-            <div class="detail-row">
-                <div class="detail-name">
-                    <span style="color:#999; font-size:10px;">${i+1}.</span>
-                    ${p.name}
-                </div>
-                <div style="text-align:right; font-weight:bold; color:${color};">
-                    ${sign}${p.val.toFixed(2)}%
+            <div class="detail-row" style="padding: 8px 8px;">
+                <div class="contrib-grid">
+                    <div style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${p.name}">
+                        <span style="color:#999; font-size:10px;">${i+1}.</span> ${p.name}
+                    </div>
+                    <div style="color:${c1d}">${s1d}${p.d1.toFixed(2)}%</div>
+                    <div style="color:${c3d}">${s3d}${p.d3.toFixed(2)}%</div>
+                    <div style="color:${c5d}">${s5d}${p.d5.toFixed(2)}%</div>
+                    <div style="color:${cCum}; font-weight:bold;">${sCum}${p.cum.toFixed(2)}%</div>
                 </div>
             </div>`;
         });
