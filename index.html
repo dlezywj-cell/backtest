@@ -225,7 +225,6 @@ html
             <input type="text" id="list-search-input" placeholder="输入名称或代码筛选..." oninput="filterStockList()">
             <div class="market-filter-group">
                 <button class="filter-btn" onclick="setMarketFilter('ALL', this)">全部</button>
-                <!-- 默认激活 A股 -->
                 <button class="filter-btn active" onclick="setMarketFilter('A', this)">A股</button>
                 <button class="filter-btn" onclick="setMarketFilter('HK', this)">港股</button>
                 <button class="filter-btn" onclick="setMarketFilter('US', this)">美股</button>
@@ -334,7 +333,6 @@ html
                         <button class="btn btn-orange" onclick="runPortfolioStrategy()" style="width:100%">🔄 重新计算组合</button>
                         <div style="font-size:11px; color:#666; margin-top:5px; text-align:left; line-height:1.4;">逻辑：<b>动态等权</b>。自动剔除"建议杠杆 < 门槛"的无效股票。<br>资金仅在满足条件的股票中平分。若无股票满足，则空仓。</div>
                     </div>
-                    <!-- 包含最新单日涨跌的四格栅格 -->
                     <div class="stat-grid" style="grid-template-columns: repeat(4, 1fr);">
                         <div class="stat-item"><div class="stat-val" id="port-ret">--</div><div class="stat-lbl">组合总收益</div></div>
                         <div class="stat-item"><div class="stat-val" id="port-day-ret">--</div><div class="stat-lbl">最新单日涨跌</div></div>
@@ -403,7 +401,6 @@ html
                 <div id="contribution-content" class="section-body collapsed">
                     <div id="contribution-chart" style="width: 100%; height: 400px;"></div>
                     <div style="text-align:center; font-size:11px; color:#999; margin-top:5px; margin-bottom:10px;">展示每只股票对组合总收益的累计点数贡献。手指在图表上滑动，下方明细列表将实时更新。</div>
-                    <!-- 盈亏贡献详情面板 -->
                     <div id="contribution-detail-panel">
                         <div class="detail-header-bar"><span id="contrib-detail-date-title">贡献详情</span></div>
                         <div class="detail-scroll-box" id="contrib-detail-list-content"></div>
@@ -477,7 +474,6 @@ html
 
 <script>
     const APP_STORAGE = localStorage;
-    // 默认筛选修改为 'A'
     let currentMarketFilter = 'A';
 
     function getGbConfig() {
@@ -490,9 +486,9 @@ html
         };
     }
 
-    let stocks = JSON.parse(APP_STORAGE.getItem('gridStocks')) || [];
+    let stocks = JSON.parse(APP_STORAGE.getItem('gridStocks')) ||[];
     let myChart = null;
-    let batchResults =[];
+    let batchResults = [];
     let benchmarkResults =[]; 
     let portfolioChart = null, holdingsChart = null, statusChart = null, contributionChart = null; 
 
@@ -766,7 +762,7 @@ html
         if (!c) return "0.000000";
         let raw = c.replace(/\.[A-Z]+$/, '');
         if (/^\d{5}$/.test(raw)) return '116.' + raw.padStart(5, '0');
-        if (c.includes('.US')) return '105.' + raw;
+        if (c.includes('.US')) return '105.' + raw; // 默认返回105(纳斯达克)，后续会在fetch里自动重试106和107
         if (raw.startsWith('6')) return '1.' + raw;
         return '0.' + raw; 
     };
@@ -820,41 +816,68 @@ html
         });
     }
 
+    // 强化美股历史数据获取（纳斯达克、纽交所、美交所全面覆盖）
     async function fetchHistoryKline(secId) {
-        const todayStr = new Date().toISOString().split('T')[0]; const cacheKey = `kline_${secId}`; const cached = await getCache(cacheKey);
+        const todayStr = new Date().toISOString().split('T')[0]; 
+        const cacheKey = `kline_${secId}`; 
+        const cached = await getCache(cacheKey);
         if (cached && cached.date === todayStr) return cached.data;
+        
         let baseParams = `fields1=f1&fields2=f51,f53&klt=101&end=20500101&lmt=600`;
-        let url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&${baseParams}&fqt=1`;
-        try {
-            let json = await jsonpRequest(url);
-            let data = json?.data?.klines ||[];
-            if (data.length === 0) {
-                let url2 = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&${baseParams}&fqt=0`;
-                let json2 = await jsonpRequest(url2);
-                data = json2?.data?.klines ||[];
+        
+        // 提取重试模块
+        let fetchAttempt = async (sId, fqt) => {
+            try {
+                let j = await jsonpRequest(`https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${sId}&${baseParams}&fqt=${fqt}`);
+                return j?.data?.klines ||[];
+            } catch(e) { return[]; }
+        };
+
+        let data = await fetchAttempt(secId, 1);
+        
+        // 如果未查到且是美股，尝试其他交易所标识（105=纳斯达克，106=纽交所，107=美交所）
+        if (data.length === 0 && secId.startsWith('105.')) {
+            data = await fetchAttempt(secId.replace('105.', '106.'), 1);
+            if (data.length === 0) data = await fetchAttempt(secId.replace('105.', '107.'), 1);
+        }
+        
+        // 如果全没拿到，再退化使用不复权数据(fqt=0)重试一圈
+        if (data.length === 0) {
+            data = await fetchAttempt(secId, 0);
+            if (data.length === 0 && secId.startsWith('105.')) {
+                data = await fetchAttempt(secId.replace('105.', '106.'), 0);
+                if (data.length === 0) data = await fetchAttempt(secId.replace('105.', '107.'), 0);
             }
-            if (data.length === 0 && secId.startsWith('105.')) { 
-                let altUrl = url.replace('105.', '106.'); 
-                let j3 = await jsonpRequest(altUrl); 
-                let d3 = j3?.data?.klines ||[]; 
-                if(d3.length > 0) data = d3;
-            }
-            if (data.length > 0) await setCache(cacheKey, { date: todayStr, data: data });
-            return data;
-        } catch (e) { return cached ? cached.data :[]; }
+        }
+
+        if (data.length > 0) await setCache(cacheKey, { date: todayStr, data: data });
+        return data;
     }
 
+    // 强化美股实时数据获取兼容性
     async function fetchBatchRealtimeData(secIds) {
         if(secIds.length === 0) return {};
         const BATCH_SIZE = 30; let resultMap = {};
         for (let i = 0; i < secIds.length; i += BATCH_SIZE) {
             const chunk = secIds.slice(i, i + BATCH_SIZE); let expandedChunk =[];
-            chunk.forEach(id => { expandedChunk.push(id); if(id.startsWith('105.')) expandedChunk.push(id.replace('105.', '106.')); });
-            const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${expandedChunk.join(',')}&fields=f12,f2,f20,f124&invt=2&fltt=2&_=${Date.now()}`;
+            chunk.forEach(id => { 
+                expandedChunk.push(id); 
+                if(id.startsWith('105.')) {
+                    expandedChunk.push(id.replace('105.', '106.')); 
+                    expandedChunk.push(id.replace('105.', '107.'));
+                } 
+            });
+            const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${expandedChunk.join(',')}&fields=f12,f2,f20,f124,f3&invt=2&fltt=2&_=${Date.now()}`;
             try {
                 const json = await jsonpRequest(url);
                 const diff = json?.data?.diff;
-                if (diff) { (Array.isArray(diff) ? diff : Object.values(diff)).forEach(item => { if (item && item.f2 > 0) resultMap[item.f12] = { price: item.f2, totalShares: (item.f20 / item.f2) / 100000000, timestamp: item.f124 }; }); }
+                if (diff) { 
+                    (Array.isArray(diff) ? diff : Object.values(diff)).forEach(item => { 
+                        if (item && item.f2 > 0) {
+                            resultMap[item.f12] = { price: item.f2, totalShares: (item.f20 / item.f2) / 100000000, timestamp: item.f124, pctChange: item.f3 }; 
+                        }
+                    }); 
+                }
             } catch (e) { console.error(e); }
         }
         return resultMap;
@@ -912,23 +935,33 @@ html
         const minCap = stock.minCap, maxCap = stock.maxCap, midCap = (minCap + maxCap) / 2.0;
         let totalShares = realtimeData[rawCode]?.totalShares || 100.0;
         klines.forEach(k => {
-            const p = k.split(','); if (p[0] >= startDate && p[0] <= endDate) {
-                let close = parseFloat(p[1]), mv = close * totalShares;
+            const p = k.split(','); 
+            if (p[0] >= startDate && p[0] <= endDate) {
+                let close = parseFloat(p[1]); // f53是Close，由于fields2=f51,f53所以p[1]即是收盘价
+                let mv = close * totalShares;
                 rawData.push({ date: p[0], close, mv, valScore: (mv<=minCap)?1:(mv>=maxCap)?-1:((mv<=midCap)?(midCap-mv)/(midCap-minCap):-(mv-midCap)/(maxCap-midCap)) });
             }
         });
         if (rawData.length === 0) throw new Error("区间无数据");
+
         const rt = realtimeData[rawCode];
-        if (rt && endDate >= new Date().toISOString().split('T')[0]) {
-            const rtMv = rt.price * rt.totalShares; const lastK = rawData[rawData.length - 1];
-            const rtDate = new Date(rt.timestamp * 1000).toISOString().split('T')[0];
-            const item = { date: rtDate, close: rt.price, mv: rtMv, valScore: (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap)) };
-            if (rtDate > lastK.date) rawData.push(item); else if (rtDate === lastK.date) rawData[rawData.length - 1] = item;
+        if (rt) {
+            // 强化时区处理：即使在盘后，也准确将其拼接到正确的当地自然日
+            let rtDate = (rt.timestamp && rt.timestamp > 0) ? new Date(rt.timestamp * 1000).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+            if (rtDate <= endDate) {
+                const rtMv = rt.price * rt.totalShares; 
+                const item = { date: rtDate, close: rt.price, mv: rtMv, valScore: (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap)) };
+                const lastK = rawData[rawData.length - 1];
+                if (rtDate > lastK.date) rawData.push(item); 
+                else if (rtDate === lastK.date) rawData[rawData.length - 1] = item;
+            }
         }
+
         const ma5 = calculateMA_Array(rawData, 5), ma10 = calculateMA_Array(rawData, 10), ma20 = calculateMA_Array(rawData, 20);
         const getLev = (mv) => (mv <= minCap) ? maxLev : (mv >= maxCap) ? 0.0 : maxLev * Math.exp(-2.5 * ((mv - minCap) / (maxCap - minCap)));
-        let nav = 1.0, peak = 1.0, prevL = getLev(rawData[0].mv), inProt = false, history = [], logs =[], maxDD = 0;
+        let nav = 1.0, peak = 1.0, prevL = getLev(rawData[0].mv), inProt = false, history = [], logs = [], maxDD = 0;
         history.push({date: rawData[0].date, nav:1.0, close:rawData[0].close, leverage:prevL, status: "震荡整理", reason: "初始建仓"});
+        
         for(let i=1; i<rawData.length; i++) {
             const d = rawData[i], prevD = rawData[i-1]; const r = d.close / prevD.close - 1;
             const m5 = ma5[i], m10 = ma10[i], m20 = ma20[i];
@@ -1120,7 +1153,7 @@ html
         let statsMap = {}; let allDates = new Set();
         batchResults.forEach(res => { res.history.forEach(day => { if (!statsMap[day.date]) statsMap[day.date] = { up: 0, down: 0, sideways: 0, risk: 0 }; allDates.add(day.date); if (day.status === '上涨趋势') statsMap[day.date].up++; else if (day.status === '下跌趋势') statsMap[day.date].down++; else if (day.status === '震荡整理') statsMap[day.date].sideways++; else if (day.status === '触发风控') statsMap[day.date].risk++; }); });
         const dates = Array.from(allDates).sort();
-        if (dates.length < 2) return { data: [] };
+        if (dates.length < 2) return { data:[] };
         let markData =[]; let currentStage = null; let stageStartDate = null; let toleranceCount = 0; let bullSeq = 0, bearSeq = 0;
         for (let i = 1; i < dates.length; i++) {
             const curr = statsMap[dates[i]]; const prev = statsMap[dates[i-1]];
@@ -1189,13 +1222,28 @@ html
             }
             resultsInput.forEach((res) => { dailyContribBreakdown[res.stockName] = accContribution[res.stockName]; });
             let currentValidStocks = {}, activeCount = 0;
-            resultsInput.forEach((res) => { const sData = lastValidData[res.stockName]; if (sData && sData.idealLev >= minPosThreshold) { currentValidStocks[res.stockName] = sData.idealLev; activeCount++; } });
+            let dailyStockReturns = {}; // 核心修复：记录经过对齐计算后的真实个股日收益率
+            
+            resultsInput.forEach((res) => { 
+                const sCurr = lastValidData[res.stockName]; 
+                const sPrev = prevValidData[res.stockName];
+                
+                // 计算此股票在组合内真实的当日涨跌（如果股票当日无数据导致价格结转，则自然为0%）
+                if (sCurr && sPrev && sPrev.close > 0) {
+                    dailyStockReturns[res.stockName] = ((sCurr.close - sPrev.close) / sPrev.close) * 100;
+                } else {
+                    dailyStockReturns[res.stockName] = 0;
+                }
+
+                if (sCurr && sCurr.idealLev >= minPosThreshold) { currentValidStocks[res.stockName] = sCurr.idealLev; activeCount++; } 
+            });
+
             let dailyBreakdown = {}, currentCalculatedSumAlloc = 0; 
             resultsInput.forEach((res) => {
                 if (currentValidStocks[res.stockName] !== undefined && activeCount > 0) { const alloc = currentValidStocks[res.stockName] / activeCount; prevAllocatedLevs[res.stockName] = alloc; dailyBreakdown[res.stockName] = alloc; currentCalculatedSumAlloc += alloc; } 
                 else { prevAllocatedLevs[res.stockName] = 0; }
             });
-            portHistory.push({ date: currDate, nav: portNav, totalLev: currentCalculatedSumAlloc, breakdown: dailyBreakdown, contribBreakdown: dailyContribBreakdown, activeCount: activeCount });
+            portHistory.push({ date: currDate, nav: portNav, totalLev: currentCalculatedSumAlloc, breakdown: dailyBreakdown, contribBreakdown: dailyContribBreakdown, stockReturns: dailyStockReturns, activeCount: activeCount });
         }
         return { history: portHistory, maxDD: maxDD, dateMap: dateMap };
     }
@@ -1262,7 +1310,7 @@ html
             grid:[{ left: '12%', right: '8%', top: '15%', height: '55%' }, { left: '12%', right: '8%', top: '75%', height: '15%' }],
             xAxis:[{type:'category', data:dates, gridIndex:0, axisLabel:{show:false}}, {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}}],
             yAxis:[{type:'value', gridIndex:0, scale:true}, {type:'value', gridIndex:1, min:0}],
-            dataZoom:[{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
+            dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
             series: seriesList
         });
     }
@@ -1277,16 +1325,8 @@ html
         let list =[]; 
         Object.keys(item.breakdown).forEach(name => { 
             if(item.breakdown[name] > 0.001) {
-                let stockRes = batchResults.find(r => r.stockName === name);
-                let changePct = 0;
-                if (stockRes) {
-                    let dayIdx = stockRes.history.findIndex(h => h.date === item.date);
-                    if (dayIdx > 0) {
-                        let curP = stockRes.history[dayIdx].close;
-                        let preP = stockRes.history[dayIdx-1].close;
-                        changePct = ((curP - preP) / preP) * 100;
-                    }
-                }
+                // 核心修复：直接使用组合对齐好的精确涨跌数据，完美规避日期错位
+                let changePct = item.stockReturns ? (item.stockReturns[name] || 0) : 0;
                 list.push({name: name, val: item.breakdown[name], change: changePct}); 
             } 
         });
@@ -1353,7 +1393,7 @@ html
     function renderTradeLog(hist, dateMap) {
         const container = document.getElementById('trade-log-list'); container.innerHTML = ''; const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
         for (let i = hist.length - 1; i > 0; i--) {
-            const today = hist[i], yesterday = hist[i-1]; let changes =[], dailyNetChange = 0; 
+            const today = hist[i], yesterday = hist[i-1]; let changes = [], dailyNetChange = 0; 
             new Set([...Object.keys(today.breakdown), ...Object.keys(yesterday.breakdown)]).forEach(name => {
                 const nowPos = (today.breakdown[name] || 0) / maxLev * 100, prevPos = (yesterday.breakdown[name] || 0) / maxLev * 100, diffPos = nowPos - prevPos;
                 if (Math.abs(diffPos) > 0.1) { 
@@ -1377,7 +1417,7 @@ html
     function renderStatusDistribution() {
         let statsMap = {}, dates =[]; 
         batchResults.forEach(res => { res.history.forEach(day => { if (!statsMap[day.date]) { statsMap[day.date] = { '上涨趋势':0, '下跌趋势':0, '震荡整理':0, '触发风控':0, 'Total':0 }; dates.push(day.date); } let s = day.status || '震荡整理'; if(statsMap[day.date][s] !== undefined) { statsMap[day.date][s]++; statsMap[day.date]['Total']++; } }); }); 
-        dates.sort(); dates =[...new Set(dates)];
+        dates.sort(); dates = [...new Set(dates)];
         const names =['上涨趋势', '震荡整理', '触发风控', '下跌趋势'], colors =['#d32f2f', '#1976d2', '#616161', '#2e7d32']; 
         const sData = names.map((name, i) => ({ name: name, type: 'bar', stack: 'total', itemStyle: { color: colors[i] }, data: dates.map(d => statsMap[d][name] || 0) }));
         const dom = document.getElementById('status-chart'); if (statusChart) statusChart.dispose(); statusChart = echarts.init(dom); statusChart.group = 'stockGroup'; 
@@ -1389,7 +1429,7 @@ html
 
     function renderStatusDetails() {
         const container = document.getElementById('status-detail-container'); container.innerHTML = '';
-        const groups = { '上涨趋势': { color: '#d32f2f', bg: '#ffebee', icon: '🔥', items:[] }, '下跌趋势': { color: '#2e7d32', bg: '#e8f5e9', icon: '❄️', items:[] }, '震荡整理': { color: '#1976d2', bg: '#e3f2fd', icon: '〰️', items:[] }, '触发风控': { color: '#616161', bg: '#f5f5f5', icon: '🛡️', items: [] } };
+        const groups = { '上涨趋势': { color: '#d32f2f', bg: '#ffebee', icon: '🔥', items:[] }, '下跌趋势': { color: '#2e7d32', bg: '#e8f5e9', icon: '❄️', items:[] }, '震荡整理': { color: '#1976d2', bg: '#e3f2fd', icon: '〰️', items:[] }, '触发风控': { color: '#616161', bg: '#f5f5f5', icon: '🛡️', items:[] } };
         batchResults.forEach(res => { const s = res.history[res.history.length - 1].status || '震荡整理'; if (groups[s]) groups[s].items.push(res); });
         Object.keys(groups).forEach(key => {
             const g = groups[key];
@@ -1405,7 +1445,7 @@ html
         const sortedDates = Array.from(allDates).sort().reverse(); let hasContent = false;
         const config = { '上涨趋势': { color: '#d32f2f', label: '入上涨' }, '下跌趋势': { color: '#2e7d32', label: '入下跌' }, '震荡整理': { color: '#1976d2', label: '入震荡' }, '触发风控': { color: '#616161', label: '触风控' } };
         for (let i = 0; i < sortedDates.length - 1; i++) {
-            const today = sortedDates[i], yesterday = sortedDates[i+1]; let changes = { '上涨趋势': [], '下跌趋势':[], '震荡整理': [], '触发风控':[] }, total = 0;
+            const today = sortedDates[i], yesterday = sortedDates[i+1]; let changes = { '上涨趋势':[], '下跌趋势': [], '震荡整理': [], '触发风控':[] }, total = 0;
             batchResults.forEach(res => { const name = res.stockName, now = dateMap[today][name], prev = dateMap[yesterday][name]; if (now && prev && now !== prev) { changes[now].push(name); total++; } });
             if (total === 0) continue; hasContent = true; const isLatest = (i === 0);
             const header = document.createElement('div'); header.className = 'daily-log-header' + (isLatest ? ' open' : ''); header.onclick = function() { toggleDailyLog(this); };
@@ -1417,7 +1457,6 @@ html
         if (!hasContent) container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无趋势变更记录</div>';
     }
 
-    // 盈亏贡献明细面板更新逻辑
     function updateContribDetailPanel(hist, index) {
         const item = hist[index]; if(!item) return;
         window.lastContribHist = hist;
@@ -1462,10 +1501,9 @@ html
         const seriesData = allNames.map(name => ({ name: name, type: 'line', stack: 'Total', areaStyle: {}, showSymbol: false, lineStyle: { width: 0 }, data: hist.map(h => h.contribBreakdown[name] || 0) }));
         contributionChart.setOption({
             tooltip: { trigger: 'axis', formatter: function (params) { let sum = params.reduce((a,b)=>a+parseFloat(b.value),0); return `<div style="font-weight:bold">${params[0].name}</div>总累计盈亏: ${(sum*100).toFixed(2)}%<div style="font-size:10px; color:#aaa;">⬇️ 下方查看明细</div>`; } },
-            legend: { data: allNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, grid: { left: '12%', right: '8%', bottom: '25px', containLabel: false }, xAxis: { type: 'category', boundaryGap: false, data: dates }, yAxis: { type: 'value', axisLabel: { formatter: (val) => (val*100).toFixed(0)+'%' } }, dataZoom: [{type:'inside'}, {type:'slider', bottom:0, height:20}], series: seriesData
+            legend: { data: allNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, grid: { left: '12%', right: '8%', bottom: '25px', containLabel: false }, xAxis: { type: 'category', boundaryGap: false, data: dates }, yAxis: { type: 'value', axisLabel: { formatter: (val) => (val*100).toFixed(0)+'%' } }, dataZoom:[{type:'inside'}, {type:'slider', bottom:0, height:20}], series: seriesData
         });
 
-        // 绑定悬停事件以更新明细表
         contributionChart.on('updateAxisPointer', function (event) { 
             const xInfo = event.axesInfo && event.axesInfo[0]; 
             if (xInfo) updateContribDetailPanel(hist, xInfo.value); 
@@ -1535,7 +1573,7 @@ html
             grid:[{ left: '12%', right: '8%', top: '12%', height: '58%' }, { left: '12%', right: '8%', top: '78%', height: '15%' }],
             xAxis:[{type:'category', data: hist.map(h=>h.date), gridIndex:0, axisLabel:{show:false}}, {type:'category', data: hist.map(h=>h.date), gridIndex:1, axisLabel:{show:false}}],
             yAxis:[{type:'value', position:'left'}, {type:'value', position:'right'}, {type:'value', gridIndex:1, min:0, max:2.1}],
-            dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
+            dataZoom:[{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
             series:[{name:'股价', type:'line', yAxisIndex:0, data:hist.map(h=>h.close), itemStyle:{color:'#999'}, showSymbol:false}, {name:'净值', type:'line', yAxisIndex:1, data:hist.map(h=>h.nav), itemStyle:{color:'#d32f2f'}, showSymbol:false}, {name:'杠杆', type:'line', xAxisIndex:1, yAxisIndex:2, data:hist.map(h=>h.leverage), itemStyle:{color:'#28a745'}, step:'end', showSymbol:false, areaStyle:{opacity:0.1}}]
         });
     }
