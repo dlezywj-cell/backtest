@@ -1,3 +1,4 @@
+html
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -29,11 +30,15 @@
         .form-group { flex: 1; min-width: 0; }
         .form-group label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; }
         .form-group input { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
-        .run-bar { display: flex; gap: 10px; align-items: flex-end; background:#f8f9fa; padding:10px; border-radius:6px; margin-top:0; }
+        .run-bar { display: flex; gap: 10px; align-items: flex-end; background:#f8f9fa; padding:10px; border-radius:6px; margin-top:0; flex-wrap: wrap; }
+        .quick-date-bar { width: 100%; display: flex; gap: 8px; margin-bottom: 2px; align-items: center; }
+        .quick-date-label { font-size: 12px; color: #666; font-weight: bold; }
+        .quick-date-btn { padding: 4px 10px; font-size: 11px; background: #fff; border: 1px solid #ddd; border-radius: 4px; color: #555; cursor: pointer; transition: all 0.2s; }
+        .quick-date-btn:hover, .quick-date-btn:active { background: #e3f2fd; color: #007bff; border-color: #007bff; }
         @media (max-width: 600px) {
-            .run-bar { flex-wrap: wrap; }
             .run-bar .form-group { min-width: 45%; flex: 1; }
             .run-bar #btn-run-all { width: 100%; margin-top: 8px; padding: 12px; font-size: 16px; font-weight: bold; }
+            .stat-grid[style*="repeat(4"] { grid-template-columns: repeat(2, 1fr) !important; }
         }
         #adv-settings { background: #fff; border: 1px dashed #ddd; padding: 10px; border-radius: 6px; margin-top: 5px; display: none; }
         #adv-settings .form-row { margin-bottom: 8px; }
@@ -141,7 +146,8 @@
         .settings-form label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
         .settings-form input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
         .settings-tip { font-size: 12px; color: #888; margin-top: 3px; }
-        #holdings-detail-panel { display: none; margin-top: 10px; border: 1px solid #ddd; background: #fff; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        
+        #holdings-detail-panel, #contribution-detail-panel { display: none; margin-top: 10px; border: 1px solid #ddd; background: #fff; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .detail-header-bar { padding: 8px 12px; background: #f8f9fa; border-bottom: 1px solid #eee; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-radius: 6px 6px 0 0; font-size: 13px; }
         .detail-scroll-box { height: 250px; overflow-y: auto; padding: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; background: #fff; }
         .detail-row { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid #f5f5f5; font-size: 12px; align-items: center; }
@@ -150,7 +156,7 @@
         .detail-name { display: flex; align-items: center; gap: 6px; font-weight: 500; }
         .detail-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 
-        /* ===== 新增：自动刷新状态栏样式 ===== */
+        /* ===== 自动刷新状态栏样式 ===== */
         #auto-refresh-bar {
             display: flex; align-items: center; justify-content: space-between;
             background: #f0f7ff; border: 1px solid #b3d8fd; border-radius: 6px;
@@ -164,7 +170,7 @@
         #refresh-countdown { font-weight: bold; color: #007bff; min-width: 30px; }
         .refresh-toggle { background: none; border: 1px solid #007bff; color: #007bff; border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer; }
         .refresh-toggle:hover { background: #007bff; color: #fff; }
-        /* ===== 新增：信号变化高亮动画 ===== */
+        /* ===== 信号变化高亮动画 ===== */
         @keyframes highlight-new {
             0% { background-color: #fff9c4; }
             100% { background-color: transparent; }
@@ -218,8 +224,9 @@
             <span style="font-size:14px">🔍</span>
             <input type="text" id="list-search-input" placeholder="输入名称或代码筛选..." oninput="filterStockList()">
             <div class="market-filter-group">
-                <button class="filter-btn active" onclick="setMarketFilter('ALL', this)">全部</button>
-                <button class="filter-btn" onclick="setMarketFilter('A', this)">A股</button>
+                <button class="filter-btn" onclick="setMarketFilter('ALL', this)">全部</button>
+                <!-- 默认激活 A股 -->
+                <button class="filter-btn active" onclick="setMarketFilter('A', this)">A股</button>
                 <button class="filter-btn" onclick="setMarketFilter('HK', this)">港股</button>
                 <button class="filter-btn" onclick="setMarketFilter('US', this)">美股</button>
             </div>
@@ -239,12 +246,20 @@
     </div>
     <div class="card-body">
         <div class="run-bar">
+            <!-- 快捷日期设置面板 -->
+            <div class="quick-date-bar">
+                <span class="quick-date-label">快捷时间:</span>
+                <button class="quick-date-btn" onclick="setQuickDate('1y')">近一年</button>
+                <button class="quick-date-btn" onclick="setQuickDate('6m')">近半年</button>
+                <button class="quick-date-btn" onclick="setQuickDate('3m')">近3个月</button>
+                <button class="quick-date-btn" onclick="setQuickDate('ytd')">今年</button>
+            </div>
             <div class="form-group"><label>开始日期</label><input type="date" id="inStartDate"></div>
             <div class="form-group"><label>结束日期</label><input type="date" id="inEndDate"></div>
-            <button class="btn btn-blue" id="btn-run-all" onclick="runBatchBacktest()">🚀 运行选中 (免代理模式)</button>
+            <button class="btn btn-blue" id="btn-run-all" onclick="runBatchBacktest()">🚀 运行选中</button>
         </div>
 
-        <!-- ===== 新增：自动刷新状态栏 ===== -->
+        <!-- 自动刷新状态栏 -->
         <div id="auto-refresh-bar">
             <div class="refresh-left">
                 <span id="refresh-dot" class="off"></span>
@@ -319,8 +334,10 @@
                         <button class="btn btn-orange" onclick="runPortfolioStrategy()" style="width:100%">🔄 重新计算组合</button>
                         <div style="font-size:11px; color:#666; margin-top:5px; text-align:left; line-height:1.4;">逻辑：<b>动态等权</b>。自动剔除"建议杠杆 < 门槛"的无效股票。<br>资金仅在满足条件的股票中平分。若无股票满足，则空仓。</div>
                     </div>
-                    <div class="stat-grid">
+                    <!-- 包含最新单日涨跌的四格栅格 -->
+                    <div class="stat-grid" style="grid-template-columns: repeat(4, 1fr);">
                         <div class="stat-item"><div class="stat-val" id="port-ret">--</div><div class="stat-lbl">组合总收益</div></div>
+                        <div class="stat-item"><div class="stat-val" id="port-day-ret">--</div><div class="stat-lbl">最新单日涨跌</div></div>
                         <div class="stat-item"><div class="stat-val" id="port-dd">--</div><div class="stat-lbl">最大回撤</div></div>
                         <div class="stat-item"><div class="stat-val" id="port-lev">--</div><div class="stat-lbl">平均占用杠杆</div></div>
                     </div>
@@ -385,7 +402,12 @@
                 </div>
                 <div id="contribution-content" class="section-body collapsed">
                     <div id="contribution-chart" style="width: 100%; height: 400px;"></div>
-                    <div style="text-align:center; font-size:11px; color:#999; margin-top:5px;">展示每只股票对组合总收益的累计点数贡献。</div>
+                    <div style="text-align:center; font-size:11px; color:#999; margin-top:5px; margin-bottom:10px;">展示每只股票对组合总收益的累计点数贡献。手指在图表上滑动，下方明细列表将实时更新。</div>
+                    <!-- 盈亏贡献详情面板 -->
+                    <div id="contribution-detail-panel">
+                        <div class="detail-header-bar"><span id="contrib-detail-date-title">贡献详情</span></div>
+                        <div class="detail-scroll-box" id="contrib-detail-list-content"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -455,7 +477,8 @@
 
 <script>
     const APP_STORAGE = localStorage;
-    let currentMarketFilter = 'ALL';
+    // 默认筛选修改为 'A'
+    let currentMarketFilter = 'A';
 
     function getGbConfig() {
         return {
@@ -469,17 +492,17 @@
 
     let stocks = JSON.parse(APP_STORAGE.getItem('gridStocks')) || [];
     let myChart = null;
-    let batchResults = [];
-    let benchmarkResults = []; 
+    let batchResults =[];
+    let benchmarkResults =[]; 
     let portfolioChart = null, holdingsChart = null, statusChart = null, contributionChart = null; 
 
-    // ===== 新增：自动刷新相关变量 =====
-    let autoRefreshEnabled = true;       // 是否启用自动刷新
-    let autoRefreshInterval = 5 * 60;   // 刷新间隔（秒），默认5分钟
+    // 自动刷新相关变量
+    let autoRefreshEnabled = true;       
+    let autoRefreshInterval = 5 * 60;   
     let autoRefreshCountdown = autoRefreshInterval;
     let autoRefreshTimer = null;
     let countdownTimer = null;
-    let prevSignalMap = {};              // 记录上一次的信号状态，用于变化检测
+    let prevSignalMap = {};              
 
     const DB_NAME = 'StockHistoryDB_BatchV2'; 
     const STORE_NAME = 'klines_store';
@@ -504,36 +527,50 @@
         else { btn.classList.remove('unsaved'); btn.innerHTML = "🚀 保存配置"; }
     }
     function setLocalChanges(isDirty) { APP_STORAGE.setItem('gridHasUnsavedChanges', isDirty); checkUnsavedStatus(); }
+    
     function initDates() {
         const d = new Date(); document.getElementById('inEndDate').value = d.toISOString().split('T')[0];
         d.setFullYear(d.getFullYear() - 1); document.getElementById('inStartDate').value = d.toISOString().split('T')[0];
     }
     initDates(); checkUnsavedStatus(); renderTable();
 
+    // 快捷日期设置
+    function setQuickDate(range) {
+        const end = new Date();
+        let start = new Date();
+        if (range === '1y') {
+            start.setFullYear(end.getFullYear() - 1);
+        } else if (range === '6m') {
+            start.setMonth(end.getMonth() - 6);
+        } else if (range === '3m') {
+            start.setMonth(end.getMonth() - 3);
+        } else if (range === 'ytd') {
+            start = new Date(end.getFullYear(), 0, 1);
+        }
+        document.getElementById('inEndDate').value = end.toISOString().split('T')[0];
+        document.getElementById('inStartDate').value = start.toISOString().split('T')[0];
+    }
+
     function updateStatus(state, text) {
         const dot = document.getElementById('syncDot'); const txt = document.getElementById('statusTxt');
         if(dot) dot.className = 'sync-dot ' + state; if(txt) txt.innerText = text || (state === 'syncing' ? '同步中' : '在线');
     }
 
-    // ===== 新增：判断是否在A股交易时间 =====
     function isATradingTime() {
         const now = new Date();
-        const day = now.getDay(); // 0=日, 6=六
+        const day = now.getDay(); 
         if (day === 0 || day === 6) return false;
         const h = now.getHours(), m = now.getMinutes();
         const totalMin = h * 60 + m;
-        // 9:15 - 15:05（含盘前竞价）
         return totalMin >= 9 * 60 + 15 && totalMin <= 15 * 60 + 5;
     }
 
-    // ===== 新增：请求桌面通知权限 =====
     function requestNotificationPermission() {
         if ("Notification" in window && Notification.permission === "default") {
             Notification.requestPermission();
         }
     }
 
-    // ===== 新增：发送桌面通知 =====
     function sendDesktopNotification(title, body) {
         if (!("Notification" in window) || Notification.permission !== "granted") return;
         try {
@@ -541,10 +578,9 @@
         } catch(e) {}
     }
 
-    // ===== 新增：检测信号变化并通知 =====
     function detectAndNotifySignalChanges() {
         if (batchResults.length === 0) return;
-        let changes = [];
+        let changes =[];
         batchResults.forEach(res => {
             const last = res.history[res.history.length - 1];
             const key = res.stockCode;
@@ -553,11 +589,10 @@
 
             if (prevStatus && prevStatus !== currStatus) {
                 changes.push({ name: res.stockName, from: prevStatus, to: currStatus });
-                // 高亮表格行
                 const row = document.getElementById(`row-${res.index}`);
                 if (row) {
                     row.classList.remove('signal-changed');
-                    void row.offsetWidth; // 触发重排，让动画重新播放
+                    void row.offsetWidth; 
                     row.classList.add('signal-changed');
                 }
             }
@@ -570,7 +605,6 @@
         }
     }
 
-    // ===== 新增：更新刷新状态栏显示 =====
     function updateRefreshBar(state, secondsLeft) {
         const dot = document.getElementById('refresh-dot');
         const txt = document.getElementById('refresh-status-txt');
@@ -602,7 +636,6 @@
         btn.innerText = '暂停';
     }
 
-    // ===== 新增：启动倒计时显示 =====
     function startCountdown() {
         if (countdownTimer) clearInterval(countdownTimer);
         autoRefreshCountdown = autoRefreshInterval;
@@ -615,24 +648,22 @@
         }, 1000);
     }
 
-    // ===== 新增：启动自动刷新 =====
     function startAutoRefresh() {
         if (autoRefreshTimer) clearInterval(autoRefreshTimer);
         startCountdown();
 
         autoRefreshTimer = setInterval(async () => {
             if (!autoRefreshEnabled) return;
-            if (!isATradingTime()) return; // 非交易时间不刷新
+            if (!isATradingTime()) return; 
 
             updateRefreshBar('running');
-            await runBatchBacktest();        // 重跑（K线缓存命中，只更新实时价）
-            detectAndNotifySignalChanges();  // 检测变化
+            await runBatchBacktest();        
+            detectAndNotifySignalChanges();  
             autoRefreshCountdown = autoRefreshInterval;
             startCountdown();
         }, autoRefreshInterval * 1000);
     }
 
-    // ===== 新增：暂停/启动切换 =====
     function toggleAutoRefresh() {
         autoRefreshEnabled = !autoRefreshEnabled;
         if (autoRefreshEnabled) {
@@ -644,21 +675,15 @@
         }
     }
 
-    // ===== 新增：页面加载自动运行 =====
     async function autoRunOnLoad() {
         if (stocks.length === 0) return;
-        // 请求通知权限
         requestNotificationPermission();
-        // 初始化信号记录（防止第一次误报）
         prevSignalMap = {};
-        // 自动运行回测
         await runBatchBacktest();
-        // 记录初始信号（第一次不发通知）
         batchResults.forEach(res => {
             const last = res.history[res.history.length - 1];
             prevSignalMap[res.stockCode] = last.status;
         });
-        // 启动自动刷新
         startAutoRefresh();
     }
 
@@ -802,28 +827,28 @@
         let url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&${baseParams}&fqt=1`;
         try {
             let json = await jsonpRequest(url);
-            let data = json?.data?.klines || [];
+            let data = json?.data?.klines ||[];
             if (data.length === 0) {
                 let url2 = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&${baseParams}&fqt=0`;
                 let json2 = await jsonpRequest(url2);
-                data = json2?.data?.klines || [];
+                data = json2?.data?.klines ||[];
             }
             if (data.length === 0 && secId.startsWith('105.')) { 
                 let altUrl = url.replace('105.', '106.'); 
                 let j3 = await jsonpRequest(altUrl); 
-                let d3 = j3?.data?.klines || []; 
+                let d3 = j3?.data?.klines ||[]; 
                 if(d3.length > 0) data = d3;
             }
             if (data.length > 0) await setCache(cacheKey, { date: todayStr, data: data });
             return data;
-        } catch (e) { return cached ? cached.data : []; }
+        } catch (e) { return cached ? cached.data :[]; }
     }
 
     async function fetchBatchRealtimeData(secIds) {
         if(secIds.length === 0) return {};
         const BATCH_SIZE = 30; let resultMap = {};
         for (let i = 0; i < secIds.length; i += BATCH_SIZE) {
-            const chunk = secIds.slice(i, i + BATCH_SIZE); let expandedChunk = [];
+            const chunk = secIds.slice(i, i + BATCH_SIZE); let expandedChunk =[];
             chunk.forEach(id => { expandedChunk.push(id); if(id.startsWith('105.')) expandedChunk.push(id.replace('105.', '106.')); });
             const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${expandedChunk.join(',')}&fields=f12,f2,f20,f124&invt=2&fltt=2&_=${Date.now()}`;
             try {
@@ -883,7 +908,7 @@
 
         let emSecId = getEmSecId(stock.code); let rawCode = emSecId.split('.')[1];
         const klines = await fetchHistoryKline(emSecId); if(!klines || klines.length === 0) throw new Error("无K线数据");
-        let rawData = [];
+        let rawData =[];
         const minCap = stock.minCap, maxCap = stock.maxCap, midCap = (minCap + maxCap) / 2.0;
         let totalShares = realtimeData[rawCode]?.totalShares || 100.0;
         klines.forEach(k => {
@@ -902,7 +927,7 @@
         }
         const ma5 = calculateMA_Array(rawData, 5), ma10 = calculateMA_Array(rawData, 10), ma20 = calculateMA_Array(rawData, 20);
         const getLev = (mv) => (mv <= minCap) ? maxLev : (mv >= maxCap) ? 0.0 : maxLev * Math.exp(-2.5 * ((mv - minCap) / (maxCap - minCap)));
-        let nav = 1.0, peak = 1.0, prevL = getLev(rawData[0].mv), inProt = false, history = [], logs = [], maxDD = 0;
+        let nav = 1.0, peak = 1.0, prevL = getLev(rawData[0].mv), inProt = false, history = [], logs =[], maxDD = 0;
         history.push({date: rawData[0].date, nav:1.0, close:rawData[0].close, leverage:prevL, status: "震荡整理", reason: "初始建仓"});
         for(let i=1; i<rawData.length; i++) {
             const d = rawData[i], prevD = rawData[i-1]; const r = d.close / prevD.close - 1;
@@ -937,7 +962,7 @@
 
     async function runBatchBacktest() {
         const allRows = document.querySelectorAll('#stock-tbody tr');
-        const indices = [];
+        const indices =[];
         allRows.forEach((row, index) => {
             if (row.style.display !== 'none') {
                 const chk = row.querySelector('.stock-chk');
@@ -951,12 +976,12 @@
         }
         const btn = document.getElementById('btn-run-all'), progress = document.getElementById('batch-progress'), useTiming = document.getElementById('pTimeEnable').checked;
         btn.disabled = true; document.getElementById('summary-tbody').innerHTML = ''; document.getElementById('results-container').style.display = 'none'; progress.style.display = 'block';
-        benchmarkResults = [];
+        benchmarkResults =[];
         const secIds = indices.map(i => getEmSecId(stocks[i].code));
         progress.innerHTML = `获取行情(免代理直连)...`;
         let rtMap = {}; try { rtMap = await fetchBatchRealtimeData(secIds); } catch(e) {}
         const runLoop = async (idxs, stageMap = null) => {
-            let res = [], active = 0, finished = 0, total = idxs.length;
+            let res =[], active = 0, finished = 0, total = idxs.length;
             return new Promise(resolve => {
                 const next = async () => {
                     if (finished === total) { if(active===0) resolve(res); return; }
@@ -1027,7 +1052,7 @@
         if (!targetPath) return;
         updateStatus('syncing', '正在计算并导入...');
         try {
-            let data = [];
+            let data =[];
             if (targetPath.startsWith('http')) {
                 const res = await fetch(targetPath); if (!res.ok) throw new Error("无法访问该 URL"); data = await res.json();
             } else {
@@ -1041,7 +1066,7 @@
                 }
             }
             if (!Array.isArray(data)) throw new Error("源数据格式必须是数组 [...]");
-            stocks = [];
+            stocks =[];
             let addedCount = 0;
             data.forEach(sourceItem => {
                 let finalCode = "";
@@ -1077,9 +1102,9 @@
                 const lowPS = parseFloat(sourceItem.lowPS) || 0, highPS = parseFloat(sourceItem.highPS) || 0;
                 const valPE_Low = profit * lowPE, valPE_High = profit * highPE;
                 const valPS_Low = revenue * lowPS, valPS_High = revenue * highPS;
-                let minCandidates = []; if (valPE_Low > 0) minCandidates.push(valPE_Low); if (valPS_Low > 0) minCandidates.push(valPS_Low);
+                let minCandidates =[]; if (valPE_Low > 0) minCandidates.push(valPE_Low); if (valPS_Low > 0) minCandidates.push(valPS_Low);
                 let calcMin = minCandidates.length > 0 ? Math.min(...minCandidates) : (sourceItem.minCap || 2000);
-                let maxCandidates = []; if (valPE_High > 0) maxCandidates.push(valPE_High); if (valPS_High > 0) maxCandidates.push(valPS_High);
+                let maxCandidates =[]; if (valPE_High > 0) maxCandidates.push(valPE_High); if (valPS_High > 0) maxCandidates.push(valPS_High);
                 let calcMax = maxCandidates.length > 0 ? Math.min(...maxCandidates) : (sourceItem.maxCap || 4000);
                 const newItem = { code: finalCode, name: sourceItem.name, minCap: calcMin, maxCap: calcMax, profit, revenue, tags: sourceItem.tags || "", lastMod: new Date().toISOString().split('T')[0] };
                 stocks.push(newItem); addedCount++;
@@ -1091,12 +1116,12 @@
     }
 
     function calculateMarketStagesMarkArea() {
-        if (!batchResults || batchResults.length === 0) return { data: [] };
+        if (!batchResults || batchResults.length === 0) return { data:[] };
         let statsMap = {}; let allDates = new Set();
         batchResults.forEach(res => { res.history.forEach(day => { if (!statsMap[day.date]) statsMap[day.date] = { up: 0, down: 0, sideways: 0, risk: 0 }; allDates.add(day.date); if (day.status === '上涨趋势') statsMap[day.date].up++; else if (day.status === '下跌趋势') statsMap[day.date].down++; else if (day.status === '震荡整理') statsMap[day.date].sideways++; else if (day.status === '触发风控') statsMap[day.date].risk++; }); });
         const dates = Array.from(allDates).sort();
         if (dates.length < 2) return { data: [] };
-        let markData = []; let currentStage = null; let stageStartDate = null; let toleranceCount = 0; let bullSeq = 0, bearSeq = 0;
+        let markData =[]; let currentStage = null; let stageStartDate = null; let toleranceCount = 0; let bullSeq = 0, bearSeq = 0;
         for (let i = 1; i < dates.length; i++) {
             const curr = statsMap[dates[i]]; const prev = statsMap[dates[i-1]];
             const currDown = curr.down + curr.risk; const prevDown = prev.down + prev.risk;
@@ -1142,7 +1167,7 @@
         let dateMap = {}; 
         resultsInput.forEach((res) => { res.history.forEach(day => { if (!dateMap[day.date]) dateMap[day.date] = { date: day.date, stocks: {} }; dateMap[day.date].stocks[res.stockName] = { close: day.close, idealLev: day.leverage, reason: day.reason }; }); });
         const sortedDates = Object.keys(dateMap).sort(); if (sortedDates.length < 2) return null;
-        let portNav = 1.0, portHistory = [], maxDD = 0, peak = 1.0; 
+        let portNav = 1.0, portHistory =[], maxDD = 0, peak = 1.0; 
         let lastValidData = {}, prevAllocatedLevs = {}, accContribution = {}; 
         resultsInput.forEach((res) => { accContribution[res.stockName] = 0; });
         for (let i = 0; i < sortedDates.length; i++) {
@@ -1188,14 +1213,25 @@
     }
 
     function renderPortfolioStats(hist, maxDD, benchHist) {
-        const last = hist[hist.length - 1]; const ret = (last.nav - 1) * 100; const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
-        document.getElementById('port-ret').innerText = ret.toFixed(2) + '%'; document.getElementById('port-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
+        const last = hist[hist.length - 1]; 
+        const prev = hist.length > 1 ? hist[hist.length - 2] : last;
+        const ret = (last.nav - 1) * 100; 
+        const dayRet = hist.length > 1 ? ((last.nav - prev.nav) / prev.nav) * 100 : 0;
+        const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
+
+        document.getElementById('port-ret').innerText = ret.toFixed(2) + '%'; 
+        document.getElementById('port-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
+
+        // 更新最新单日涨跌
+        document.getElementById('port-day-ret').innerText = (dayRet >= 0 ? '+' : '') + dayRet.toFixed(2) + '%';
+        document.getElementById('port-day-ret').className = 'stat-val ' + (dayRet>=0?'win':'loss');
+
         document.getElementById('port-lev').innerText = avgLev.toFixed(2) + 'x';
         document.getElementById('port-dd').innerText = (maxDD * 100).toFixed(2) + '%'; document.getElementById('port-dd').className = 'stat-val loss';
         
         const dom = document.getElementById('portfolio-chart'); if (portfolioChart) portfolioChart.dispose(); portfolioChart = echarts.init(dom); portfolioChart.group = 'stockGroup'; 
         const dates = hist.map(h => h.date); const stageMarkArea = calculateMarketStagesMarkArea();
-        let seriesList = [ {name: '组合净值', type: 'line', data: hist.map(h=>h.nav), itemStyle: {color: '#d32f2f'}, lineStyle: {width: 2}, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0, markArea: stageMarkArea, z: 10}, {name: '实际总杠杆', type: 'line', data: hist.map(h=>h.totalLev), itemStyle: {color: '#1976d2'}, lineStyle: {width: 1}, showSymbol: false, xAxisIndex: 1, yAxisIndex: 1, areaStyle: {opacity: 0.2}} ];
+        let seriesList =[ {name: '组合净值', type: 'line', data: hist.map(h=>h.nav), itemStyle: {color: '#d32f2f'}, lineStyle: {width: 2}, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0, markArea: stageMarkArea, z: 10}, {name: '实际总杠杆', type: 'line', data: hist.map(h=>h.totalLev), itemStyle: {color: '#1976d2'}, lineStyle: {width: 1}, showSymbol: false, xAxisIndex: 1, yAxisIndex: 1, areaStyle: {opacity: 0.2}} ];
         if (benchHist) seriesList.push({name: '基准(不择时)', type: 'line', data: benchHist.map(h=>h.nav), itemStyle: {color: '#333'}, lineStyle: {width: 2, type: 'dashed'}, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0, z: 1});
 
         portfolioChart.setOption({
@@ -1222,11 +1258,11 @@
                     return h; 
                 }
             },
-            legend: { top: 0, data: ['组合净值', '实际总杠杆', benchHist ? '基准(不择时)' : null].filter(Boolean) },
-            grid: [{ left: '12%', right: '8%', top: '15%', height: '55%' }, { left: '12%', right: '8%', top: '75%', height: '15%' }],
-            xAxis: [{type:'category', data:dates, gridIndex:0, axisLabel:{show:false}}, {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}}],
-            yAxis: [{type:'value', gridIndex:0, scale:true}, {type:'value', gridIndex:1, min:0}],
-            dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
+            legend: { top: 0, data:['组合净值', '实际总杠杆', benchHist ? '基准(不择时)' : null].filter(Boolean) },
+            grid:[{ left: '12%', right: '8%', top: '15%', height: '55%' }, { left: '12%', right: '8%', top: '75%', height: '15%' }],
+            xAxis:[{type:'category', data:dates, gridIndex:0, axisLabel:{show:false}}, {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}}],
+            yAxis:[{type:'value', gridIndex:0, scale:true}, {type:'value', gridIndex:1, min:0}],
+            dataZoom:[{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
             series: seriesList
         });
     }
@@ -1238,7 +1274,7 @@
         window.lastDetailHist = hist;
         window.lastDetailIndex = index;
         const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
-        let list = []; 
+        let list =[]; 
         Object.keys(item.breakdown).forEach(name => { 
             if(item.breakdown[name] > 0.001) {
                 let stockRes = batchResults.find(r => r.stockName === name);
@@ -1259,7 +1295,7 @@
         } else {
             list.sort((a, b) => b.change - a.change);
         }
-        const headerBar = document.querySelector('.detail-header-bar');
+        const headerBar = document.querySelector('#holdings-detail-panel .detail-header-bar');
         if (headerBar) {
             headerBar.innerHTML = `
                 <span style="font-size:12px;">${item.date} (${list.length}只)</span>
@@ -1308,7 +1344,7 @@
         const seriesData = allNames.map(name => ({ name: name, type: 'line', stack: 'Total', areaStyle: {}, showSymbol: false, lineStyle: { width: 0 }, data: hist.map(h => h.breakdown[name] || 0) }));
         holdingsChart.setOption({
             tooltip: { trigger: 'axis', formatter: function(params) { let sum = params.reduce((a,b)=>a+parseFloat(b.value), 0); return `<div style="font-weight:bold">${params[0].name}</div>总杠杆: ${sum.toFixed(2)}x<div style="font-size:10px; color:#aaa;">⬇️ 下方查看明细</div>`; } },
-            legend: { data: allNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, grid: { left: '12%', right: '8%', bottom: '25px', containLabel: false }, xAxis: { type: 'category', boundaryGap: false, data: dates }, yAxis: { type: 'value', min: 0 }, dataZoom: [{type:'inside'}, {type:'slider', bottom:0, height:20}], series: seriesData
+            legend: { data: allNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, grid: { left: '12%', right: '8%', bottom: '25px', containLabel: false }, xAxis: { type: 'category', boundaryGap: false, data: dates }, yAxis: { type: 'value', min: 0 }, dataZoom:[{type:'inside'}, {type:'slider', bottom:0, height:20}], series: seriesData
         });
         holdingsChart.on('updateAxisPointer', function (event) { const xInfo = event.axesInfo && event.axesInfo[0]; if (xInfo) updateDetailPanel(hist, xInfo.value); });
         if(hist.length > 0) updateDetailPanel(hist, hist.length - 1);
@@ -1317,7 +1353,7 @@
     function renderTradeLog(hist, dateMap) {
         const container = document.getElementById('trade-log-list'); container.innerHTML = ''; const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
         for (let i = hist.length - 1; i > 0; i--) {
-            const today = hist[i], yesterday = hist[i-1]; let changes = [], dailyNetChange = 0; 
+            const today = hist[i], yesterday = hist[i-1]; let changes =[], dailyNetChange = 0; 
             new Set([...Object.keys(today.breakdown), ...Object.keys(yesterday.breakdown)]).forEach(name => {
                 const nowPos = (today.breakdown[name] || 0) / maxLev * 100, prevPos = (yesterday.breakdown[name] || 0) / maxLev * 100, diffPos = nowPos - prevPos;
                 if (Math.abs(diffPos) > 0.1) { 
@@ -1339,21 +1375,21 @@
     }
 
     function renderStatusDistribution() {
-        let statsMap = {}, dates = []; 
+        let statsMap = {}, dates =[]; 
         batchResults.forEach(res => { res.history.forEach(day => { if (!statsMap[day.date]) { statsMap[day.date] = { '上涨趋势':0, '下跌趋势':0, '震荡整理':0, '触发风控':0, 'Total':0 }; dates.push(day.date); } let s = day.status || '震荡整理'; if(statsMap[day.date][s] !== undefined) { statsMap[day.date][s]++; statsMap[day.date]['Total']++; } }); }); 
-        dates.sort(); dates = [...new Set(dates)];
-        const names = ['上涨趋势', '震荡整理', '触发风控', '下跌趋势'], colors = ['#d32f2f', '#1976d2', '#616161', '#2e7d32']; 
+        dates.sort(); dates =[...new Set(dates)];
+        const names =['上涨趋势', '震荡整理', '触发风控', '下跌趋势'], colors =['#d32f2f', '#1976d2', '#616161', '#2e7d32']; 
         const sData = names.map((name, i) => ({ name: name, type: 'bar', stack: 'total', itemStyle: { color: colors[i] }, data: dates.map(d => statsMap[d][name] || 0) }));
         const dom = document.getElementById('status-chart'); if (statusChart) statusChart.dispose(); statusChart = echarts.init(dom); statusChart.group = 'stockGroup'; 
         sData[0].markArea = calculateMarketStagesMarkArea();
         statusChart.setOption({
-            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } }, legend: { data: names, top: 0 }, grid: { left: '12%', right: '8%', bottom: '30px', top: '30px', containLabel: true }, xAxis: { type: 'category', data: dates }, yAxis: { type: 'value' }, dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 0, height: 20 }], series: sData
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } }, legend: { data: names, top: 0 }, grid: { left: '12%', right: '8%', bottom: '30px', top: '30px', containLabel: true }, xAxis: { type: 'category', data: dates }, yAxis: { type: 'value' }, dataZoom:[{ type: 'inside' }, { type: 'slider', bottom: 0, height: 20 }], series: sData
         });
     }
 
     function renderStatusDetails() {
         const container = document.getElementById('status-detail-container'); container.innerHTML = '';
-        const groups = { '上涨趋势': { color: '#d32f2f', bg: '#ffebee', icon: '🔥', items: [] }, '下跌趋势': { color: '#2e7d32', bg: '#e8f5e9', icon: '❄️', items: [] }, '震荡整理': { color: '#1976d2', bg: '#e3f2fd', icon: '〰️', items: [] }, '触发风控': { color: '#616161', bg: '#f5f5f5', icon: '🛡️', items: [] } };
+        const groups = { '上涨趋势': { color: '#d32f2f', bg: '#ffebee', icon: '🔥', items:[] }, '下跌趋势': { color: '#2e7d32', bg: '#e8f5e9', icon: '❄️', items:[] }, '震荡整理': { color: '#1976d2', bg: '#e3f2fd', icon: '〰️', items:[] }, '触发风控': { color: '#616161', bg: '#f5f5f5', icon: '🛡️', items: [] } };
         batchResults.forEach(res => { const s = res.history[res.history.length - 1].status || '震荡整理'; if (groups[s]) groups[s].items.push(res); });
         Object.keys(groups).forEach(key => {
             const g = groups[key];
@@ -1369,7 +1405,7 @@
         const sortedDates = Array.from(allDates).sort().reverse(); let hasContent = false;
         const config = { '上涨趋势': { color: '#d32f2f', label: '入上涨' }, '下跌趋势': { color: '#2e7d32', label: '入下跌' }, '震荡整理': { color: '#1976d2', label: '入震荡' }, '触发风控': { color: '#616161', label: '触风控' } };
         for (let i = 0; i < sortedDates.length - 1; i++) {
-            const today = sortedDates[i], yesterday = sortedDates[i+1]; let changes = { '上涨趋势': [], '下跌趋势': [], '震荡整理': [], '触发风控': [] }, total = 0;
+            const today = sortedDates[i], yesterday = sortedDates[i+1]; let changes = { '上涨趋势': [], '下跌趋势':[], '震荡整理': [], '触发风控':[] }, total = 0;
             batchResults.forEach(res => { const name = res.stockName, now = dateMap[today][name], prev = dateMap[yesterday][name]; if (now && prev && now !== prev) { changes[now].push(name); total++; } });
             if (total === 0) continue; hasContent = true; const isLatest = (i === 0);
             const header = document.createElement('div'); header.className = 'daily-log-header' + (isLatest ? ' open' : ''); header.onclick = function() { toggleDailyLog(this); };
@@ -1381,14 +1417,60 @@
         if (!hasContent) container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无趋势变更记录</div>';
     }
 
+    // 盈亏贡献明细面板更新逻辑
+    function updateContribDetailPanel(hist, index) {
+        const item = hist[index]; if(!item) return;
+        window.lastContribHist = hist;
+        window.lastContribIndex = index;
+
+        let list =[];
+        Object.keys(item.contribBreakdown).forEach(name => {
+            let val = item.contribBreakdown[name];
+            if (Math.abs(val) > 0.0001) { 
+                list.push({name: name, val: val * 100}); 
+            }
+        });
+        list.sort((a, b) => b.val - a.val);
+
+        const headerBar = document.querySelector('#contribution-detail-panel .detail-header-bar');
+        if (headerBar) {
+            headerBar.innerHTML = `<span style="font-size:12px;">${item.date} (${list.length}只)</span>`;
+        }
+        let html = '';
+        list.forEach((p, i) => {
+            const color = p.val >= 0 ? '#d32f2f' : '#2e7d32';
+            const sign = p.val >= 0 ? '+' : '';
+            html += `
+            <div class="detail-row">
+                <div class="detail-name">
+                    <span style="color:#999; font-size:10px;">${i+1}.</span>
+                    ${p.name}
+                </div>
+                <div style="text-align:right; font-weight:bold; color:${color};">
+                    ${sign}${p.val.toFixed(2)}%
+                </div>
+            </div>`;
+        });
+        if (list.length === 0) html = '<div style="padding:20px; text-align:center; color:#999;">无数据</div>';
+        document.getElementById('contrib-detail-list-content').innerHTML = html;
+        document.getElementById('contribution-detail-panel').style.display = 'block';
+    }
+
     function renderContributionChart(hist) {
         const dom = document.getElementById('contribution-chart'); if (contributionChart) contributionChart.dispose(); contributionChart = echarts.init(dom); contributionChart.group = 'stockGroup';
         const dates = hist.map(h => h.date); const allNames = batchResults.map(r => r.stockName);
         const seriesData = allNames.map(name => ({ name: name, type: 'line', stack: 'Total', areaStyle: {}, showSymbol: false, lineStyle: { width: 0 }, data: hist.map(h => h.contribBreakdown[name] || 0) }));
         contributionChart.setOption({
-            tooltip: { trigger: 'axis', formatter: function (params) { let sum = params.reduce((a,b)=>a+parseFloat(b.value),0); return `<div style="font-weight:bold">${params[0].name}</div>总累计盈亏: ${(sum*100).toFixed(2)}%`; } },
+            tooltip: { trigger: 'axis', formatter: function (params) { let sum = params.reduce((a,b)=>a+parseFloat(b.value),0); return `<div style="font-weight:bold">${params[0].name}</div>总累计盈亏: ${(sum*100).toFixed(2)}%<div style="font-size:10px; color:#aaa;">⬇️ 下方查看明细</div>`; } },
             legend: { data: allNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, grid: { left: '12%', right: '8%', bottom: '25px', containLabel: false }, xAxis: { type: 'category', boundaryGap: false, data: dates }, yAxis: { type: 'value', axisLabel: { formatter: (val) => (val*100).toFixed(0)+'%' } }, dataZoom: [{type:'inside'}, {type:'slider', bottom:0, height:20}], series: seriesData
         });
+
+        // 绑定悬停事件以更新明细表
+        contributionChart.on('updateAxisPointer', function (event) { 
+            const xInfo = event.axesInfo && event.axesInfo[0]; 
+            if (xInfo) updateContribDetailPanel(hist, xInfo.value); 
+        });
+        if(hist.length > 0) updateContribDetailPanel(hist, hist.length - 1);
     }
 
     function searchStock() {
@@ -1450,11 +1532,11 @@
         const dom = document.getElementById('chart-box'); if(myChart) myChart.clear(); else myChart = echarts.init(dom);
         myChart.setOption({
             tooltip: { trigger: 'axis', axisPointer: { type: 'cross', link: { xAxisIndex: 'all' } }, formatter: p => { if(!p.length)return''; const i=p[0].dataIndex, d=hist[i]; return `<div style="font-weight:bold">${d.date}</div>股价: ${d.close}<br>净值: ${d.nav.toFixed(3)}<br>杠杆: ${d.leverage.toFixed(2)}x`; } },
-            grid: [{ left: '12%', right: '8%', top: '12%', height: '58%' }, { left: '12%', right: '8%', top: '78%', height: '15%' }],
-            xAxis: [{type:'category', data: hist.map(h=>h.date), gridIndex:0, axisLabel:{show:false}}, {type:'category', data: hist.map(h=>h.date), gridIndex:1, axisLabel:{show:false}}],
-            yAxis: [{type:'value', position:'left'}, {type:'value', position:'right'}, {type:'value', gridIndex:1, min:0, max:2.1}],
+            grid:[{ left: '12%', right: '8%', top: '12%', height: '58%' }, { left: '12%', right: '8%', top: '78%', height: '15%' }],
+            xAxis:[{type:'category', data: hist.map(h=>h.date), gridIndex:0, axisLabel:{show:false}}, {type:'category', data: hist.map(h=>h.date), gridIndex:1, axisLabel:{show:false}}],
+            yAxis:[{type:'value', position:'left'}, {type:'value', position:'right'}, {type:'value', gridIndex:1, min:0, max:2.1}],
             dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
-            series: [{name:'股价', type:'line', yAxisIndex:0, data:hist.map(h=>h.close), itemStyle:{color:'#999'}, showSymbol:false}, {name:'净值', type:'line', yAxisIndex:1, data:hist.map(h=>h.nav), itemStyle:{color:'#d32f2f'}, showSymbol:false}, {name:'杠杆', type:'line', xAxisIndex:1, yAxisIndex:2, data:hist.map(h=>h.leverage), itemStyle:{color:'#28a745'}, step:'end', showSymbol:false, areaStyle:{opacity:0.1}}]
+            series:[{name:'股价', type:'line', yAxisIndex:0, data:hist.map(h=>h.close), itemStyle:{color:'#999'}, showSymbol:false}, {name:'净值', type:'line', yAxisIndex:1, data:hist.map(h=>h.nav), itemStyle:{color:'#d32f2f'}, showSymbol:false}, {name:'杠杆', type:'line', xAxisIndex:1, yAxisIndex:2, data:hist.map(h=>h.leverage), itemStyle:{color:'#28a745'}, step:'end', showSymbol:false, areaStyle:{opacity:0.1}}]
         });
     }
     function renderDetailCombo() { 
@@ -1478,10 +1560,9 @@
     echarts.connect('stockGroup');
     window.addEventListener('beforeunload', (e) => { if (APP_STORAGE.getItem('gridHasUnsavedChanges') === 'true') { e.preventDefault(); e.returnValue = ''; } });
 
-    // ===== 自动同步 + 自动运行（页面启动入口）=====
+    // 页面加载入口
     (async function init() {
         const cfg = getGbConfig();
-        // 先尝试GitHub同步（有token时）
         if (cfg.token) {
             updateStatus('syncing');
             try {
@@ -1502,7 +1583,6 @@
                 updateStatus('error');
             }
         }
-        // 无论同步是否成功，都自动运行回测
         await autoRunOnLoad();
     })();
 </script>
