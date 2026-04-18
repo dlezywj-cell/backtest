@@ -1482,7 +1482,7 @@
         const sortedDates = Array.from(allDates).sort().reverse(); let hasContent = false;
         const config = { '上涨趋势': { color: '#d32f2f', label: '入上涨' }, '下跌趋势': { color: '#2e7d32', label: '入下跌' }, '震荡整理': { color: '#1976d2', label: '入震荡' }, '触发风控': { color: '#616161', label: '触风控' } };
         for (let i = 0; i < sortedDates.length - 1; i++) {
-            const today = sortedDates[i], yesterday = sortedDates[i+1]; let changes = { '上涨趋势':[], '下跌趋势': [], '震荡整理':[], '触发风控':[] }, total = 0;
+            const today = sortedDates[i], yesterday = sortedDates[i+1]; let changes = { '上涨趋势':[], '下跌趋势':[], '震荡整理':[], '触发风控':[] }, total = 0;
             batchResults.forEach(res => { const name = res.stockName, now = dateMap[today][name], prev = dateMap[yesterday][name]; if (now && prev && now !== prev) { changes[now].push(name); total++; } });
             if (total === 0) continue; hasContent = true; const isLatest = (i === 0);
             const header = document.createElement('div'); header.className = 'daily-log-header' + (isLatest ? ' open' : ''); header.onclick = function() { toggleDailyLog(this); };
@@ -1552,7 +1552,7 @@
             let chartDataTop =[...latestData.top10].reverse();
             momentumChartTop.setOption({
                 tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: '{b}: +{c}%' },
-                grid: { left: '2%', right: '15%', bottom: '0%', top: '5px', containLabel: true },
+                grid: { left: '2%', right: 110, bottom: '0%', top: '5px', containLabel: true },
                 xAxis: { type: 'value', axisLabel: { formatter: '{value}%' }, splitLine: { lineStyle: { type: 'dashed', color: '#eee' } } },
                 yAxis: { type: 'category', data: chartDataTop.map(d => d.name), axisLabel: { fontWeight: 'bold' }, axisLine: { show: false }, axisTick: { show: false } },
                 series:[{
@@ -1574,19 +1574,19 @@
             momentumChartBottom = echarts.init(domBot);
             
             // 底部的本来是从大跌到小跌 (-10, -5, -1)，反转后 (-1, -5, -10)，大跌排在最上面
-            let chartDataBot = [...latestData.bottom10].reverse();
+            let chartDataBot =[...latestData.bottom10].reverse();
             momentumChartBottom.setOption({
-                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: '{b}: {c}%' },
-                grid: { left: '15%', right: '2%', bottom: '0%', top: '5px', containLabel: true },
-                xAxis: { type: 'value', axisLabel: { formatter: '{value}%' }, splitLine: { lineStyle: { type: 'dashed', color: '#eee' } } },
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: '{b}: -{c}%' },
+                grid: { left: '2%', right: 110, bottom: '0%', top: '5px', containLabel: true },
+                xAxis: { type: 'value', axisLabel: { formatter: value => value === 0 ? '0%' : '-' + value + '%' }, splitLine: { lineStyle: { type: 'dashed', color: '#eee' } } },
                 yAxis: { type: 'category', data: chartDataBot.map(d => d.name), axisLabel: { fontWeight: 'bold' }, axisLine: { show: false }, axisTick: { show: false } },
                 series:[{
                     type: 'bar',
-                    data: chartDataBot.map(d => ({ value: d.d3.toFixed(2), streak: d.streak })),
-                    itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0,[{offset: 0, color: '#388e3c'}, {offset: 1, color: '#c8e6c9'}]) },
+                    data: chartDataBot.map(d => ({ value: Math.abs(d.d3).toFixed(2), streak: d.streak })),
+                    itemStyle: { color: new echarts.graphic.LinearGradient(1, 0, 0, 0,[{offset: 0, color: '#388e3c'}, {offset: 1, color: '#c8e6c9'}]) },
                     label: { 
-                        show: true, position: 'left', 
-                        formatter: p => `${p.value}%${p.data.streak > 1 ? ` (❄️${p.data.streak}连)` : ''}`,
+                        show: true, position: 'right', 
+                        formatter: p => `-${p.value}%${p.data.streak > 1 ? ` (❄️${p.data.streak}连)` : ''}`,
                         color: '#2e7d32', fontSize: 11
                     },
                     barWidth: '60%', barMaxWidth: 15
