@@ -163,6 +163,14 @@ html
         .sort-header:hover { color: #007bff; text-decoration-color: #007bff; }
         .sort-header.active { color: #007bff; font-weight: bold; text-decoration-style: solid; }
 
+        /* 动量徽章标签样式 */
+        .mom-tag { display: inline-flex; align-items: center; background: #fff; border: 1px solid #ffcdd2; border-radius: 4px; padding: 3px 6px; font-size: 11px; margin: 0 6px 6px 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .mom-tag.neg { border-color: #c8e6c9; }
+        .mom-tag .name { color: #333; margin-right: 4px; font-weight: 600; }
+        .mom-tag .val { color: #d32f2f; font-weight: bold; }
+        .mom-tag.neg .val { color: #2e7d32; }
+        .mom-tag .streak { background: #ff9800; color: #fff; padding: 1px 4px; border-radius: 3px; font-size: 10px; margin-left: 4px; line-height: 1; }
+
         /* ===== 自动刷新状态栏样式 ===== */
         #auto-refresh-bar {
             display: flex; align-items: center; justify-content: space-between;
@@ -252,7 +260,6 @@ html
     </div>
     <div class="card-body">
         <div class="run-bar">
-            <!-- 快捷日期设置面板 -->
             <div class="quick-date-bar">
                 <span class="quick-date-label">快捷时间:</span>
                 <button class="quick-date-btn" onclick="setQuickDate('1y')">近一年</button>
@@ -265,7 +272,6 @@ html
             <button class="btn btn-blue" id="btn-run-all" onclick="runBatchBacktest()">🚀 运行选中</button>
         </div>
 
-        <!-- 自动刷新状态栏 -->
         <div id="auto-refresh-bar">
             <div class="refresh-left">
                 <span id="refresh-dot" class="off"></span>
@@ -349,6 +355,24 @@ html
                     <div id="portfolio-chart" style="width: 100%; height: 350px;"></div>
                 </div>
             </div>
+            
+            <!-- 核心升级：可视化动量排行看板 -->
+            <div id="ranking-log-section" style="margin-bottom:15px;">
+                <div class="section-header expanded" onclick="toggleSection('ranking-log-content', this)">
+                    <span>🏆 当前抱团核心追踪 (近3日动量)</span> 
+                    <span class="arrow header-arrow">▼</span>
+                </div>
+                <div id="ranking-log-content" class="section-body">
+                    <!-- 条形图：最新日的领涨力量 -->
+                    <div id="momentum-chart" style="width: 100%; height: 280px; margin-top: 10px;"></div>
+                    <div style="font-size:11px; color:#999; text-align:center; margin-bottom:10px;">上方图表为最新交易日(近3日累积净值拉升)排行，帮你锁定逆势抗跌龙头</div>
+                    
+                    <!-- 历史连榜追踪日志 -->
+                    <div style="font-size:12px; font-weight:bold; color:#555; margin:10px 0 5px 5px; padding-top:10px; border-top:1px dashed #eee;">📅 历史动量连榜追踪</div>
+                    <div id="ranking-log-list" style="max-height:400px; overflow-y:auto; padding:0 5px;"></div>
+                </div>
+            </div>
+
             <div id="holdings-section" style="margin-bottom:15px;">
                 <div class="section-header" onclick="toggleSection('holdings-content', this)">
                     <span>📚 每日持仓结构</span> 
@@ -412,16 +436,6 @@ html
                         <div class="detail-header-bar"><span id="contrib-detail-date-title">贡献详情</span></div>
                         <div class="detail-scroll-box" id="contrib-detail-list-content"></div>
                     </div>
-                </div>
-            </div>
-            <!-- 新增：每日动量排行榜 -->
-            <div id="ranking-log-section" style="margin-bottom:15px;">
-                <div class="section-header" onclick="toggleSection('ranking-log-content', this)">
-                    <span>🏆 每日动量排行榜 (近3日贡献)</span> 
-                    <span class="arrow header-arrow">▼</span>
-                </div>
-                <div id="ranking-log-content" class="section-body collapsed" style="padding:0; border:none; max-height:400px; overflow-y:auto;">
-                    <div id="ranking-log-list"></div>
                 </div>
             </div>
         </div>
@@ -507,7 +521,7 @@ html
     let myChart = null;
     let batchResults =[];
     let benchmarkResults =[]; 
-    let portfolioChart = null, holdingsChart = null, statusChart = null, contributionChart = null; 
+    let portfolioChart = null, holdingsChart = null, statusChart = null, contributionChart = null, momentumChart = null; // 增加了动量条形图实例
 
     let autoRefreshEnabled = true;       
     let autoRefreshInterval = 5 * 60;   
@@ -755,7 +769,7 @@ html
     function toggleCard(id) {
         const el = document.getElementById(id); if(!el) return; el.classList.toggle('open');
         if(el.classList.contains('open') && id === 'card-result') {
-            setTimeout(() => { if(myChart) myChart.resize(); if(portfolioChart) portfolioChart.resize(); if(statusChart) statusChart.resize(); if(contributionChart) contributionChart.resize(); }, 200);
+            setTimeout(() => { if(myChart) myChart.resize(); if(portfolioChart) portfolioChart.resize(); if(statusChart) statusChart.resize(); if(contributionChart) contributionChart.resize(); if(momentumChart) momentumChart.resize(); }, 200);
         }
     }
     function toggleSection(contentId, headerEl) {
@@ -766,6 +780,7 @@ html
             if (contentId === 'holdings-content' && holdingsChart) holdingsChart.resize();
             if (contentId === 'status-dist-content' && statusChart) statusChart.resize();
             if (contentId === 'contribution-content' && contributionChart) contributionChart.resize();
+            if (contentId === 'ranking-log-content' && momentumChart) momentumChart.resize();
         }, 50);
     }
     function toggleDailyLog(headerEl) { headerEl.classList.toggle('open'); headerEl.nextElementSibling.classList.toggle('open'); }
@@ -1271,7 +1286,7 @@ html
         renderHoldingsChart(mainStats.history); 
         renderTradeLog(mainStats.history, mainStats.dateMap); 
         renderContributionChart(mainStats.history);
-        renderRankingLog(mainStats.history); // 新增：渲染每日动量排行榜
+        renderRankingLog(mainStats.history); // 渲染全新的可视化动量排行
     }
 
     function renderPortfolioStats(hist, maxDD, benchHist) {
@@ -1323,7 +1338,7 @@ html
             grid:[{ left: '12%', right: '8%', top: '15%', height: '55%' }, { left: '12%', right: '8%', top: '75%', height: '15%' }],
             xAxis:[{type:'category', data:dates, gridIndex:0, axisLabel:{show:false}}, {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}}],
             yAxis:[{type:'value', gridIndex:0, scale:true}, {type:'value', gridIndex:1, min:0}],
-            dataZoom: [{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
+            dataZoom:[{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
             series: seriesList
         });
     }
@@ -1470,52 +1485,114 @@ html
         if (!hasContent) container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无趋势变更记录</div>';
     }
 
-    // 新增：每日动量排行榜的核心渲染逻辑
+    // 核心升级：可视化动量排名图与连榜日志
     function renderRankingLog(hist) {
-        const container = document.getElementById('ranking-log-list'); container.innerHTML = '';
-        let hasContent = false;
-
-        for (let i = hist.length - 1; i >= 0; i--) {
+        const container = document.getElementById('ranking-log-list'); 
+        container.innerHTML = '';
+        
+        let streaks = {};
+        let rankingData =[];
+        
+        // 1. 正向遍历计算连续上榜天数 (Streak)
+        for (let i = 0; i < hist.length; i++) {
             const todayItem = hist[i];
             let list =[];
             
             Object.keys(todayItem.contribBreakdown).forEach(name => {
                 let valCum = todayItem.contribBreakdown[name] || 0;
                 let val3d = valCum - (hist[i-3] ? (hist[i-3].contribBreakdown[name] || 0) : 0);
-                if (Math.abs(val3d) > 0.0001) { 
-                    list.push({ name: name, d3: val3d * 100 });
-                }
+                if (Math.abs(val3d) > 0.0001) list.push({ name: name, d3: val3d * 100 });
             });
-
-            if (list.length === 0) continue;
 
             let positives = list.filter(item => item.d3 > 0).sort((a, b) => b.d3 - a.d3);
             let negatives = list.filter(item => item.d3 < 0).sort((a, b) => a.d3 - b.d3);
 
-            if (positives.length === 0 && negatives.length === 0) continue;
-            hasContent = true;
-
             let top10 = positives.slice(0, 10);
             let bottom10 = negatives.slice(0, 10);
 
-            const isLatest = (i === hist.length - 1);
+            let currentTopNames = new Set(top10.map(x => x.name));
+            // 未上榜的清零
+            Object.keys(streaks).forEach(k => { if (!currentTopNames.has(k)) streaks[k] = 0; });
+            // 上榜的累加连榜次数
+            top10.forEach(item => {
+                streaks[item.name] = (streaks[item.name] || 0) + 1;
+                item.streak = streaks[item.name];
+            });
+
+            rankingData.push({ date: todayItem.date, top10, bottom10 });
+        }
+
+        // 2. 渲染顶部最新条形图
+        if (rankingData.length > 0) {
+            const latestData = rankingData[rankingData.length - 1];
+            const dom = document.getElementById('momentum-chart');
+            if (momentumChart) momentumChart.dispose();
+            momentumChart = echarts.init(dom);
+            
+            // 柱状图为了从上到下显示，数组需要反转
+            let chartData = [...latestData.top10].reverse();
+            
+            momentumChart.setOption({
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: '{b}: +{c}%' },
+                grid: { left: '2%', right: '10%', bottom: '0%', top: '10px', containLabel: true },
+                xAxis: { type: 'value', axisLabel: { formatter: '{value}%' }, splitLine: { lineStyle: { type: 'dashed', color: '#eee' } } },
+                yAxis: { type: 'category', data: chartData.map(d => d.name), axisLabel: { fontWeight: 'bold' }, axisLine: { show: false }, axisTick: { show: false } },
+                series:[{
+                    type: 'bar',
+                    data: chartData.map(d => ({ value: d.d3.toFixed(2), streak: d.streak })),
+                    itemStyle: { color: new echarts.graphic.LinearGradient(1, 0, 0, 0,[{offset: 0, color: '#f44336'}, {offset: 1, color: '#ffcdd2'}]) },
+                    label: { 
+                        show: true, 
+                        position: 'right', 
+                        formatter: function(p) {
+                            let st = p.data.streak > 1 ? ` (🔥${p.data.streak}连)` : '';
+                            return `+${p.value}%${st}`;
+                        },
+                        color: '#d32f2f',
+                        fontSize: 11
+                    },
+                    barWidth: '60%',
+                    barMaxWidth: 20
+                }]
+            });
+        }
+
+        // 3. 逆向遍历渲染历史标签日志
+        let hasContent = false;
+        for (let i = rankingData.length - 1; i >= 0; i--) {
+            const dayData = rankingData[i];
+            if (dayData.top10.length === 0 && dayData.bottom10.length === 0) continue;
+            hasContent = true;
+
+            const isLatest = (i === rankingData.length - 1);
             const header = document.createElement('div');
             header.className = 'daily-log-header' + (isLatest ? ' open' : '');
             header.onclick = function() { toggleDailyLog(this); };
-            header.innerHTML = `<div style="font-weight:bold;">${todayItem.date}</div><span class="arrow-daily">▶</span>`;
+            header.innerHTML = `<div style="font-weight:bold;">${dayData.date}</div><span class="arrow-daily">▶</span>`;
             
             const body = document.createElement('div');
             body.className = 'daily-log-body' + (isLatest ? ' open' : '');
             
-            let topHtml = top10.map(p => `<span style="white-space:nowrap; display:inline-block; margin-bottom:4px;">${p.name} <b style="color:#d32f2f">+${p.d3.toFixed(2)}%</b></span>`).join('<span style="color:#ccc; margin:0 6px;">|</span>');
-            let bottomHtml = bottom10.map(p => `<span style="white-space:nowrap; display:inline-block; margin-bottom:4px;">${p.name} <b style="color:#2e7d32">${p.d3.toFixed(2)}%</b></span>`).join('<span style="color:#ccc; margin:0 6px;">|</span>');
+            // 构建标签云 HTML
+            let topHtml = dayData.top10.map(p => `
+                <span class="mom-tag">
+                    <span class="name">${p.name}</span>
+                    <span class="val">+${p.d3.toFixed(2)}%</span>
+                    ${p.streak > 1 ? `<span class="streak">🔥${p.streak}</span>` : ''}
+                </span>`).join('');
+            
+            let bottomHtml = dayData.bottom10.map(p => `
+                <span class="mom-tag neg">
+                    <span class="name">${p.name}</span>
+                    <span class="val">${p.d3.toFixed(2)}%</span>
+                </span>`).join('');
             
             let contentHtml = '';
-            if (top10.length > 0) {
-                contentHtml += `<div style="margin-bottom:12px; border-bottom:1px dashed #eee; padding-bottom:6px;"><span style="display:inline-block; color:#fff; background:#d32f2f; padding:3px 8px; border-radius:4px; font-size:11px; margin-bottom:6px; font-weight:bold;">🔥 领涨 Top10</span><div style="font-size:12px; line-height:1.6;">${topHtml}</div></div>`;
+            if (dayData.top10.length > 0) {
+                contentHtml += `<div style="margin-bottom:8px;"><div style="font-size:11px; color:#d32f2f; margin-bottom:6px; font-weight:bold;">🔥 领涨 Top10</div><div>${topHtml}</div></div>`;
             }
-            if (bottom10.length > 0) {
-                contentHtml += `<div><span style="display:inline-block; color:#fff; background:#2e7d32; padding:3px 8px; border-radius:4px; font-size:11px; margin-bottom:6px; font-weight:bold;">❄️ 领跌 Bot10</span><div style="font-size:12px; line-height:1.6;">${bottomHtml}</div></div>`;
+            if (dayData.bottom10.length > 0) {
+                contentHtml += `<div><div style="font-size:11px; color:#2e7d32; margin-bottom:6px; font-weight:bold;">❄️ 领跌 Bot10</div><div>${bottomHtml}</div></div>`;
             }
 
             body.innerHTML = contentHtml;
