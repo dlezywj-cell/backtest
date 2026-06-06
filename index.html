@@ -21,9 +21,9 @@
         .section-header:active { background: #e9ecef; }
         .section-header span { font-weight: 600; font-size: 13px; color: #555; }
         .section-header .header-arrow { transform: rotate(0deg); transition: transform 0.3s; }
-        .section-header.expanded .header-arrow { transform: rotate(180deg); }
+        .section-header.expanded .header-arrow { transform: rotate(180deg); } 
         .section-body { display: block; animation: fadeIn 0.3s; padding: 5px; border: 1px solid #f8f9fa; border-top: none; margin-bottom: 15px; }
-        .section-body.collapsed { display: none; }
+        .section-body.collapsed { display: none; } 
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .form-row { display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-end; }
         .form-group { flex: 1; min-width: 0; }
@@ -92,7 +92,7 @@
         .base-table td { padding: 12px 5px; border-bottom: 1px solid #eee; text-align: left; font-size: 13px; vertical-align: middle; transition: all 0.2s; }
         .base-table tbody tr:hover { background-color: #f0f7ff; }
         .base-table tbody tr:hover td { border-bottom-color: #d0e3fc; }
-        .op-btn-group { display: flex; justify-content: center; gap: 8px; }
+        .op-btn-group { display: flex; justify-content: center; gap: 8px; } 
         input[type="checkbox"] { width: 18px; height: 18px; vertical-align: middle; cursor: pointer; }
         .log-table { width: 100%; min-width: 750px; border-collapse: collapse; table-layout: fixed; }
         .log-table th { background: #fff; color: #666; font-size: 12px; position: sticky; top: 0; border-bottom: 2px solid #eee; text-align: left; padding: 8px 5px; z-index: 5; }
@@ -145,6 +145,7 @@
         .settings-form label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
         .settings-form input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
         .settings-tip { font-size: 12px; color: #888; margin-top: 3px; }
+        
         #holdings-detail-panel, #contribution-detail-panel { display: none; margin-top: 10px; border: 1px solid #ddd; background: #fff; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .detail-header-bar { padding: 8px 12px; background: #f8f9fa; border-bottom: 1px solid #eee; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-radius: 6px 6px 0 0; font-size: 13px; }
         .detail-scroll-box { height: 250px; overflow-x: auto; overflow-y: auto; padding: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; background: #fff; }
@@ -153,12 +154,15 @@
         .detail-row:nth-child(even) { background: #fafafa; }
         .detail-name { display: flex; align-items: center; gap: 6px; font-weight: 500; }
         .detail-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
         .contrib-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1.2fr; gap: 4px; align-items: center; width: 100%; font-size: 11px; min-width: 320px; }
         .contrib-grid > div:first-child { text-align: left; padding-right: 5px; }
         .contrib-grid > div { text-align: right; white-space: nowrap; }
         .sort-header { cursor: pointer; color: #666; transition: color 0.2s; user-select: none; text-decoration: underline; text-decoration-style: dotted; text-decoration-color: #ccc; }
         .sort-header:hover { color: #007bff; text-decoration-color: #007bff; }
         .sort-header.active { color: #007bff; font-weight: bold; text-decoration-style: solid; }
+
+        /* 动量徽章标签样式 */
         .mom-tag { display: inline-flex; align-items: center; background: #fff; border: 1px solid #ffcdd2; border-radius: 4px; padding: 3px 6px; font-size: 11px; margin: 0 6px 6px 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
         .mom-tag.neg { border-color: #c8e6c9; }
         .mom-tag .name { color: #333; margin-right: 4px; font-weight: 600; }
@@ -166,6 +170,8 @@
         .mom-tag.neg .val { color: #2e7d32; }
         .mom-tag .streak { background: #ff9800; color: #fff; padding: 1px 4px; border-radius: 3px; font-size: 10px; margin-left: 4px; line-height: 1; }
         .mom-tag.neg .streak { background: #2e7d32; }
+
+        /* ===== 自动刷新状态栏样式 ===== */
         #auto-refresh-bar {
             display: flex; align-items: center; justify-content: space-between;
             background: #f0f7ff; border: 1px solid #b3d8fd; border-radius: 6px;
@@ -179,6 +185,7 @@
         #refresh-countdown { font-weight: bold; color: #007bff; min-width: 30px; }
         .refresh-toggle { background: none; border: 1px solid #007bff; color: #007bff; border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer; }
         .refresh-toggle:hover { background: #007bff; color: #fff; }
+        /* ===== 信号变化高亮动画 ===== */
         @keyframes highlight-new {
             0% { background-color: #fff9c4; }
             100% { background-color: transparent; }
@@ -283,7 +290,7 @@
                 <div class="form-group"></div>
             </div>
             <div style="border-top:1px dashed #eee; margin:8px 0;"></div>
-            <div style="font-size:12px; color:#28a745; margin-bottom:8px; font-weight:bold;">低估区 (市值 &lt; 下限)</div>
+            <div style="font-size:12px; color:#28a745; margin-bottom:8px; font-weight:bold;">低估区 (市值 < 下限)</div>
             <div class="form-row">
                 <div class="form-group"><label>敏感度 (越小越迟钝)</label><input type="number" id="pLowSens" value="12"></div>
                 <div class="form-group"><label>最大减仓比例 (0-1)</label><input type="number" id="pLowRed" step="0.1" value="0.3"></div>
@@ -312,7 +319,7 @@
         <div id="results-container" style="display:none; margin-top:15px;">
             <div id="batch-summary-box" style="margin-bottom:15px;">
                 <div class="section-header expanded" onclick="toggleSection('summary-content', this)">
-                    <span>📈 收益排行榜</span>
+                    <span>📈 收益排行榜</span> 
                     <span class="arrow header-arrow">▼</span>
                 </div>
                 <div id="summary-content" class="section-body">
@@ -325,10 +332,10 @@
                     </div>
                 </div>
             </div>
-
+            
             <div id="portfolio-section" style="margin-bottom:15px;">
                 <div class="section-header expanded" onclick="toggleSection('portfolio-content', this)">
-                    <span>💰 组合策略</span>
+                    <span>💰 组合策略</span> 
                     <span class="arrow header-arrow">▼</span>
                 </div>
                 <div id="portfolio-content" class="section-body">
@@ -338,7 +345,7 @@
                     </div>
                     <div style="text-align:right; margin-bottom:10px;">
                         <button class="btn btn-orange" onclick="runPortfolioStrategy()" style="width:100%">🔄 重新计算组合</button>
-                        <div style="font-size:11px; color:#666; margin-top:5px; text-align:left; line-height:1.4;">逻辑：<b>动态等权</b>。自动剔除"建议杠杆 &lt; 门槛"的无效股票。<br>资金仅在满足条件的股票中平分。若无股票满足，则空仓。</div>
+                        <div style="font-size:11px; color:#666; margin-top:5px; text-align:left; line-height:1.4;">逻辑：<b>动态等权</b>。自动剔除"建议杠杆 < 门槛"的无效股票。<br>资金仅在满足条件的股票中平分。若无股票满足，则空仓。</div>
                     </div>
                     <div class="stat-grid" style="grid-template-columns: repeat(4, 1fr);">
                         <div class="stat-item"><div class="stat-val" id="port-ret">--</div><div class="stat-lbl">组合总收益</div></div>
@@ -349,10 +356,10 @@
                     <div id="portfolio-chart" style="width: 100%; height: 350px;"></div>
                 </div>
             </div>
-
+            
             <div id="status-dist-section" style="margin-bottom:15px;">
                 <div class="section-header expanded" onclick="toggleSection('status-dist-content', this)">
-                    <span>🚥 每日状态占比 (完全对齐联动)</span>
+                    <span>🚥 每日状态占比 (完全对齐联动)</span> 
                     <span class="arrow header-arrow">▼</span>
                 </div>
                 <div id="status-dist-content" class="section-body">
@@ -362,17 +369,17 @@
             </div>
             <div id="status-detail-section" style="margin-bottom:15px;">
                 <div class="section-header" onclick="toggleSection('status-detail-content', this)">
-                    <span>📋 各状态股票明细</span>
+                    <span>📋 各状态股票明细</span> 
                     <span class="arrow header-arrow">▼</span>
                 </div>
                 <div id="status-detail-content" class="section-body collapsed">
                     <div id="status-detail-container" style="display:flex; flex-wrap:wrap; gap:10px;"></div>
                 </div>
             </div>
-
+            
             <div id="ranking-log-section" style="margin-bottom:15px;">
                 <div class="section-header expanded" onclick="toggleSection('ranking-log-content', this)">
-                    <span>🏆 当前抱团核心追踪 (近3日动量)</span>
+                    <span>🏆 当前抱团核心追踪 (近3日动量)</span> 
                     <span class="arrow header-arrow">▼</span>
                 </div>
                 <div id="ranking-log-content" class="section-body" style="padding: 10px 5px;">
@@ -394,7 +401,7 @@
 
             <div id="holdings-section" style="margin-bottom:15px;">
                 <div class="section-header" onclick="toggleSection('holdings-content', this)">
-                    <span>📚 每日持仓结构</span>
+                    <span>📚 每日持仓结构</span> 
                     <span class="arrow header-arrow">▼</span>
                 </div>
                 <div id="holdings-content" class="section-body collapsed">
@@ -408,7 +415,7 @@
             </div>
             <div id="trade-log-section" style="margin-bottom:15px;">
                 <div class="section-header" onclick="toggleSection('trade-log-content', this)">
-                    <span>📝 每日调仓明细</span>
+                    <span>📝 每日调仓明细</span> 
                     <span class="arrow header-arrow">▼</span>
                 </div>
                 <div id="trade-log-content" class="section-body collapsed" style="padding:0; border:none; max-height:400px; overflow-y:auto;">
@@ -417,7 +424,7 @@
             </div>
             <div id="trend-log-section" style="margin-bottom:15px;">
                 <div class="section-header" onclick="toggleSection('trend-log-content', this)">
-                    <span>🗂 每日趋势变更日志</span>
+                    <span>🗂 每日趋势变更日志</span> 
                     <span class="arrow header-arrow">▼</span>
                 </div>
                 <div id="trend-log-content" class="section-body collapsed" style="padding:0; border:none; max-height:400px; overflow-y:auto;">
@@ -426,7 +433,7 @@
             </div>
             <div id="contribution-section" style="margin-bottom:15px;">
                 <div class="section-header" onclick="toggleSection('contribution-content', this)">
-                    <span>💰 累计盈亏贡献 (多维拆分)</span>
+                    <span>💰 累计盈亏贡献 (多维拆分)</span> 
                     <span class="arrow header-arrow">▼</span>
                 </div>
                 <div id="contribution-content" class="section-body collapsed">
@@ -456,7 +463,7 @@
             <div id="chart-box"></div>
             <div style="margin-top:20px;">
                 <div class="section-header" onclick="toggleSection('log-content', this)">
-                    <span>📜 交易日志 <span id="log-count" style="font-weight:normal; color:#999; font-size:12px;"></span></span>
+                    <span>📜 交易日志 <span id="log-count" style="font-weight:normal; color:#999; font-size:12px;"></span></span> 
                     <span class="arrow header-arrow">▼</span>
                 </div>
                 <div id="log-content" class="section-body collapsed" style="border:1px solid #eee; border-radius:6px; border-top:0;">
@@ -512,25 +519,25 @@
             repo: APP_STORAGE.getItem('grid_sys_repo') || "backtest",
             path: "data.json",
             branch: APP_STORAGE.getItem('grid_sys_branch') || "main",
-            token: APP_STORAGE.getItem('grid_sys_token') || ""
+            token: APP_STORAGE.getItem('grid_sys_token') || "" 
         };
     }
 
-    let stocks = JSON.parse(APP_STORAGE.getItem('gridStocks')) || [];
+    let stocks = JSON.parse(APP_STORAGE.getItem('gridStocks')) ||[];
     let myChart = null;
-    let batchResults = [];
-    let benchmarkResults = [];
-    let currentGlobalStageMap = null;
+    let batchResults =[];
+    let benchmarkResults =[]; 
+    let currentGlobalStageMap = null; 
     let portfolioChart = null, holdingsChart = null, statusChart = null, contributionChart = null, momentumChartTop = null, momentumChartBottom = null;
 
-    let autoRefreshEnabled = true;
-    let autoRefreshInterval = 5 * 60;
+    let autoRefreshEnabled = true;       
+    let autoRefreshInterval = 5 * 60;   
     let autoRefreshCountdown = autoRefreshInterval;
     let autoRefreshTimer = null;
     let countdownTimer = null;
-    let prevSignalMap = {};
+    let prevSignalMap = {};              
 
-    const DB_NAME = 'StockHistoryDB_BatchV2';
+    const DB_NAME = 'StockHistoryDB_BatchV2'; 
     const STORE_NAME = 'klines_store';
     const dbPromise = new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, 1);
@@ -540,58 +547,50 @@
     });
 
     async function getCache(key) {
-        const db = await dbPromise;
-        return new Promise(r => {
-            const tx = db.transaction(STORE_NAME, 'readonly');
-            const req = tx.objectStore(STORE_NAME).get(key);
-            req.onsuccess = () => r(req.result);
-            req.onerror = () => r(null);
-        });
+        const db = await dbPromise; return new Promise(r => { const tx = db.transaction(STORE_NAME, 'readonly'); const req = tx.objectStore(STORE_NAME).get(key); req.onsuccess = () => r(req.result); req.onerror = () => r(null); });
     }
     async function setCache(key, val) {
-        const db = await dbPromise;
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        tx.objectStore(STORE_NAME).put(val, key);
-        return new Promise(r => { tx.oncomplete = () => r(); tx.onerror = () => r(); });
+        const db = await dbPromise; const tx = db.transaction(STORE_NAME, 'readwrite'); tx.objectStore(STORE_NAME).put(val, key); return new Promise(r => { tx.oncomplete = () => r(); tx.onerror = () => r(); });
     }
 
     function checkUnsavedStatus() {
         const dirty = APP_STORAGE.getItem('gridHasUnsavedChanges') === 'true';
         const btn = document.getElementById('btn-push');
-        if (dirty) { btn.classList.add('unsaved'); btn.innerHTML = "🔴 待同步配置"; }
+        if (dirty) { btn.classList.add('unsaved'); btn.innerHTML = "🔴 待同步配置"; } 
         else { btn.classList.remove('unsaved'); btn.innerHTML = "🚀 保存配置"; }
     }
     function setLocalChanges(isDirty) { APP_STORAGE.setItem('gridHasUnsavedChanges', isDirty); checkUnsavedStatus(); }
-
+    
     function initDates() {
-        const d = new Date();
-        document.getElementById('inEndDate').value = d.toISOString().split('T')[0];
-        d.setFullYear(d.getFullYear() - 1);
-        document.getElementById('inStartDate').value = d.toISOString().split('T')[0];
+        const d = new Date(); document.getElementById('inEndDate').value = d.toISOString().split('T')[0];
+        d.setFullYear(d.getFullYear() - 1); document.getElementById('inStartDate').value = d.toISOString().split('T')[0];
     }
     initDates(); checkUnsavedStatus(); renderTable();
 
     function setQuickDate(range) {
         const end = new Date();
         let start = new Date();
-        if (range === '1y') { start.setFullYear(end.getFullYear() - 1); }
-        else if (range === '6m') { start.setMonth(end.getMonth() - 6); }
-        else if (range === '3m') { start.setMonth(end.getMonth() - 3); }
-        else if (range === 'ytd') { start = new Date(end.getFullYear(), 0, 1); }
+        if (range === '1y') {
+            start.setFullYear(end.getFullYear() - 1);
+        } else if (range === '6m') {
+            start.setMonth(end.getMonth() - 6);
+        } else if (range === '3m') {
+            start.setMonth(end.getMonth() - 3);
+        } else if (range === 'ytd') {
+            start = new Date(end.getFullYear(), 0, 1);
+        }
         document.getElementById('inEndDate').value = end.toISOString().split('T')[0];
         document.getElementById('inStartDate').value = start.toISOString().split('T')[0];
     }
 
     function updateStatus(state, text) {
-        const dot = document.getElementById('syncDot');
-        const txt = document.getElementById('statusTxt');
-        if (dot) dot.className = 'sync-dot ' + state;
-        if (txt) txt.innerText = text || (state === 'syncing' ? '同步中' : '在线');
+        const dot = document.getElementById('syncDot'); const txt = document.getElementById('statusTxt');
+        if(dot) dot.className = 'sync-dot ' + state; if(txt) txt.innerText = text || (state === 'syncing' ? '同步中' : '在线');
     }
 
     function isATradingTime() {
         const now = new Date();
-        const day = now.getDay();
+        const day = now.getDay(); 
         if (day === 0 || day === 6) return false;
         const h = now.getHours(), m = now.getMinutes();
         const totalMin = h * 60 + m;
@@ -606,24 +605,32 @@
 
     function sendDesktopNotification(title, body) {
         if (!("Notification" in window) || Notification.permission !== "granted") return;
-        try { new Notification(title, { body: body, icon: "" }); } catch (e) {}
+        try {
+            new Notification(title, { body: body, icon: "" });
+        } catch(e) {}
     }
 
     function detectAndNotifySignalChanges() {
         if (batchResults.length === 0) return;
-        let changes = [];
+        let changes =[];
         batchResults.forEach(res => {
             const last = res.history[res.history.length - 1];
             const key = res.stockCode;
             const prevStatus = prevSignalMap[key];
             const currStatus = last.status;
+
             if (prevStatus && prevStatus !== currStatus) {
                 changes.push({ name: res.stockName, from: prevStatus, to: currStatus });
                 const row = document.getElementById(`row-${res.index}`);
-                if (row) { row.classList.remove('signal-changed'); void row.offsetWidth; row.classList.add('signal-changed'); }
+                if (row) {
+                    row.classList.remove('signal-changed');
+                    void row.offsetWidth; 
+                    row.classList.add('signal-changed');
+                }
             }
             prevSignalMap[key] = currStatus;
         });
+
         if (changes.length > 0) {
             const body = changes.map(c => `${c.name}: ${c.from} → ${c.to}`).join('\n');
             sendDesktopNotification(`📊 ${changes.length}只股票信号变化`, body);
@@ -635,12 +642,29 @@
         const txt = document.getElementById('refresh-status-txt');
         const countdown = document.getElementById('refresh-countdown');
         const btn = document.querySelector('.refresh-toggle');
+
         if (!autoRefreshEnabled) {
-            dot.className = 'off'; txt.innerText = '自动刷新已暂停'; countdown.innerText = '--'; btn.innerText = '启动'; return;
+            dot.className = 'off';
+            txt.innerText = '自动刷新已暂停';
+            countdown.innerText = '--';
+            btn.innerText = '启动';
+            return;
         }
-        if (state === 'running') { dot.className = 'running'; txt.innerText = '刷新中...'; countdown.innerText = '--'; }
-        else if (state === 'waiting') { dot.className = 'waiting'; const inTrading = isATradingTime(); txt.innerText = inTrading ? '交易时间内，自动刷新中' : '非交易时间（等待开市）'; countdown.innerText = secondsLeft + 's'; }
-        else if (state === 'off-hours') { dot.className = 'off'; txt.innerText = '非交易时间（等待开市）'; countdown.innerText = secondsLeft + 's'; }
+
+        if (state === 'running') {
+            dot.className = 'running';
+            txt.innerText = '刷新中...';
+            countdown.innerText = '--';
+        } else if (state === 'waiting') {
+            dot.className = 'waiting';
+            const inTrading = isATradingTime();
+            txt.innerText = inTrading ? '交易时间内，自动刷新中' : '非交易时间（等待开市）';
+            countdown.innerText = secondsLeft + 's';
+        } else if (state === 'off-hours') {
+            dot.className = 'off';
+            txt.innerText = '非交易时间（等待开市）';
+            countdown.innerText = secondsLeft + 's';
+        }
         btn.innerText = '暂停';
     }
 
@@ -659,12 +683,14 @@
     function startAutoRefresh() {
         if (autoRefreshTimer) clearInterval(autoRefreshTimer);
         startCountdown();
+
         autoRefreshTimer = setInterval(async () => {
             if (!autoRefreshEnabled) return;
-            if (!isATradingTime()) return;
+            if (!isATradingTime()) return; 
+
             updateRefreshBar('running');
-            await runBatchBacktest();
-            detectAndNotifySignalChanges();
+            await runBatchBacktest();        
+            detectAndNotifySignalChanges();  
             autoRefreshCountdown = autoRefreshInterval;
             startCountdown();
         }, autoRefreshInterval * 1000);
@@ -672,8 +698,13 @@
 
     function toggleAutoRefresh() {
         autoRefreshEnabled = !autoRefreshEnabled;
-        if (autoRefreshEnabled) { startAutoRefresh(); }
-        else { if (autoRefreshTimer) clearInterval(autoRefreshTimer); if (countdownTimer) clearInterval(countdownTimer); updateRefreshBar('paused'); }
+        if (autoRefreshEnabled) {
+            startAutoRefresh();
+        } else {
+            if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+            if (countdownTimer) clearInterval(countdownTimer);
+            updateRefreshBar('paused');
+        }
     }
 
     async function autoRunOnLoad() {
@@ -690,24 +721,27 @@
 
     function openSettingsModal() {
         const cfg = getGbConfig();
-        document.getElementById('cfg-username').value = cfg.username;
-        document.getElementById('cfg-repo').value = cfg.repo;
-        document.getElementById('cfg-branch').value = cfg.branch;
+        document.getElementById('cfg-username').value = cfg.username; 
+        document.getElementById('cfg-repo').value = cfg.repo; 
+        document.getElementById('cfg-branch').value = cfg.branch; 
         document.getElementById('cfg-token').value = cfg.token;
         document.getElementById('settings-modal').style.display = 'flex';
     }
-    function closeSettingsModal() { document.getElementById('settings-modal').style.display = 'none'; }
+    function closeSettingsModal() { 
+        document.getElementById('settings-modal').style.display = 'none'; 
+    }
     function saveSettings() {
-        const u = document.getElementById('cfg-username').value.trim();
-        const r = document.getElementById('cfg-repo').value.trim();
-        const b = document.getElementById('cfg-branch').value.trim();
+        const u = document.getElementById('cfg-username').value.trim(); 
+        const r = document.getElementById('cfg-repo').value.trim(); 
+        const b = document.getElementById('cfg-branch').value.trim(); 
         const t = document.getElementById('cfg-token').value.trim();
-        if (!u || !r || !t) return alert("请填写完整");
-        APP_STORAGE.setItem('grid_sys_username', u);
-        APP_STORAGE.setItem('grid_sys_repo', r);
-        APP_STORAGE.setItem('grid_sys_branch', b);
+        if(!u || !r || !t) return alert("请填写完整");
+        APP_STORAGE.setItem('grid_sys_username', u); 
+        APP_STORAGE.setItem('grid_sys_repo', r); 
+        APP_STORAGE.setItem('grid_sys_branch', b); 
         APP_STORAGE.setItem('grid_sys_token', t);
-        closeSettingsModal(); syncFromGithub();
+        closeSettingsModal(); 
+        syncFromGithub();
     }
 
     function setMarketFilter(type, btn) {
@@ -732,36 +766,28 @@
                 else if (currentMarketFilter === 'US') matchMarket = c.endsWith('.US');
                 else if (currentMarketFilter === 'A') matchMarket = !c.endsWith('.HK') && !c.endsWith('.US');
             }
-            if (matchText && matchMarket) { row.style.display = ''; visibleCount++; }
+            if (matchText && matchMarket) { row.style.display = ''; visibleCount++; } 
             else { row.style.display = 'none'; }
         });
-        document.getElementById('list-count').innerText = `(${visibleCount}/${stocks.length})`;
+        document.getElementById('list-count').innerText = `(${visibleCount}/${stocks.length})`; 
         checkAllState();
     }
 
     function toggleCard(id) {
-        const el = document.getElementById(id); if (!el) return; el.classList.toggle('open');
-        if (el.classList.contains('open') && id === 'card-result') {
-            setTimeout(() => {
-                if (myChart) myChart.resize();
-                if (portfolioChart) portfolioChart.resize();
-                if (statusChart) statusChart.resize();
-                if (contributionChart) contributionChart.resize();
-                if (momentumChartTop) momentumChartTop.resize();
-                if (momentumChartBottom) momentumChartBottom.resize();
-            }, 200);
+        const el = document.getElementById(id); if(!el) return; el.classList.toggle('open');
+        if(el.classList.contains('open') && id === 'card-result') {
+            setTimeout(() => { if(myChart) myChart.resize(); if(portfolioChart) portfolioChart.resize(); if(statusChart) statusChart.resize(); if(contributionChart) contributionChart.resize(); if(momentumChartTop) momentumChartTop.resize(); if(momentumChartBottom) momentumChartBottom.resize(); }, 200);
         }
     }
     function toggleSection(contentId, headerEl) {
-        const content = document.getElementById(contentId);
-        const isCollapsed = content.classList.toggle('collapsed');
+        const content = document.getElementById(contentId); const isCollapsed = content.classList.toggle('collapsed');
         if (isCollapsed) headerEl.classList.remove('expanded'); else headerEl.classList.add('expanded');
         if (!isCollapsed) setTimeout(() => {
             if (contentId === 'portfolio-content' && portfolioChart) portfolioChart.resize();
             if (contentId === 'holdings-content' && holdingsChart) holdingsChart.resize();
             if (contentId === 'status-dist-content' && statusChart) statusChart.resize();
             if (contentId === 'contribution-content' && contributionChart) contributionChart.resize();
-            if (contentId === 'ranking-log-content') { if (momentumChartTop) momentumChartTop.resize(); if (momentumChartBottom) momentumChartBottom.resize(); }
+            if (contentId === 'ranking-log-content') { if(momentumChartTop) momentumChartTop.resize(); if(momentumChartBottom) momentumChartBottom.resize(); }
         }, 50);
     }
     function toggleDailyLog(headerEl) { headerEl.classList.toggle('open'); headerEl.nextElementSibling.classList.toggle('open'); }
@@ -769,15 +795,15 @@
 
     function safeB64ToUtf8(str) { return decodeURIComponent(escape(window.atob(str.replace(/\s/g, '')))); }
     function utf8ToB64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
-
-    const getEmSecId = c => {
+    
+    const getEmSecId = c => { 
         if (!c) return "0.000000";
-        c = c.trim().toUpperCase();
+        c = c.trim().toUpperCase(); 
         let raw = c.replace(/\.[A-Z]+$/, '');
         if (/^\d{5}$/.test(raw)) return '116.' + raw.padStart(5, '0');
         if (c.includes('.US')) return '105.' + raw;
         if (raw.startsWith('6')) return '1.' + raw;
-        return '0.' + raw;
+        return '0.' + raw; 
     };
 
     async function ensureStockCodes() {
@@ -794,20 +820,20 @@
                 try {
                     const searchUrl = `https://searchapi.eastmoney.com/api/suggest/get?input=${encodeURIComponent(s.name)}&type=14&token=D43BF722C8E33BD5D50F639205545E43`;
                     const json = await jsonpRequest(searchUrl);
-                    if (json?.QuotationCodeTable?.Data?.[0]) {
+                    if(json?.QuotationCodeTable?.Data?.[0]) {
                         let r = json.QuotationCodeTable.Data[0];
                         let suffix = "";
-                        if (/^\d{5}$/.test(r.Code)) suffix = r.Code.startsWith('6') ? ".SH" : ".SZ";
-                        else if (!/^\d+$/.test(r.Code)) suffix = ".US";
-                        else {
-                            if (r.MarketType == "1") suffix = ".SH";
-                            else if (r.MarketType == "2") suffix = ".SZ";
-                            else if (r.MarketType == "5") suffix = ".HK";
+                        if (/^\d{5}$/.test(r.Code)) suffix = r.Code.startsWith('6') ? ".SH" : ".SZ"; 
+                        else if (!/^\d+$/.test(r.Code)) suffix = ".US"; 
+                        else { 
+                            if(r.MarketType == "1") suffix = ".SH"; 
+                            else if(r.MarketType == "2") suffix = ".SZ"; 
+                            else if(r.MarketType == "5") suffix = ".HK"; 
                         }
                         s.code = r.Code + suffix;
                         fixedCount++;
                     }
-                } catch (e) { console.error("Auto-fix failed for " + s.name, e); }
+                } catch(e) { console.error("Auto-fix failed for " + s.name, e); }
                 await new Promise(r => setTimeout(r, 200));
             }
         }
@@ -817,148 +843,79 @@
         alert(`✅ 修复完成！成功找回 ${fixedCount} 个代码。`);
     }
 
-    // =====================================================================
-    // 【修复1】JSONP 增加超时机制，默认 8 秒，防止请求卡死导致某只股票回测失败
-    // =====================================================================
-    function jsonpRequest(url, callbackParamName = 'cb', timeout = 8000) {
+    function jsonpRequest(url, callbackParamName = 'cb') {
         return new Promise((resolve, reject) => {
             const callbackName = 'jsonp_cb_' + Math.random().toString(36).substr(2, 9);
             const script = document.createElement('script');
             const hasQuery = url.includes('?');
             script.src = `${url}${hasQuery ? '&' : '?'}${callbackParamName}=${callbackName}`;
-
-            // 超时定时器
-            const timer = setTimeout(() => {
-                delete window[callbackName];
-                if (document.body.contains(script)) document.body.removeChild(script);
-                reject(new Error("JSONP Timeout (8s)"));
-            }, timeout);
-
-            script.onerror = () => {
-                clearTimeout(timer);
-                delete window[callbackName];
-                if (document.body.contains(script)) document.body.removeChild(script);
-                reject(new Error("JSONP Load Failed"));
-            };
-            window[callbackName] = (data) => {
-                clearTimeout(timer);
-                delete window[callbackName];
-                if (document.body.contains(script)) document.body.removeChild(script);
-                resolve(data);
-            };
+            script.onerror = () => { delete window[callbackName]; document.body.removeChild(script); reject(new Error("JSONP Load Failed")); };
+            window[callbackName] = (data) => { delete window[callbackName]; document.body.removeChild(script); resolve(data); };
             document.body.appendChild(script);
         });
     }
 
-    // =====================================================================
-    // 【修复2】缓存 key 区分盘中/盘后，解决同一天 VPN 开关导致结果不同的问题
-    // =====================================================================
     async function fetchHistoryKline(secId) {
-        const todayStr = new Date().toISOString().split('T')[0];
-        // 盘中缓存与盘后缓存分开存，避免盘中拿到不完整数据污染盘后缓存
-        const now = new Date();
-        const hm = now.getHours() * 60 + now.getMinutes();
-        const isAfterClose = hm >= 15 * 60 + 30; // 15:30 后视为收盘完整数据
-        const cacheKey = `kline_${secId}_${todayStr}_${isAfterClose ? 'C' : 'O'}`;
-
+        const todayStr = new Date().toISOString().split('T')[0]; 
+        const cacheKey = `kline_${secId}`; 
         const cached = await getCache(cacheKey);
-        if (cached) return cached.data; // 命中缓存直接返回，不再跨时段混用
-
+        if (cached && cached.date === todayStr) return cached.data;
+        
         let baseParams = `fields1=f1&fields2=f51,f53&klt=101&end=20500101&lmt=600`;
         let url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&${baseParams}&fqt=1`;
-
+        
         try {
             let json = await jsonpRequest(url);
-            let data = json?.data?.klines || [];
-
+            let data = json?.data?.klines ||[];
             if (data.length === 0) {
                 let url2 = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&${baseParams}&fqt=0`;
                 let json2 = await jsonpRequest(url2);
-                data = json2?.data?.klines || [];
+                data = json2?.data?.klines ||[];
             }
-
-            // =====================================================================
-            // 【修复3】美股前缀先用实时报价确认正确市场编号，再拉 K 线，避免拉错交易所
-            // =====================================================================
-            if (data.length === 0 && secId.startsWith('105.')) {
-                const ticker = secId.split('.')[1];
-                try {
-                    const confirmUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=105.${ticker},106.${ticker},107.${ticker}&fields=f12,f13,f2&fltt=2&_=${Date.now()}`;
-                    const confirmJson = await jsonpRequest(confirmUrl, 'cb', 6000);
-                    const diff = confirmJson?.data?.diff;
-                    if (diff) {
-                        const items = Array.isArray(diff) ? diff : Object.values(diff);
-                        // f13 是市场编号，f2 > 0 表示有效价格，f12 是代码
-                        const validItem = items.find(item => item && item.f2 > 0 && String(item.f12).toUpperCase() === ticker.toUpperCase());
-                        if (validItem) {
-                            const correctPrefix = validItem.f13;
-                            const correctUrl = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${correctPrefix}.${ticker}&${baseParams}&fqt=1`;
-                            const j = await jsonpRequest(correctUrl);
-                            const d = j?.data?.klines || [];
-                            if (d.length > 0) data = d;
-                        }
-                    }
-                } catch (e) {
-                    // 确认失败则回退到逐个尝试（兜底）
-                    for (const prefix of ['106', '107']) {
-                        const altUrl = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${prefix}.${ticker}&${baseParams}&fqt=1`;
-                        try {
-                            const j = await jsonpRequest(altUrl, 'cb', 5000);
-                            const d = j?.data?.klines || [];
-                            if (d.length > 0) { data = d; break; }
-                        } catch (_) {}
-                    }
+            if (data.length === 0 && secId.startsWith('105.')) { 
+                let altUrl = url.replace('105.', '106.'); 
+                let j3 = await jsonpRequest(altUrl); 
+                let d3 = j3?.data?.klines ||[]; 
+                if(d3.length > 0) {
+                    data = d3;
+                } else {
+                    let altUrl2 = url.replace('105.', '107.'); 
+                    let j4 = await jsonpRequest(altUrl2); 
+                    let d4 = j4?.data?.klines ||[]; 
+                    if(d4.length > 0) data = d4;
                 }
             }
-
             if (data.length > 0) await setCache(cacheKey, { date: todayStr, data: data });
             return data;
-        } catch (e) {
-            // 网络失败时优先返回过期缓存，保证至少有数据可用
-            const anyCache = await getCache(`kline_${secId}_${todayStr}_C`) || await getCache(`kline_${secId}_${todayStr}_O`);
-            return anyCache ? anyCache.data : [];
+        } catch (e) { 
+            return cached ? cached.data :[]; 
         }
     }
 
-    // =====================================================================
-    // 【修复4】实时数据用 f20（总市值）直接换算，不再用价格反推总股本
-    //          f20 单位是元，除以 1e8 得到亿元市值，再除以价格得到精确总股本
-    // =====================================================================
     async function fetchBatchRealtimeData(secIds) {
-        if (secIds.length === 0) return {};
-        const BATCH_SIZE = 30;
-        let resultMap = {};
+        if(secIds.length === 0) return {};
+        const BATCH_SIZE = 30; let resultMap = {};
         for (let i = 0; i < secIds.length; i += BATCH_SIZE) {
-            const chunk = secIds.slice(i, i + BATCH_SIZE);
-            let expandedChunk = [];
-            chunk.forEach(id => {
-                expandedChunk.push(id);
-                if (id.startsWith('105.')) {
+            const chunk = secIds.slice(i, i + BATCH_SIZE); let expandedChunk =[];
+            chunk.forEach(id => { 
+                expandedChunk.push(id); 
+                if(id.startsWith('105.')) {
                     expandedChunk.push(id.replace('105.', '106.'));
-                    expandedChunk.push(id.replace('105.', '107.'));
-                }
+                    expandedChunk.push(id.replace('105.', '107.')); 
+                } 
             });
-            // f20=总市值(元), f2=最新价, f124=时间戳, f3=涨跌幅, f13=市场编号
-            const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${expandedChunk.join(',')}&fields=f12,f2,f20,f124,f3,f13&invt=2&fltt=2&_=${Date.now()}`;
+            const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${expandedChunk.join(',')}&fields=f12,f2,f20,f124,f3&invt=2&fltt=2&_=${Date.now()}`;
             try {
                 const json = await jsonpRequest(url);
                 const diff = json?.data?.diff;
-                if (diff) {
-                    (Array.isArray(diff) ? diff : Object.values(diff)).forEach(item => {
-                        if (item && item.f2 > 0 && item.f20 > 0) {
-                            // 【关键修复】totalShares 改为存精确总股本（亿股），不再反推
-                            const totalSharesBillions = item.f20 / item.f2 / 1e8;
-                            resultMap[item.f12] = {
-                                price: item.f2,
-                                totalSharesBillions: totalSharesBillions, // 总股本（亿股）
-                                marketCapBillions: item.f20 / 1e8,        // 总市值（亿元）
-                                timestamp: item.f124,
-                                pctChange: item.f3
-                            };
+                if (diff) { 
+                    (Array.isArray(diff) ? diff : Object.values(diff)).forEach(item => { 
+                        if (item && item.f2 > 0) {
+                            resultMap[item.f12] = { price: item.f2, totalShares: (item.f20 / item.f2) / 100000000, timestamp: item.f124, pctChange: item.f3 }; 
                         }
-                    });
+                    }); 
                 }
-            } catch (e) { console.error('fetchBatchRealtimeData error:', e); }
+            } catch (e) { console.error(e); }
         }
         return resultMap;
     }
@@ -967,34 +924,38 @@
         let result = new Array(data.length).fill(null);
         for (let i = 0; i < data.length; i++) {
             if (i >= dayCount - 2) {
-                let sum = 0;
-                for (let k = 1; k <= dayCount - 2; k++) sum += data[i - k].close;
-                sum += (data[i].close * 2);
-                result[i] = sum / dayCount;
+                let sum = 0; for (let k = 1; k <= dayCount - 2; k++) sum += data[i - k].close;
+                sum += (data[i].close * 2); result[i] = sum / dayCount;
             }
         }
         return result;
     }
 
+    // 核心升级：超敏锐“1日动量 + 强制越级翻转”机制
     function getGlobalMarketStageMap(results) {
         if (!results || results.length === 0) return {};
         let statsMap = {}; let allDates = new Set();
         let dateToDayMap = {};
+
         results.forEach(res => {
             res.history.forEach(day => {
                 if (!statsMap[day.date]) statsMap[day.date] = { up: 0, down: 0, sideways: 0, risk: 0 };
                 allDates.add(day.date);
+
                 if (day.leverage > 0.01) {
                     if (day.status === '上涨趋势') statsMap[day.date].up++;
                     else if (day.status === '下跌趋势') statsMap[day.date].down++;
                     else if (day.status === '震荡整理') statsMap[day.date].sideways++;
                     else if (day.status === '触发风控') statsMap[day.date].risk++;
                 }
+
                 if (!dateToDayMap[day.date]) dateToDayMap[day.date] = [];
                 dateToDayMap[day.date].push({ name: res.stockName, close: day.close, lev: day.leverage });
             });
         });
+
         const dates = Array.from(allDates).sort();
+        
         let mockNav = 1.0;
         let prevValid = {};
         for (let i = 0; i < dates.length; i++) {
@@ -1014,30 +975,49 @@
             dayStocks.forEach(s => prevValid[s.name] = s);
             statsMap[d].nav = mockNav;
         }
+
         let stageMap = {}; let currentStage = null; let bullSeq = 0, bearSeq = 0, toleranceCount = 0;
+        
         for (let i = 1; i < dates.length; i++) {
             const date = dates[i];
             const curr = statsMap[date];
-            const prev = statsMap[dates[i - 1]];
+            const prev = statsMap[dates[i-1]];
+
+            // 计算极短线动量：1日净值变化 (这在数学上完全等同于比较当前值与2日均线)
             let navMom1d = (curr.nav - prev.nav) / prev.nav;
+
+            // 极速强势特征：今日上涨且涨幅 > 0.2%
             let isCoreSurging = navMom1d > 0.002;
+            // 极速弱势特征：今日下跌且跌幅 < -0.3%
             let isCoreCrashing = navMom1d < -0.003;
-            const currDown = curr.down + curr.risk;
-            const prevDown = prev.down + prev.risk;
+
+            const currDown = curr.down + curr.risk; const prevDown = prev.down + prev.risk;
             let bullVotes = 0, bearVotes = 0;
+
             if (curr.up > prev.up) bullVotes += 2.0; else if (curr.up < prev.up) bearVotes += 1.5;
             if ((curr.up + curr.sideways) > (prev.up + prev.sideways)) bullVotes += 1.0; else if ((curr.up + curr.sideways) < (prev.up + prev.sideways)) bearVotes += 1.0;
             if (currDown < prevDown) bullVotes += 2.0; else if (currDown > prevDown) bearVotes += 1.5;
-            if (isCoreSurging) { bullVotes += 5.0; bearVotes = 0; }
-            else if (isCoreCrashing) { bearVotes += 5.0; bullVotes = 0; }
+
+            // 【动量一票否决】
+            if (isCoreSurging) {
+                bullVotes += 5.0; bearVotes = 0; 
+            } else if (isCoreCrashing) {
+                bearVotes += 5.0; bullVotes = 0; 
+            }
+
             const isBullDay = bullVotes > bearVotes;
             const isBearDay = bearVotes > bullVotes;
+
+            // 极限超车越级翻转 (单日爆涨/暴跌直接切换，消灭一切滞后)
             let forceBull = navMom1d > 0.004;
             let forceBear = navMom1d < -0.005;
+
             if (forceBull && currentStage !== 'bull') {
-                currentStage = 'bull'; bullSeq = 2; bearSeq = 0; toleranceCount = 0;
+                currentStage = 'bull';
+                bullSeq = 2; bearSeq = 0; toleranceCount = 0;
             } else if (forceBear && currentStage !== 'bear') {
-                currentStage = 'bear'; bearSeq = 2; bullSeq = 0; toleranceCount = 0;
+                currentStage = 'bear';
+                bearSeq = 2; bullSeq = 0; toleranceCount = 0;
             } else {
                 if (currentStage === null) {
                     if (isBullDay) { bullSeq++; bearSeq = 0; } else if (isBearDay) { bearSeq++; bullSeq = 0; } else { bullSeq = 0; bearSeq = 0; }
@@ -1045,14 +1025,15 @@
                 } else {
                     let isReinforced = (currentStage === 'bull' && isBullDay) || (currentStage === 'bear' && isBearDay);
                     let isOpposite = (currentStage === 'bull' && isBearDay) || (currentStage === 'bear' && isBullDay);
-                    if (isReinforced) { toleranceCount = 0; if (currentStage === 'bull') bearSeq = 0; else bullSeq = 0; }
+
+                    if (isReinforced) { toleranceCount = 0; if(currentStage === 'bull') bearSeq = 0; else bullSeq = 0; }
                     else {
                         toleranceCount++;
                         if (isOpposite) { if (currentStage === 'bull') bearSeq++; else bullSeq++; }
                         let trendFlip = (currentStage === 'bull' && bearSeq >= 2) || (currentStage === 'bear' && bullSeq >= 2);
                         if (toleranceCount > 2 || trendFlip) {
                             currentStage = null; bullSeq = 0; bearSeq = 0; toleranceCount = 0;
-                            if (trendFlip) i -= 2;
+                            if (trendFlip) i -= 2; // 退回重新判定
                         }
                     }
                 }
@@ -1063,10 +1044,14 @@
     }
 
     function calculateMarketStagesMarkArea() {
-        if (!currentGlobalStageMap) return { data: [] };
+        if (!currentGlobalStageMap) return { data:[] };
         const dates = Object.keys(currentGlobalStageMap).sort();
-        if (dates.length < 2) return { data: [] };
-        let markData = []; let activeStage = null; let startD = null;
+        if (dates.length < 2) return { data:[] };
+        
+        let markData =[]; 
+        let activeStage = null; 
+        let startD = null;
+        
         for (let i = 0; i < dates.length; i++) {
             let stage = currentGlobalStageMap[dates[i]];
             if (stage !== activeStage) {
@@ -1075,7 +1060,8 @@
                     let name = activeStage === 'bull' ? '上涨阶段' : '下跌阶段';
                     markData.push([{ name: name, xAxis: startD, itemStyle: { color: color }, label: { show: true, position: 'top', color: '#999', fontSize: 10, formatter: '{b}' } }, { xAxis: dates[i] }]);
                 }
-                activeStage = stage; startD = dates[i];
+                activeStage = stage;
+                startD = dates[i];
             }
         }
         if (activeStage !== null) {
@@ -1087,195 +1073,135 @@
     }
 
     async function calculateStock(stock, realtimeData, globalStageMap = null) {
-        const startDate = document.getElementById('inStartDate').value;
-        const endDate = document.getElementById('inEndDate').value;
+        const startDate = document.getElementById('inStartDate').value; const endDate = document.getElementById('inEndDate').value;
         const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
-        const lowSens = parseFloat(document.getElementById('pLowSens').value) || 12;
-        const lowRed = parseFloat(document.getElementById('pLowRed').value) || 0.3;
-        const normSens = parseFloat(document.getElementById('pNormSens').value) || 25;
-        const normRed = parseFloat(document.getElementById('pNormRed').value) || 0.8;
-        const useTiming = document.getElementById('pTimeEnable').checked;
-        const timeRatio = parseFloat(document.getElementById('pTimeRatio').value) || 0.0;
+        const lowSens = parseFloat(document.getElementById('pLowSens').value) || 12; const lowRed = parseFloat(document.getElementById('pLowRed').value) || 0.3;
+        const normSens = parseFloat(document.getElementById('pNormSens').value) || 25; const normRed = parseFloat(document.getElementById('pNormRed').value) || 0.8;
+        const useTiming = document.getElementById('pTimeEnable').checked; const timeRatio = parseFloat(document.getElementById('pTimeRatio').value) || 0.0;
 
-        let emSecId = getEmSecId(stock.code);
-        let rawCode = emSecId.split('.')[1];
-        const klines = await fetchHistoryKline(emSecId);
-        if (!klines || klines.length === 0) throw new Error("无K线数据");
-
-        let rawData = [];
+        let emSecId = getEmSecId(stock.code); let rawCode = emSecId.split('.')[1];
+        const klines = await fetchHistoryKline(emSecId); if(!klines || klines.length === 0) throw new Error("无K线数据");
+        let rawData =[];
         const minCap = stock.minCap, maxCap = stock.maxCap, midCap = (minCap + maxCap) / 2.0;
-
-        // =====================================================================
-        // 【修复4 续】用 marketCapBillions 直接换算总股本，精度更高
-        // =====================================================================
-        const rt = realtimeData[rawCode];
-        // 优先用实时总股本（亿股），无实时数据时用 100 亿股作为默认
-        const totalSharesBillions = rt ? rt.totalSharesBillions : 100.0;
-
+        let totalShares = realtimeData[rawCode]?.totalShares || 100.0;
         klines.forEach(k => {
-            const p = k.split(',');
+            const p = k.split(','); 
             if (p[0] >= startDate && p[0] <= endDate) {
                 let close = parseFloat(p[1]);
-                let mv = close * totalSharesBillions; // 亿元市值 = 价格 × 总股本(亿股)
-                rawData.push({
-                    date: p[0], close, mv,
-                    valScore: (mv <= minCap) ? 1 : (mv >= maxCap) ? -1 : ((mv <= midCap) ? (midCap - mv) / (midCap - minCap) : -(mv - midCap) / (maxCap - midCap))
-                });
+                let mv = close * totalShares;
+                rawData.push({ date: p[0], close, mv, valScore: (mv<=minCap)?1:(mv>=maxCap)?-1:((mv<=midCap)?(midCap-mv)/(midCap-minCap):-(mv-midCap)/(maxCap-midCap)) });
             }
         });
         if (rawData.length === 0) throw new Error("区间无数据");
 
-        // 注入实时价格（最新一根）
+        const rt = realtimeData[rawCode];
         if (rt) {
             let rtDate = (rt.timestamp && rt.timestamp > 0) ? new Date(rt.timestamp * 1000).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
             if (rtDate <= endDate) {
-                // 直接用实时市值（亿元），精度最高
-                const rtMv = rt.marketCapBillions;
-                const item = {
-                    date: rtDate, close: rt.price, mv: rtMv,
-                    valScore: (rtMv <= minCap) ? 1 : (rtMv >= maxCap) ? -1 : ((rtMv <= midCap) ? (midCap - rtMv) / (midCap - minCap) : -(rtMv - midCap) / (maxCap - midCap))
-                };
+                const rtMv = rt.price * rt.totalShares; 
+                const item = { date: rtDate, close: rt.price, mv: rtMv, valScore: (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap)) };
                 const lastK = rawData[rawData.length - 1];
-                if (rtDate > lastK.date) rawData.push(item);
+                if (rtDate > lastK.date) rawData.push(item); 
                 else if (rtDate === lastK.date) rawData[rawData.length - 1] = item;
             }
         }
 
-        const ma5 = calculateMA_Array(rawData, 5);
-        const ma10 = calculateMA_Array(rawData, 10);
-        const ma20 = calculateMA_Array(rawData, 20);
+        const ma5 = calculateMA_Array(rawData, 5), ma10 = calculateMA_Array(rawData, 10), ma20 = calculateMA_Array(rawData, 20);
         const getLev = (mv) => (mv <= minCap) ? maxLev : (mv >= maxCap) ? 0.0 : maxLev * Math.exp(-2.5 * ((mv - minCap) / (maxCap - minCap)));
-
-        let nav = 1.0, peak = 1.0, prevL = getLev(rawData[0].mv), inProt = false, history = [], logs = [], maxDD = 0;
-        history.push({ date: rawData[0].date, nav: 1.0, close: rawData[0].close, leverage: prevL, status: "震荡整理", reason: "初始建仓" });
-
-        for (let i = 1; i < rawData.length; i++) {
-            const d = rawData[i], prevD = rawData[i - 1];
-            const r = d.close / prevD.close - 1;
+        let nav = 1.0, peak = 1.0, prevL = getLev(rawData[0].mv), inProt = false, history =[], logs =[], maxDD = 0;
+        history.push({date: rawData[0].date, nav:1.0, close:rawData[0].close, leverage:prevL, status: "震荡整理", reason: "初始建仓"});
+        
+        for(let i=1; i<rawData.length; i++) {
+            const d = rawData[i], prevD = rawData[i-1]; const r = d.close / prevD.close - 1;
             const m5 = ma5[i], m10 = ma10[i], m20 = ma20[i];
             let targetL = getLev(d.mv), newL = targetL, reason = "估值驱动", status = "震荡整理";
-            const isTechUp = (m5 > m10 && m5 > m20 && d.close > m20);
-            const isTechDown = (m5 < m10 && m5 < m20 && d.close < m20);
+            const isTechUp = (m5 > m10 && m5 > m20 && d.close > m20), isTechDown = (m5 < m10 && m5 < m20 && d.close < m20);
             const isUp = isTechUp && r > 0, isDown = isTechDown && r < 0;
-            nav *= (1 + prevL * r);
-            if (nav > peak) peak = nav;
-            let dd = (peak - nav) / peak;
-            if (dd > maxDD) maxDD = dd;
-            if (dd > 0.15 && !inProt) {
-                if (d.mv > minCap * 1.05) { inProt = true; newL = prevL * 0.4; reason = "回撤止损"; peak = nav; }
-                else reason = "低估跳过止损";
-            }
-            if (inProt) {
-                status = "触发风控";
-                if (isUp && d.valScore > 0) { inProt = false; newL = targetL; reason = "趋势恢复"; }
-                else { newL = isDown ? prevL * 0.5 : 0; reason = "保护中"; }
-            } else {
-                if (isTechUp) status = "上涨趋势"; else if (isTechDown) status = "下跌趋势";
-                if (isDown) {
-                    if (d.valScore > 0.6 && d.close > m5) {
-                        if (newL < prevL) { newL = prevL; reason = "低估且站上MA5"; }
-                    } else {
-                        let slope = (m10 - m20) / m20;
-                        let red = (d.mv <= minCap) ? Math.min(1, Math.abs(slope) * lowSens) * lowRed : Math.min(1, Math.abs(slope) * normSens) * normRed;
-                        let trendL = Math.max(0, prevL * (1 - red));
-                        if (trendL < newL) { newL = trendL; reason = "趋势减仓"; }
+            nav *= (1 + prevL * r); if(nav > peak) peak = nav;
+            let dd = (peak - nav)/peak; if(dd > maxDD) maxDD = dd;
+            if(dd > 0.15 && !inProt) { if(d.mv > minCap * 1.05) { inProt = true; newL = prevL * 0.4; reason = "回撤止损"; peak = nav; } else reason = "低估跳过止损"; }
+            if(inProt) { status = "触发风控"; if(isUp && d.valScore > 0) { inProt = false; newL = targetL; reason = "趋势恢复"; } else { newL = isDown ? prevL * 0.5 : 0; reason = "保护中"; } }
+            else {
+                if(isTechUp) status = "上涨趋势"; else if(isTechDown) status = "下跌趋势";
+                if(isDown) {
+                    if (d.valScore > 0.6 && d.close > m5) { if (newL < prevL) { newL = prevL; reason = "低估且站上MA5"; } } 
+                    else {
+                        let slope = (m10 - m20)/m20; let red = (d.mv <= minCap) ? Math.min(1, Math.abs(slope)*lowSens)*lowRed : Math.min(1, Math.abs(slope)*normSens)*normRed;
+                        let trendL = Math.max(0, prevL * (1 - red)); if(trendL < newL) { newL = trendL; reason = "趋势减仓"; }
                     }
                 }
-                if (isUp) {
-                    let upL = (r < -0.02) ? Math.min(maxLev, prevL * 1.05) : Math.max(prevL, targetL);
-                    if (targetL < prevL && Math.abs(upL - prevL) < 0.001) reason = "上涨暂停减仓";
-                    newL = upL;
-                }
-                if (useTiming && globalStageMap && globalStageMap[d.date] === 'bear') {
-                    newL *= timeRatio; reason = `📉 下跌区间降仓(${timeRatio})`;
-                }
+                if(isUp) { let upL = (r < -0.02) ? Math.min(maxLev, prevL * 1.05) : Math.max(prevL, targetL); if(targetL < prevL && Math.abs(upL - prevL) < 0.001) reason = "上涨暂停减仓"; newL = upL; }
+                if (useTiming && globalStageMap && globalStageMap[d.date] === 'bear') { newL *= timeRatio; reason = `📉 下跌区间降仓(${timeRatio})`; }
             }
             if (reason === "估值驱动" && status === "上涨趋势") reason = "估值驱动-上涨趋势";
             const diff = newL - prevL;
             let actHtml = diff > 0.005 ? `<span class="badge bg-red">加仓</span>` : diff < -0.005 ? `<span class="badge bg-green">减仓</span>` : `<span class="badge bg-gray">持仓</span>`;
-            logs.push({ date: d.date, action: actHtml, val: `${prevL.toFixed(2)}→${newL.toFixed(2)}`, reason, mas: `M5:${m5?.toFixed(2)}<br>M10:${m10?.toFixed(2)}` });
-            history.push({ date: d.date, nav, close: d.close, leverage: newL, status, reason });
-            prevL = newL;
+            logs.push({ date: d.date, action: actHtml, val: `${prevL.toFixed(2)}→${newL.toFixed(2)}`, reason, mas: `M5:${m5?.toFixed(2)}<br>M10:${m10?.toFixed(2)}` }); 
+            history.push({date: d.date, nav, close: d.close, leverage: newL, status, reason}); prevL = newL;
         }
-        return {
-            stockName: stock.name, stockCode: stock.code, history, logs,
-            stats: {
-                ret: (nav - 1) * 100,
-                stockRet: (history[history.length - 1].close / history[0].close - 1) * 100,
-                maxDD: maxDD * 100,
-                avgLev: history.reduce((a, b) => a + b.leverage, 0) / history.length
-            }
-        };
+        return { stockName: stock.name, stockCode: stock.code, history, logs, stats: { ret: (nav-1)*100, stockRet: (history[history.length-1].close/history[0].close-1)*100, maxDD: maxDD * 100, avgLev: history.reduce((a,b)=>a+b.leverage,0)/history.length } };
     }
 
     async function runBatchBacktest() {
         const allRows = document.querySelectorAll('#stock-tbody tr');
-        const indices = [];
+        const indices =[];
         allRows.forEach((row, index) => {
             if (row.style.display !== 'none') {
                 const chk = row.querySelector('.stock-chk');
                 if (chk && chk.checked) indices.push(index);
             }
         });
-        if (indices.length === 0) return;
+        if(indices.length === 0) return;
         let missingCodes = stocks.filter(s => !s.code).length;
-        if (missingCodes > 0) {
-            if (confirm(`发现 ${missingCodes} 只股票缺少代码。是否立即自动修复？`)) { await ensureStockCodes(); return; }
+        if(missingCodes > 0) {
+            if(confirm(`发现 ${missingCodes} 只股票缺少代码。是否立即自动修复？`)) { await ensureStockCodes(); return; }
         }
-        const btn = document.getElementById('btn-run-all');
-        const progress = document.getElementById('batch-progress');
-        const useTiming = document.getElementById('pTimeEnable').checked;
-        btn.disabled = true;
-        document.getElementById('summary-tbody').innerHTML = '';
-        document.getElementById('results-container').style.display = 'none';
-        progress.style.display = 'block';
-        benchmarkResults = [];
+        const btn = document.getElementById('btn-run-all'), progress = document.getElementById('batch-progress'), useTiming = document.getElementById('pTimeEnable').checked;
+        btn.disabled = true; document.getElementById('summary-tbody').innerHTML = ''; document.getElementById('results-container').style.display = 'none'; progress.style.display = 'block';
+        benchmarkResults =[];
         const secIds = indices.map(i => getEmSecId(stocks[i].code));
         progress.innerHTML = `获取行情(免代理直连)...`;
-        let rtMap = {};
-        try { rtMap = await fetchBatchRealtimeData(secIds); } catch (e) {}
-
+        let rtMap = {}; try { rtMap = await fetchBatchRealtimeData(secIds); } catch(e) {}
         const runLoop = async (idxs, stageMap = null) => {
-            let res = [], active = 0, finished = 0, total = idxs.length;
+            let res =[], active = 0, finished = 0, total = idxs.length;
             return new Promise(resolve => {
                 const next = async () => {
-                    if (finished === total) { if (active === 0) resolve(res); return; }
+                    if (finished === total) { if(active===0) resolve(res); return; }
                     while (idxs.length > 0 && active < 10) {
                         const idx = idxs.shift(); active++;
-                        calculateStock(stocks[idx], rtMap, stageMap)
-                            .then(r => { r.index = idx; res.push(r); if (!useTiming || stageMap) appendSummaryRow(r, idx); })
-                            .catch(e => { if (!useTiming || stageMap) document.getElementById('summary-tbody').innerHTML += `<tr><td>${stocks[idx].name}</td><td colspan="4" style="color:orange">❌ ${e.message}</td></tr>`; })
-                            .finally(() => { active--; finished++; progress.innerHTML = `计算中 (${finished}/${total})...`; next(); });
+                        calculateStock(stocks[idx], rtMap, stageMap).then(r => { 
+                            r.index = idx; res.push(r); 
+                            if (!useTiming || stageMap) appendSummaryRow(r, idx);
+                        }).catch(e => { if(!useTiming || stageMap) document.getElementById('summary-tbody').innerHTML += `<tr><td>${stocks[idx].name}</td><td colspan="4" style="color:orange">❌ ${e.message}</td></tr>`; })
+                        .finally(() => { active--; finished++; progress.innerHTML = `计算中 (${finished}/${total})...`; next(); });
                     }
-                };
-                next();
+                }; next();
             });
         };
-
+        
         if (useTiming) {
             progress.innerHTML = "预演市场状态 (Pass 1)...";
-            benchmarkResults = (await runLoop([...indices], null)).sort((a, b) => a.index - b.index);
+            benchmarkResults = (await runLoop([...indices], null)).sort((a,b)=>a.index-b.index);
             currentGlobalStageMap = getGlobalMarketStageMap(benchmarkResults);
             progress.innerHTML = "执行择时策略 (Pass 2)...";
-            batchResults = (await runLoop([...indices], currentGlobalStageMap)).sort((a, b) => a.index - b.index);
+            batchResults = (await runLoop([...indices], currentGlobalStageMap)).sort((a,b)=>a.index-b.index);
         } else {
-            batchResults = (await runLoop([...indices], null)).sort((a, b) => a.index - b.index);
+            batchResults = (await runLoop([...indices], null)).sort((a,b)=>a.index-b.index);
             currentGlobalStageMap = getGlobalMarketStageMap(batchResults);
         }
-
+        
         progress.innerHTML = `✅ 完成!`; btn.disabled = false;
-        if (batchResults.length === 0) { progress.style.display = 'none'; btn.disabled = false; return; }
-        if (batchResults.length > 0) {
+        if(batchResults.length === 0) { progress.style.display = 'none'; btn.disabled = false; return; }
+        if(batchResults.length > 0) {
             document.getElementById('results-container').style.display = 'block';
-            updateSummaryFilterOptions();
-            toggleSection('summary-content', document.querySelector('#batch-summary-box .section-header'));
+            updateSummaryFilterOptions(); toggleSection('summary-content', document.querySelector('#batch-summary-box .section-header'));
             runPortfolioStrategy(); renderStatusDistribution(); renderTrendLog(); renderDetailCombo(); renderStatusDetails(); showDetail(batchResults[0].index);
         }
     }
 
     async function uploadToGithub() {
         const cfg = getGbConfig(); if (!cfg.token) { openSettingsModal(); return; }
-        if (!confirm("⚠️ 连接 GitHub 需要开启 VPN。\n\n请确认 VPN 已开启。")) return;
+        if(!confirm("⚠️ 连接 GitHub 需要开启 VPN。\n\n请确认 VPN 已开启。")) return;
         const btn = document.getElementById('btn-push'), origin = btn.innerText; btn.innerText = "⏳ 连接中..."; btn.disabled = true;
         try {
             const url = `https://api.github.com/repos/${cfg.username}/${cfg.repo}/contents/${cfg.path}`;
@@ -1288,16 +1214,15 @@
 
     async function syncFromGithub() {
         const cfg = getGbConfig(); if (!cfg.token) { openSettingsModal(); return; }
-        if (!confirm("⚠️ 连接 GitHub 需要开启 VPN。\n\n请确认 VPN 已开启。")) return;
+        if(!confirm("⚠️ 连接 GitHub 需要开启 VPN。\n\n请确认 VPN 已开启。")) return;
         const btn = document.getElementById('btn-pull'), origin = btn.innerText; btn.innerText = "⏳ 连接中..."; btn.disabled = true;
         try {
             const url = `https://api.github.com/repos/${cfg.username}/${cfg.repo}/contents/${cfg.path}`;
             const headers = { "Accept": "application/vnd.github.v3+json", "Authorization": `token ${cfg.token}` };
             let res = await fetch(url, { headers });
-            let data;
-            if (res.ok) data = JSON.parse(safeB64ToUtf8((await res.json()).content));
-            else { const raw = await fetch(`https://raw.githubusercontent.com/${cfg.username}/${cfg.repo}/${cfg.branch}/${cfg.path}?t=${Date.now()}`); if (!raw.ok) throw new Error("无数据"); data = await raw.json(); }
-            if (Array.isArray(data) && confirm(`覆盖本地 ${stocks.length} 条数据?`)) { stocks = data; APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(false); updateStatus('online', '已同步'); }
+            let data; if (res.ok) data = JSON.parse(safeB64ToUtf8((await res.json()).content)); 
+            else { const raw = await fetch(`https://raw.githubusercontent.com/${cfg.username}/${cfg.repo}/${cfg.branch}/${cfg.path}?t=${Date.now()}`); if(!raw.ok) throw new Error("无数据"); data = await raw.json(); }
+            if(Array.isArray(data) && confirm(`覆盖本地 ${stocks.length} 条数据?`)) { stocks = data; APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(false); updateStatus('online', '已同步'); }
             ensureStockCodes();
         } catch (e) { alert("❌ 拉取失败: " + e.message); updateStatus('error', '拉取失败'); } finally { btn.innerText = origin; btn.disabled = false; }
     }
@@ -1305,32 +1230,32 @@
     async function importMergeFromGithub() {
         const cfg = getGbConfig(); let token = cfg.token;
         if (!token) { openSettingsModal(); return; }
-        if (!confirm("⚠️ 从 GitHub 导入数据需要开启 VPN。")) return;
+        if(!confirm("⚠️ 从 GitHub 导入数据需要开启 VPN。")) return;
         const DATA_REPO_USER = "dlezywj-cell";
         const DATA_REPO_NAME = "stockdata";
         let targetPath = prompt(`从 ${DATA_REPO_USER}/${DATA_REPO_NAME} 导入:\n请输入文件名:`, "data.json");
         if (!targetPath) return;
         updateStatus('syncing', '正在计算并导入...');
         try {
-            let data = [];
+            let data =[];
             if (targetPath.startsWith('http')) {
                 const res = await fetch(targetPath); if (!res.ok) throw new Error("无法访问该 URL"); data = await res.json();
             } else {
                 const url = `https://api.github.com/repos/${DATA_REPO_USER}/${DATA_REPO_NAME}/contents/${targetPath.trim()}`;
-                const headers = { "Accept": "application/vnd.github.v3+json" }; if (token) headers["Authorization"] = `token ${token.trim()}`;
+                const headers = { "Accept": "application/vnd.github.v3+json" }; if(token) headers["Authorization"] = `token ${token.trim()}`;
                 let res = await fetch(url, { headers });
-                if (res.ok) { const json = await res.json(); data = JSON.parse(safeB64ToUtf8(json.content)); }
-                else {
-                    const rawUrl = `https://raw.githubusercontent.com/${DATA_REPO_USER}/${DATA_REPO_NAME}/main/${targetPath.trim()}?t=${Date.now()}`;
-                    const rawRes = await fetch(rawUrl); if (!rawRes.ok) throw new Error("未找到文件"); data = await rawRes.json();
+                if (res.ok) { const json = await res.json(); data = JSON.parse(safeB64ToUtf8(json.content)); } 
+                else { 
+                    const rawUrl = `https://raw.githubusercontent.com/${DATA_REPO_USER}/${DATA_REPO_NAME}/main/${targetPath.trim()}?t=${Date.now()}`; 
+                    const rawRes = await fetch(rawUrl); if(!rawRes.ok) throw new Error("未找到文件"); data = await rawRes.json(); 
                 }
             }
             if (!Array.isArray(data)) throw new Error("源数据格式必须是数组 [...]");
-            stocks = [];
+            stocks =[];
             let addedCount = 0;
             data.forEach(sourceItem => {
                 let finalCode = "";
-                if (sourceItem.code) {
+                if(sourceItem.code) {
                     let rawCode = sourceItem.code.toString().trim().toUpperCase();
                     let bareCode = rawCode;
                     let suffix = "";
@@ -1340,7 +1265,7 @@
                     else if (rawCode.includes('.SZ') || rawCode.startsWith('SZ')) suffix = ".SZ";
                     bareCode = bareCode.replace(/^(HK|SH|SZ|US)\.?/i, '').replace(/\.(HK|SH|SZ|US)$/i, '');
                     if (!suffix) {
-                        if (/^116\./.test(bareCode)) { suffix = ".HK"; bareCode = bareCode.replace(/^116\./, ''); }
+                        if (/^116\./.test(bareCode)) { suffix = ".HK"; bareCode = bareCode.replace(/^116\./, ''); } 
                         else if (/^(105|106|107)\./.test(bareCode)) { suffix = ".US"; bareCode = bareCode.replace(/^(105|106|107)\./, ''); }
                         else if (/^0\./.test(bareCode)) { suffix = ".SZ"; bareCode = bareCode.replace(/^0\./, ''); }
                         else if (/^1\./.test(bareCode)) { suffix = ".SH"; bareCode = bareCode.replace(/^1\./, ''); }
@@ -1362,9 +1287,9 @@
                 const lowPS = parseFloat(sourceItem.lowPS) || 0, highPS = parseFloat(sourceItem.highPS) || 0;
                 const valPE_Low = profit * lowPE, valPE_High = profit * highPE;
                 const valPS_Low = revenue * lowPS, valPS_High = revenue * highPS;
-                let minCandidates = []; if (valPE_Low > 0) minCandidates.push(valPE_Low); if (valPS_Low > 0) minCandidates.push(valPS_Low);
+                let minCandidates =[]; if (valPE_Low > 0) minCandidates.push(valPE_Low); if (valPS_Low > 0) minCandidates.push(valPS_Low);
                 let calcMin = minCandidates.length > 0 ? Math.min(...minCandidates) : (sourceItem.minCap || 2000);
-                let maxCandidates = []; if (valPE_High > 0) maxCandidates.push(valPE_High); if (valPS_High > 0) maxCandidates.push(valPS_High);
+                let maxCandidates =[]; if (valPE_High > 0) maxCandidates.push(valPE_High); if (valPS_High > 0) maxCandidates.push(valPS_High);
                 let calcMax = maxCandidates.length > 0 ? Math.min(...maxCandidates) : (sourceItem.maxCap || 4000);
                 const newItem = { code: finalCode, name: sourceItem.name, minCap: calcMin, maxCap: calcMax, profit, revenue, tags: sourceItem.tags || "", lastMod: new Date().toISOString().split('T')[0] };
                 stocks.push(newItem); addedCount++;
@@ -1377,51 +1302,51 @@
 
     function calculatePortfolioHistory(resultsInput) {
         if (!resultsInput || resultsInput.length === 0) return null;
-        let minPosThreshold = parseFloat(document.getElementById('pMinPos').value) || 0.4;
-        let dateMap = {};
+        let minPosThreshold = parseFloat(document.getElementById('pMinPos').value) || 0.4; 
+        let dateMap = {}; 
         resultsInput.forEach((res) => { res.history.forEach(day => { if (!dateMap[day.date]) dateMap[day.date] = { date: day.date, stocks: {} }; dateMap[day.date].stocks[res.stockName] = { close: day.close, idealLev: day.leverage, reason: day.reason }; }); });
-        const sortedDates = Object.keys(dateMap).sort();
-        if (sortedDates.length < 2) return null;
-        let portNav = 1.0, portHistory = [], maxDD = 0, peak = 1.0;
-        let lastValidData = {}, prevAllocatedLevs = {}, accContribution = {};
+        const sortedDates = Object.keys(dateMap).sort(); if (sortedDates.length < 2) return null;
+        let portNav = 1.0, portHistory =[], maxDD = 0, peak = 1.0; 
+        let lastValidData = {}, prevAllocatedLevs = {}, accContribution = {}; 
         resultsInput.forEach((res) => { accContribution[res.stockName] = 0; });
         for (let i = 0; i < sortedDates.length; i++) {
-            const currDate = sortedDates[i];
-            const rawDayData = dateMap[currDate];
-            const prevValidData = { ...lastValidData };
+            const currDate = sortedDates[i]; const rawDayData = dateMap[currDate]; const prevValidData = { ...lastValidData };
             resultsInput.forEach((res) => { if (rawDayData.stocks[res.stockName]) lastValidData[res.stockName] = rawDayData.stocks[res.stockName]; });
-            let dailyContribBreakdown = {};
+            let dailyContribBreakdown = {}; 
             if (i > 0) {
                 let dayPnLComponent = 0;
                 resultsInput.forEach((res) => {
-                    const sCurr = lastValidData[res.stockName];
-                    const sPrev = prevValidData[res.stockName];
-                    const allocatedL = prevAllocatedLevs[res.stockName] || 0;
-                    if (sCurr && sPrev && sPrev.close > 0) {
-                        const contribution = ((sCurr.close - sPrev.close) / sPrev.close) * allocatedL;
-                        dayPnLComponent += contribution; accContribution[res.stockName] += contribution;
+                    const sCurr = lastValidData[res.stockName]; const sPrev = prevValidData[res.stockName]; const allocatedL = prevAllocatedLevs[res.stockName] || 0; 
+                    if (sCurr && sPrev && sPrev.close > 0) { 
+                        const contribution = ((sCurr.close - sPrev.close) / sPrev.close) * allocatedL; 
+                        dayPnLComponent += contribution; accContribution[res.stockName] += contribution; 
                     }
                 });
-                portNav = portNav * (1 + dayPnLComponent);
-                if (portNav > peak) peak = portNav;
+                portNav = portNav * (1 + dayPnLComponent); 
+                if (portNav > peak) peak = portNav; 
                 const dd = (peak - portNav) / peak; if (dd > maxDD) maxDD = dd;
             }
             resultsInput.forEach((res) => { dailyContribBreakdown[res.stockName] = accContribution[res.stockName]; });
             let currentValidStocks = {}, activeCount = 0;
-            let dailyStockReturns = {};
-            resultsInput.forEach((res) => {
-                const sCurr = lastValidData[res.stockName];
+            let dailyStockReturns = {}; 
+            
+            resultsInput.forEach((res) => { 
+                const sCurr = lastValidData[res.stockName]; 
                 const sPrev = prevValidData[res.stockName];
-                if (sCurr && sPrev && sPrev.close > 0) { dailyStockReturns[res.stockName] = ((sCurr.close - sPrev.close) / sPrev.close) * 100; }
-                else { dailyStockReturns[res.stockName] = 0; }
-                if (sCurr && sCurr.idealLev >= minPosThreshold) { currentValidStocks[res.stockName] = sCurr.idealLev; activeCount++; }
+                
+                if (sCurr && sPrev && sPrev.close > 0) {
+                    dailyStockReturns[res.stockName] = ((sCurr.close - sPrev.close) / sPrev.close) * 100;
+                } else {
+                    dailyStockReturns[res.stockName] = 0;
+                }
+
+                if (sCurr && sCurr.idealLev >= minPosThreshold) { currentValidStocks[res.stockName] = sCurr.idealLev; activeCount++; } 
             });
-            let dailyBreakdown = {}, currentCalculatedSumAlloc = 0;
+
+            let dailyBreakdown = {}, currentCalculatedSumAlloc = 0; 
             resultsInput.forEach((res) => {
-                if (currentValidStocks[res.stockName] !== undefined && activeCount > 0) {
-                    const alloc = currentValidStocks[res.stockName] / activeCount;
-                    prevAllocatedLevs[res.stockName] = alloc; dailyBreakdown[res.stockName] = alloc; currentCalculatedSumAlloc += alloc;
-                } else { prevAllocatedLevs[res.stockName] = 0; }
+                if (currentValidStocks[res.stockName] !== undefined && activeCount > 0) { const alloc = currentValidStocks[res.stockName] / activeCount; prevAllocatedLevs[res.stockName] = alloc; dailyBreakdown[res.stockName] = alloc; currentCalculatedSumAlloc += alloc; } 
+                else { prevAllocatedLevs[res.stockName] = 0; }
             });
             portHistory.push({ date: currDate, nav: portNav, totalLev: currentCalculatedSumAlloc, breakdown: dailyBreakdown, contribBreakdown: dailyContribBreakdown, stockReturns: dailyStockReturns, activeCount: activeCount });
         }
@@ -1434,91 +1359,126 @@
         if (!mainStats) return alert("有效日期数据不足");
         const useTiming = document.getElementById('pTimeEnable').checked;
         let benchStats = (useTiming && benchmarkResults.length > 0) ? calculatePortfolioHistory(benchmarkResults) : null;
-        renderPortfolioStats(mainStats.history, mainStats.maxDD, (benchStats ? benchStats.history : null));
-        renderHoldingsChart(mainStats.history);
-        renderTradeLog(mainStats.history, mainStats.dateMap);
+        renderPortfolioStats(mainStats.history, mainStats.maxDD, (benchStats ? benchStats.history : null)); 
+        renderHoldingsChart(mainStats.history); 
+        renderTradeLog(mainStats.history, mainStats.dateMap); 
         renderContributionChart(mainStats.history);
-        renderRankingLog(mainStats.history);
+        renderRankingLog(mainStats.history); 
+        
         setTimeout(() => { echarts.connect('stockGroup'); }, 100);
     }
 
     function renderPortfolioStats(hist, maxDD, benchHist) {
-        const last = hist[hist.length - 1];
+        const last = hist[hist.length - 1]; 
         const prev = hist.length > 1 ? hist[hist.length - 2] : last;
-        const ret = (last.nav - 1) * 100;
+        const ret = (last.nav - 1) * 100; 
         const dayRet = hist.length > 1 ? ((last.nav - prev.nav) / prev.nav) * 100 : 0;
-        const avgLev = hist.reduce((a, b) => a + b.totalLev, 0) / hist.length;
-        document.getElementById('port-ret').innerText = ret.toFixed(2) + '%';
-        document.getElementById('port-ret').className = 'stat-val ' + (ret >= 0 ? 'win' : 'loss');
+        const avgLev = hist.reduce((a,b)=>a+b.totalLev, 0) / hist.length;
+
+        document.getElementById('port-ret').innerText = ret.toFixed(2) + '%'; 
+        document.getElementById('port-ret').className = 'stat-val ' + (ret>=0?'win':'loss');
+
         document.getElementById('port-day-ret').innerText = (dayRet >= 0 ? '+' : '') + dayRet.toFixed(2) + '%';
-        document.getElementById('port-day-ret').className = 'stat-val ' + (dayRet >= 0 ? 'win' : 'loss');
+        document.getElementById('port-day-ret').className = 'stat-val ' + (dayRet>=0?'win':'loss');
+
         document.getElementById('port-lev').innerText = avgLev.toFixed(2) + 'x';
-        document.getElementById('port-dd').innerText = (maxDD * 100).toFixed(2) + '%';
-        document.getElementById('port-dd').className = 'stat-val loss';
-        const dom = document.getElementById('portfolio-chart');
-        if (portfolioChart) portfolioChart.dispose();
-        portfolioChart = echarts.init(dom); portfolioChart.group = 'stockGroup';
-        const dates = hist.map(h => h.date);
-        const stageMarkArea = calculateMarketStagesMarkArea();
-        let seriesList = [
-            { name: '组合净值', type: 'line', data: hist.map(h => h.nav), itemStyle: { color: '#d32f2f' }, lineStyle: { width: 2 }, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0, markArea: stageMarkArea, z: 10 },
-            { name: '实际总杠杆', type: 'line', data: hist.map(h => h.totalLev), itemStyle: { color: '#1976d2' }, lineStyle: { width: 1 }, showSymbol: false, xAxisIndex: 1, yAxisIndex: 1, areaStyle: { opacity: 0.2 } }
-        ];
-        if (benchHist) seriesList.push({ name: '基准(不择时)', type: 'line', data: benchHist.map(h => h.nav), itemStyle: { color: '#333' }, lineStyle: { width: 2, type: 'dashed' }, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0, z: 1 });
+        document.getElementById('port-dd').innerText = (maxDD * 100).toFixed(2) + '%'; document.getElementById('port-dd').className = 'stat-val loss';
+        
+        const dom = document.getElementById('portfolio-chart'); if (portfolioChart) portfolioChart.dispose(); portfolioChart = echarts.init(dom); portfolioChart.group = 'stockGroup'; 
+        const dates = hist.map(h => h.date); const stageMarkArea = calculateMarketStagesMarkArea();
+        let seriesList =[ {name: '组合净值', type: 'line', data: hist.map(h=>h.nav), itemStyle: {color: '#d32f2f'}, lineStyle: {width: 2}, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0, markArea: stageMarkArea, z: 10}, {name: '实际总杠杆', type: 'line', data: hist.map(h=>h.totalLev), itemStyle: {color: '#1976d2'}, lineStyle: {width: 1}, showSymbol: false, xAxisIndex: 1, yAxisIndex: 1, areaStyle: {opacity: 0.2}} ];
+        if (benchHist) seriesList.push({name: '基准(不择时)', type: 'line', data: benchHist.map(h=>h.nav), itemStyle: {color: '#333'}, lineStyle: {width: 2, type: 'dashed'}, showSymbol: false, xAxisIndex: 0, yAxisIndex: 0, z: 1});
+
         portfolioChart.setOption({
-            tooltip: {
-                trigger: 'axis', axisPointer: { type: 'cross', link: { xAxisIndex: 'all' } },
-                formatter: function (params) {
-                    if (!params.length) return '';
-                    const idx = params[0].dataIndex;
-                    const item = hist[idx];
+            tooltip: { 
+                trigger: 'axis', 
+                axisPointer: {type: 'cross', link: {xAxisIndex: 'all'}}, 
+                formatter: function(params) { 
+                    if(!params.length) return ''; 
+                    const idx = params[0].dataIndex; 
+                    const item = hist[idx]; 
                     const benchItem = benchHist ? benchHist[idx] : null;
-                    let dailyChangeVal = 0, dailyChangeStr = '0.00%';
-                    if (idx > 0) { const prevNav = hist[idx - 1].nav; dailyChangeVal = (item.nav - prevNav) / prevNav * 100; dailyChangeStr = (dailyChangeVal >= 0 ? '+' : '') + dailyChangeVal.toFixed(2) + '%'; }
-                    let h = `<div style="font-weight:bold">${item.date}</div>`;
-                    h += `<div style="font-size:11px;">组合净值: <b>${item.nav.toFixed(3)}</b></div>`;
+                    let dailyChangeVal = 0;
+                    let dailyChangeStr = '0.00%';
+                    if (idx > 0) {
+                        const prevNav = hist[idx - 1].nav;
+                        dailyChangeVal = (item.nav - prevNav) / prevNav * 100;
+                        dailyChangeStr = (dailyChangeVal >= 0 ? '+' : '') + dailyChangeVal.toFixed(2) + '%';
+                    }
+                    let h = `<div style="font-weight:bold">${item.date}</div>`; 
+                    h += `<div style="font-size:11px;">组合净值: <b>${item.nav.toFixed(3)}</b></div>`; 
                     h += `<div style="font-size:11px;">当日涨跌: <b style="color:${dailyChangeVal >= 0 ? '#d32f2f' : '#2e7d32'}">${dailyChangeStr}</b></div>`;
-                    if (benchItem) h += `<div style="font-size:11px;">基准(不择时): <b>${benchItem.nav.toFixed(3)}</b></div>`;
-                    h += `<div style="font-size:11px;">实际总杠杆: <b>${item.totalLev.toFixed(2)}x</b></div>`;
-                    return h;
+                    if (benchItem) h += `<div style="font-size:11px;">基准(不择时): <b>${benchItem.nav.toFixed(3)}</b></div>`; 
+                    h += `<div style="font-size:11px;">实际总杠杆: <b>${item.totalLev.toFixed(2)}x</b></div>`; 
+                    return h; 
                 }
             },
-            legend: { top: 0, data: ['组合净值', '实际总杠杆', benchHist ? '基准(不择时)' : null].filter(Boolean) },
-            grid: [{ left: '12%', right: '8%', top: '15%', height: '55%' }, { left: '12%', right: '8%', top: '75%', height: '15%' }],
-            xAxis: [{ type: 'category', data: dates, gridIndex: 0, axisLabel: { show: false } }, { type: 'category', data: dates, gridIndex: 1, axisLabel: { show: false } }],
-            yAxis: [{ type: 'value', gridIndex: 0, scale: true }, { type: 'value', gridIndex: 1, min: 0 }],
-            dataZoom: [{ type: 'inside', xAxisIndex: [0, 1] }, { type: 'slider', xAxisIndex: [0, 1], bottom: 0, height: 20 }],
+            legend: { top: 0, data:['组合净值', '实际总杠杆', benchHist ? '基准(不择时)' : null].filter(Boolean) },
+            grid:[{ left: '12%', right: '8%', top: '15%', height: '55%' }, { left: '12%', right: '8%', top: '75%', height: '15%' }],
+            xAxis:[{type:'category', data:dates, gridIndex:0, axisLabel:{show:false}}, {type:'category', data:dates, gridIndex:1, axisLabel:{show:false}}],
+            yAxis:[{type:'value', gridIndex:0, scale:true}, {type:'value', gridIndex:1, min:0}],
+            dataZoom:[{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
             series: seriesList
         });
     }
 
-    let currentHoldingsSortMode = 'weight';
-    let currentContribSortMode = '1d';
+    let currentHoldingsSortMode = 'weight'; 
+    let currentContribSortMode = '1d'; 
 
     function updateDetailPanel(hist, index) {
-        const item = hist[index]; if (!item) return;
-        window.lastDetailHist = hist; window.lastDetailIndex = index;
+        const item = hist[index]; if(!item) return;
+        window.lastDetailHist = hist;
+        window.lastDetailIndex = index;
         const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
-        let list = [];
-        Object.keys(item.breakdown).forEach(name => {
-            if (item.breakdown[name] > 0.001) {
+        let list =[]; 
+        Object.keys(item.breakdown).forEach(name => { 
+            if(item.breakdown[name] > 0.001) {
                 let changePct = item.stockReturns ? (item.stockReturns[name] || 0) : 0;
-                list.push({ name: name, val: item.breakdown[name], change: changePct });
-            }
+                list.push({name: name, val: item.breakdown[name], change: changePct}); 
+            } 
         });
-        if (currentHoldingsSortMode === 'weight') list.sort((a, b) => b.val - a.val);
-        else list.sort((a, b) => b.change - a.change);
+        if (currentHoldingsSortMode === 'weight') {
+            list.sort((a, b) => b.val - a.val);
+        } else {
+            list.sort((a, b) => b.change - a.change);
+        }
         const headerBar = document.querySelector('#holdings-detail-panel .detail-header-bar');
         if (headerBar) {
-            headerBar.innerHTML = `<span style="font-size:12px;">${item.date} (${list.length}只)</span><div style="display:flex; gap:5px;"><button onclick="currentHoldingsSortMode='weight'; updateDetailPanel(window.lastDetailHist, window.lastDetailIndex)" style="font-size:10px; padding:2px 5px; cursor:pointer; background:${currentHoldingsSortMode === 'weight' ? '#007bff' : '#eee'}; color:${currentHoldingsSortMode === 'weight' ? '#fff' : '#666'}; border:none; border-radius:3px;">⚖️权重</button><button onclick="currentHoldingsSortMode='change'; updateDetailPanel(window.lastDetailHist, window.lastDetailIndex)" style="font-size:10px; padding:2px 5px; cursor:pointer; background:${currentHoldingsSortMode === 'change' ? '#007bff' : '#eee'}; color:${currentHoldingsSortMode === 'change' ? '#fff' : '#666'}; border:none; border-radius:3px;">📈涨跌</button></div>`;
+            headerBar.innerHTML = `
+                <span style="font-size:12px;">${item.date} (${list.length}只)</span>
+                <div style="display:flex; gap:5px;">
+                    <button onclick="currentHoldingsSortMode='weight'; updateDetailPanel(window.lastDetailHist, window.lastDetailIndex)" 
+                            style="font-size:10px; padding:2px 5px; cursor:pointer; background:${currentHoldingsSortMode==='weight'?'#007bff':'#eee'}; color:${currentHoldingsSortMode==='weight'?'#fff':'#666'}; border:none; border-radius:3px;">
+                        ⚖️权重
+                    </button>
+                    <button onclick="currentHoldingsSortMode='change'; updateDetailPanel(window.lastDetailHist, window.lastDetailIndex)" 
+                            style="font-size:10px; padding:2px 5px; cursor:pointer; background:${currentHoldingsSortMode==='change'?'#007bff':'#eee'}; color:${currentHoldingsSortMode==='change'?'#fff':'#666'}; border:none; border-radius:3px;">
+                        📈涨跌
+                    </button>
+                </div>
+            `;
         }
         let html = '';
-        list.forEach((p, i) => {
-            const posPct = (p.val / maxLev * 100).toFixed(2) + '%';
-            const dotColor = i === 0 ? '#d32f2f' : '#007bff';
+        list.forEach((p, i) => { 
+            const posPct = (p.val / maxLev * 100).toFixed(2) + '%'; 
+            const dotColor = i === 0 ? '#d32f2f' : '#007bff'; 
             const changeColor = p.change >= 0 ? '#d32f2f' : '#2e7d32';
             const changeTxt = (p.change >= 0 ? '+' : '') + p.change.toFixed(2) + '%';
-            html += `<div class="detail-row"><div class="detail-name"><span style="color:#999; font-size:10px;">${i + 1}.</span><div class="detail-dot" style="background:${dotColor}"></div>${p.name}</div><div style="display:flex; align-items:center; gap:10px;"><span style="color:${changeColor}; font-size:12px; font-weight:bold; min-width:55px; text-align:right;">${changeTxt}</span><div style="text-align:right; min-width:70px;"><b>${p.val.toFixed(3)}x</b><div style="color:#888; font-size:10px;">占比 ${posPct}</div></div></div></div>`;
+            html += `
+            <div class="detail-row">
+                <div class="detail-name">
+                    <span style="color:#999; font-size:10px;">${i+1}.</span>
+                    <div class="detail-dot" style="background:${dotColor}"></div>
+                    ${p.name}
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="color:${changeColor}; font-size:12px; font-weight:bold; min-width:55px; text-align:right;">${changeTxt}</span>
+                    <div style="text-align:right; min-width:70px;">
+                        <b>${p.val.toFixed(3)}x</b>
+                        <div style="color:#888; font-size:10px;">占比 ${posPct}</div>
+                    </div>
+                </div>
+            </div>`; 
         });
         if (list.length === 0) html = '<div style="padding:20px; text-align:center; color:#999;">该日无持仓 (空仓)</div>';
         document.getElementById('detail-list-content').innerHTML = html;
@@ -1526,56 +1486,35 @@
     }
 
     function renderHoldingsChart(hist) {
-        const dom = document.getElementById('holdings-chart');
-        if (holdingsChart) holdingsChart.dispose();
-        holdingsChart = echarts.init(dom); holdingsChart.group = 'stockGroup';
-        const dates = hist.map(h => h.date);
-        const allNames = batchResults.map(r => r.stockName);
+        const dom = document.getElementById('holdings-chart'); if (holdingsChart) holdingsChart.dispose(); holdingsChart = echarts.init(dom); holdingsChart.group = 'stockGroup'; 
+        const dates = hist.map(h => h.date); const allNames = batchResults.map(r => r.stockName);
         const seriesData = allNames.map(name => ({ name: name, type: 'line', stack: 'Total', areaStyle: {}, showSymbol: false, lineStyle: { width: 0 }, data: hist.map(h => h.breakdown[name] || 0) }));
         holdingsChart.setOption({
-            tooltip: { trigger: 'axis', axisPointer: { type: 'cross' }, formatter: function (params) { let sum = params.reduce((a, b) => a + parseFloat(b.value), 0); return `<div style="font-weight:bold">${params[0].name}</div>总杠杆: ${sum.toFixed(2)}x<div style="font-size:10px; color:#aaa;">⬇️ 下方查看明细</div>`; } },
-            legend: { data: allNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } },
-            grid: { left: '12%', right: '8%', bottom: '45px', containLabel: false },
-            xAxis: { type: 'category', boundaryGap: false, data: dates },
-            yAxis: { type: 'value', min: 0 },
-            dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 0, height: 20 }],
-            series: seriesData
+            tooltip: { trigger: 'axis', axisPointer: { type: 'cross' }, formatter: function(params) { let sum = params.reduce((a,b)=>a+parseFloat(b.value), 0); return `<div style="font-weight:bold">${params[0].name}</div>总杠杆: ${sum.toFixed(2)}x<div style="font-size:10px; color:#aaa;">⬇️ 下方查看明细</div>`; } },
+            legend: { data: allNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, grid: { left: '12%', right: '8%', bottom: '45px', containLabel: false }, xAxis: { type: 'category', boundaryGap: false, data: dates }, yAxis: { type: 'value', min: 0 }, dataZoom:[{type:'inside'}, {type:'slider', bottom:0, height:20}], series: seriesData
         });
         holdingsChart.on('updateAxisPointer', function (event) { const xInfo = event.axesInfo && event.axesInfo[0]; if (xInfo) updateDetailPanel(hist, xInfo.value); });
-        if (hist.length > 0) updateDetailPanel(hist, hist.length - 1);
+        if(hist.length > 0) updateDetailPanel(hist, hist.length - 1);
     }
 
     function renderTradeLog(hist, dateMap) {
-        const container = document.getElementById('trade-log-list');
-        container.innerHTML = '';
-        const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
+        const container = document.getElementById('trade-log-list'); container.innerHTML = ''; const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
         for (let i = hist.length - 1; i > 0; i--) {
-            const today = hist[i], yesterday = hist[i - 1];
-            let changes = [], dailyNetChange = 0;
+            const today = hist[i], yesterday = hist[i-1]; let changes =[], dailyNetChange = 0; 
             new Set([...Object.keys(today.breakdown), ...Object.keys(yesterday.breakdown)]).forEach(name => {
                 const nowPos = (today.breakdown[name] || 0) / maxLev * 100, prevPos = (yesterday.breakdown[name] || 0) / maxLev * 100, diffPos = nowPos - prevPos;
-                if (Math.abs(diffPos) > 0.1) {
+                if (Math.abs(diffPos) > 0.1) { 
                     let levStr = "", isPassive = false, reasonStr = "";
-                    if (dateMap) {
-                        const dNow = dateMap[today.date]?.stocks[name], dPrev = dateMap[yesterday.date]?.stocks[name];
-                        const lNow = dNow ? dNow.idealLev : 0, lPrev = dPrev ? dPrev.idealLev : 0;
-                        reasonStr = dNow ? dNow.reason : "";
-                        if (Math.abs(lNow - lPrev) < 0.01) { levStr = `${lNow.toFixed(1)}x`; isPassive = true; }
-                        else { levStr = `<span style="color:${lNow > lPrev ? '#d32f2f' : '#2e7d32'}; font-weight:bold;">${lPrev.toFixed(1)}x → ${lNow.toFixed(1)}x</span>`; }
-                    }
-                    changes.push({ name, diffPos, nowPos, prevPos, levStr, isPassive, reasonStr }); dailyNetChange += diffPos;
+                    if(dateMap) { const dNow = dateMap[today.date]?.stocks[name], dPrev = dateMap[yesterday.date]?.stocks[name]; const lNow = dNow ? dNow.idealLev : 0, lPrev = dPrev ? dPrev.idealLev : 0; reasonStr = dNow ? dNow.reason : ""; if (Math.abs(lNow - lPrev) < 0.01) { levStr = `${lNow.toFixed(1)}x`; isPassive = true; } else { levStr = `<span style="color:${lNow > lPrev ? '#d32f2f' : '#2e7d32'}; font-weight:bold;">${lPrev.toFixed(1)}x → ${lNow.toFixed(1)}x</span>`; } }
+                    changes.push({name, diffPos, nowPos, prevPos, levStr, isPassive, reasonStr}); dailyNetChange += diffPos; 
                 }
             });
-            const isLatest = (i === hist.length - 1);
-            if (changes.length === 0 && !isLatest) continue;
-            changes.sort((a, b) => a.isPassive !== b.isPassive ? (a.isPassive ? 1 : -1) : Math.abs(b.diffPos) - Math.abs(a.diffPos));
-            const header = document.createElement('div');
-            header.className = 'daily-log-header' + (isLatest ? ' open' : '');
-            header.onclick = function () { toggleDailyLog(this); };
+            const isLatest = (i === hist.length - 1); if (changes.length === 0 && !isLatest) continue;
+            changes.sort((a,b) => a.isPassive !== b.isPassive ? (a.isPassive ? 1 : -1) : Math.abs(b.diffPos) - Math.abs(a.diffPos));
+            const header = document.createElement('div'); header.className = 'daily-log-header' + (isLatest ? ' open' : ''); header.onclick = function() { toggleDailyLog(this); }; 
             header.innerHTML = `<div style="font-weight:bold;">${today.date} <span style="font-size:11px; margin-left:8px; color:#fff; background:${dailyNetChange > 0 ? '#d32f2f' : '#2e7d32'}; padding:2px 6px; border-radius:4px;">合计: ${dailyNetChange > 0 ? '+' : ''}${dailyNetChange.toFixed(1)}%</span><span style="font-weight:normal; font-size:11px; color:#999; margin-left:5px;">(${changes.length})</span></div><span class="arrow-daily">▶</span>`;
-            const body = document.createElement('div');
-            body.className = 'daily-log-body' + (isLatest ? ' open' : '');
-            if (changes.length === 0) body.innerHTML = `<div style="text-align:center; color:#999;">无调仓</div>`;
+            const body = document.createElement('div'); body.className = 'daily-log-body' + (isLatest ? ' open' : '');
+            if (changes.length === 0) body.innerHTML = `<div style="text-align:center; color:#999;">无调仓</div>`; 
             else body.innerHTML = changes.map(c => `<div class="daily-item"><div style="display:flex; align-items:center; gap:8px;"><span style="font-weight:500;">${c.name}</span><span style="font-size:11px;">${c.levStr}</span><span style="font-size:10px; color:#aaa;" title="${c.reasonStr}">${c.reasonStr}</span></div><span><span style="color:${c.diffPos > 0 ? '#d32f2f' : '#2e7d32'}; font-weight:bold;">${c.diffPos > 0 ? '+' : ''}${c.diffPos.toFixed(1)}%</span></span></div>`).join('');
             container.appendChild(header); container.appendChild(body);
         }
@@ -1583,157 +1522,249 @@
     }
 
     function renderStatusDistribution() {
-        let statsMap = {}, dates = [];
-        batchResults.forEach(res => { res.history.forEach(day => { if (!statsMap[day.date]) { statsMap[day.date] = { '上涨趋势': 0, '下跌趋势': 0, '震荡整理': 0, '触发风控': 0, 'Total': 0 }; dates.push(day.date); } let s = day.status || '震荡整理'; if (statsMap[day.date][s] !== undefined) { statsMap[day.date][s]++; statsMap[day.date]['Total']++; } }); });
-        dates.sort(); dates = [...new Set(dates)];
-        const names = ['上涨趋势', '震荡整理', '触发风控', '下跌趋势'], colors = ['#d32f2f', '#1976d2', '#616161', '#2e7d32'];
+        let statsMap = {}, dates =[]; 
+        batchResults.forEach(res => { res.history.forEach(day => { if (!statsMap[day.date]) { statsMap[day.date] = { '上涨趋势':0, '下跌趋势':0, '震荡整理':0, '触发风控':0, 'Total':0 }; dates.push(day.date); } let s = day.status || '震荡整理'; if(statsMap[day.date][s] !== undefined) { statsMap[day.date][s]++; statsMap[day.date]['Total']++; } }); }); 
+        dates.sort(); dates =[...new Set(dates)];
+        const names =['上涨趋势', '震荡整理', '触发风控', '下跌趋势'], colors =['#d32f2f', '#1976d2', '#616161', '#2e7d32']; 
         const sData = names.map((name, i) => ({ name: name, type: 'bar', stack: 'total', itemStyle: { color: colors[i] }, data: dates.map(d => statsMap[d][name] || 0) }));
-        const dom = document.getElementById('status-chart');
-        if (statusChart) statusChart.dispose();
-        statusChart = echarts.init(dom); statusChart.group = 'stockGroup';
+        const dom = document.getElementById('status-chart'); if (statusChart) statusChart.dispose(); statusChart = echarts.init(dom); statusChart.group = 'stockGroup'; 
         sData[0].markArea = calculateMarketStagesMarkArea();
+        
         statusChart.setOption({
-            tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-            legend: { data: names, top: 0 },
-            grid: { left: '12%', right: '8%', bottom: '45px', top: '30px', containLabel: false },
-            xAxis: { type: 'category', data: dates },
-            yAxis: { type: 'value' },
-            dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 0, height: 20 }],
-            series: sData
+            tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } }, legend: { data: names, top: 0 }, grid: { left: '12%', right: '8%', bottom: '45px', top: '30px', containLabel: false }, xAxis: { type: 'category', data: dates }, yAxis: { type: 'value' }, dataZoom:[{ type: 'inside' }, { type: 'slider', bottom: 0, height: 20 }], series: sData
         });
     }
 
     function renderStatusDetails() {
         const container = document.getElementById('status-detail-container'); container.innerHTML = '';
-        const groups = { '上涨趋势': { color: '#d32f2f', bg: '#ffebee', icon: '🔥', items: [] }, '下跌趋势': { color: '#2e7d32', bg: '#e8f5e9', icon: '❄️', items: [] }, '震荡整理': { color: '#1976d2', bg: '#e3f2fd', icon: '〰️', items: [] }, '触发风控': { color: '#616161', bg: '#f5f5f5', icon: '🛡️', items: [] } };
+        const groups = { '上涨趋势': { color: '#d32f2f', bg: '#ffebee', icon: '🔥', items:[] }, '下跌趋势': { color: '#2e7d32', bg: '#e8f5e9', icon: '❄️', items:[] }, '震荡整理': { color: '#1976d2', bg: '#e3f2fd', icon: '〰️', items:[] }, '触发风控': { color: '#616161', bg: '#f5f5f5', icon: '🛡️', items:[] } };
         batchResults.forEach(res => { const s = res.history[res.history.length - 1].status || '震荡整理'; if (groups[s]) groups[s].items.push(res); });
         Object.keys(groups).forEach(key => {
             const g = groups[key];
             let html = `<div style="flex:1; min-width:160px; background:${g.bg}; border:1px solid ${g.color}30; border-radius:6px; padding:10px;"><div style="font-weight:bold; color:${g.color}; margin-bottom:8px;">${g.icon} ${key} <span style="font-size:11px; opacity:0.8">(${g.items.length})</span></div><div style="display:flex; flex-wrap:wrap; gap:5px;">`;
-            if (g.items.length === 0) html += `<span style="font-size:11px; color:#999;">无</span>`;
-            else g.items.forEach(item => { html += `<span onclick="showDetail(${item.index})" style="background:#fff; font-size:11px; padding:3px 6px; border-radius:4px; border:1px solid #ddd; cursor:pointer;">${item.stockName}</span>`; });
-            html += `</div></div>`;
-            container.innerHTML += html;
+            if (g.items.length === 0) html += `<span style="font-size:11px; color:#999;">无</span>`; else g.items.forEach(item => { html += `<span onclick="showDetail(${item.index})" style="background:#fff; font-size:11px; padding:3px 6px; border-radius:4px; border:1px solid #ddd; cursor:pointer;">${item.stockName}</span>`; });
+            html += `</div></div>`; container.innerHTML += html;
         });
     }
 
     function renderTrendLog() {
         const container = document.getElementById('trend-log-list'); container.innerHTML = '';
-        let dateMap = {}, allDates = new Set();
-        batchResults.forEach(res => { res.history.forEach(day => { if (!dateMap[day.date]) dateMap[day.date] = {}; dateMap[day.date][res.stockName] = day.status; allDates.add(day.date); }); });
-        const sortedDates = Array.from(allDates).sort().reverse();
-        let hasContent = false;
+        let dateMap = {}, allDates = new Set(); batchResults.forEach(res => { res.history.forEach(day => { if (!dateMap[day.date]) dateMap[day.date] = {}; dateMap[day.date][res.stockName] = day.status; allDates.add(day.date); }); });
+        const sortedDates = Array.from(allDates).sort().reverse(); let hasContent = false;
         const config = { '上涨趋势': { color: '#d32f2f', label: '入上涨' }, '下跌趋势': { color: '#2e7d32', label: '入下跌' }, '震荡整理': { color: '#1976d2', label: '入震荡' }, '触发风控': { color: '#616161', label: '触风控' } };
         for (let i = 0; i < sortedDates.length - 1; i++) {
-            const today = sortedDates[i], yesterday = sortedDates[i + 1];
-            let changes = { '上涨趋势': [], '下跌趋势': [], '震荡整理': [], '触发风控': [] }, total = 0;
+            const today = sortedDates[i], yesterday = sortedDates[i+1]; let changes = { '上涨趋势':[], '下跌趋势':[], '震荡整理':[], '触发风控':[] }, total = 0;
             batchResults.forEach(res => { const name = res.stockName, now = dateMap[today][name], prev = dateMap[yesterday][name]; if (now && prev && now !== prev) { changes[now].push(name); total++; } });
-            if (total === 0) continue;
-            hasContent = true;
-            const isLatest = (i === 0);
-            const header = document.createElement('div');
-            header.className = 'daily-log-header' + (isLatest ? ' open' : '');
-            header.onclick = function () { toggleDailyLog(this); };
+            if (total === 0) continue; hasContent = true; const isLatest = (i === 0);
+            const header = document.createElement('div'); header.className = 'daily-log-header' + (isLatest ? ' open' : ''); header.onclick = function() { toggleDailyLog(this); };
             header.innerHTML = `<div style="font-weight:bold;">${today} <span style="color:#999; font-weight:normal; font-size:11px;">(${total}只变动)</span></div><span class="arrow-daily">▶</span>`;
-            const body = document.createElement('div');
-            body.className = 'daily-log-body' + (isLatest ? ' open' : '');
-            let content = '';
+            const body = document.createElement('div'); body.className = 'daily-log-body' + (isLatest ? ' open' : ''); let content = '';
             Object.keys(config).forEach(key => { if (changes[key].length > 0) { const cfg = config[key]; content += `<div class="daily-item" style="border-bottom:1px dashed #eee; padding-bottom:6px;"><span style="color:#fff; background:${cfg.color}; padding:2px 6px; border-radius:3px;">${cfg.label}</span><div style="font-size:12px;">${changes[key].join('、')}</div></div>`; } });
-            body.innerHTML = content;
-            container.appendChild(header); container.appendChild(body);
+            body.innerHTML = content; container.appendChild(header); container.appendChild(body);
         }
         if (!hasContent) container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无趋势变更记录</div>';
     }
 
     function renderRankingLog(hist) {
-        const container = document.getElementById('ranking-log-list');
+        const container = document.getElementById('ranking-log-list'); 
         container.innerHTML = '';
-        let streaksTop = {}, streaksBot = {}, rankingData = [];
+        
+        let streaksTop = {};
+        let streaksBot = {};
+        let rankingData =[];
+        
         for (let i = 0; i < hist.length; i++) {
             const todayItem = hist[i];
-            let list = [];
+            let list =[];
+            
             Object.keys(todayItem.contribBreakdown).forEach(name => {
                 let valCum = todayItem.contribBreakdown[name] || 0;
-                let val3d = valCum - (hist[i - 3] ? (hist[i - 3].contribBreakdown[name] || 0) : 0);
+                let val3d = valCum - (hist[i-3] ? (hist[i-3].contribBreakdown[name] || 0) : 0);
                 if (Math.abs(val3d) > 0.0001) list.push({ name: name, d3: val3d * 100 });
             });
+
             let positives = list.filter(item => item.d3 > 0).sort((a, b) => b.d3 - a.d3);
             let negatives = list.filter(item => item.d3 < 0).sort((a, b) => a.d3 - b.d3);
-            let top10 = positives.slice(0, 10), bottom10 = negatives.slice(0, 10);
+
+            let top10 = positives.slice(0, 10);
+            let bottom10 = negatives.slice(0, 10);
+
             let currentTopNames = new Set(top10.map(x => x.name));
             let currentBotNames = new Set(bottom10.map(x => x.name));
+
             Object.keys(streaksTop).forEach(k => { if (!currentTopNames.has(k)) streaksTop[k] = 0; });
             Object.keys(streaksBot).forEach(k => { if (!currentBotNames.has(k)) streaksBot[k] = 0; });
-            top10.forEach(item => { streaksTop[item.name] = (streaksTop[item.name] || 0) + 1; item.streak = streaksTop[item.name]; });
-            bottom10.forEach(item => { streaksBot[item.name] = (streaksBot[item.name] || 0) + 1; item.streak = streaksBot[item.name]; });
+
+            top10.forEach(item => {
+                streaksTop[item.name] = (streaksTop[item.name] || 0) + 1;
+                item.streak = streaksTop[item.name];
+            });
+            bottom10.forEach(item => {
+                streaksBot[item.name] = (streaksBot[item.name] || 0) + 1;
+                item.streak = streaksBot[item.name];
+            });
+
             rankingData.push({ date: todayItem.date, top10, bottom10 });
         }
+
         if (rankingData.length > 0) {
             const latestData = rankingData[rankingData.length - 1];
+
             const domTop = document.getElementById('momentum-chart-top');
             if (momentumChartTop) momentumChartTop.dispose();
             momentumChartTop = echarts.init(domTop);
-            let chartDataTop = [...latestData.top10].reverse();
+            
+            let chartDataTop =[...latestData.top10].reverse();
             momentumChartTop.setOption({
                 tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: '{b}: +{c}%' },
                 grid: { left: '2%', right: 110, bottom: '0%', top: '5px', containLabel: true },
                 xAxis: { type: 'value', axisLabel: { formatter: '{value}%' }, splitLine: { lineStyle: { type: 'dashed', color: '#eee' } } },
                 yAxis: { type: 'category', data: chartDataTop.map(d => d.name), axisLabel: { fontWeight: 'bold' }, axisLine: { show: false }, axisTick: { show: false } },
-                series: [{ type: 'bar', data: chartDataTop.map(d => ({ value: d.d3.toFixed(2), streak: d.streak })), itemStyle: { color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [{ offset: 0, color: '#f44336' }, { offset: 1, color: '#ffcdd2' }]) }, label: { show: true, position: 'right', formatter: p => `+${p.value}%${p.data.streak > 1 ? ` (🔥${p.data.streak}连)` : ''}`, color: '#d32f2f', fontSize: 11 }, barWidth: '60%', barMaxWidth: 15 }]
+                series:[{
+                    type: 'bar',
+                    data: chartDataTop.map(d => ({ value: d.d3.toFixed(2), streak: d.streak })),
+                    itemStyle: { color: new echarts.graphic.LinearGradient(1, 0, 0, 0,[{offset: 0, color: '#f44336'}, {offset: 1, color: '#ffcdd2'}]) },
+                    label: { 
+                        show: true, position: 'right', 
+                        formatter: p => `+${p.value}%${p.data.streak > 1 ? ` (🔥${p.data.streak}连)` : ''}`,
+                        color: '#d32f2f', fontSize: 11
+                    },
+                    barWidth: '60%', barMaxWidth: 15
+                }]
             });
+
             const domBot = document.getElementById('momentum-chart-bottom');
             if (momentumChartBottom) momentumChartBottom.dispose();
             momentumChartBottom = echarts.init(domBot);
-            let chartDataBot = [...latestData.bottom10].reverse();
+            
+            let chartDataBot =[...latestData.bottom10].reverse();
             momentumChartBottom.setOption({
                 tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: '{b}: -{c}%' },
                 grid: { left: '2%', right: 110, bottom: '0%', top: '5px', containLabel: true },
                 xAxis: { type: 'value', axisLabel: { formatter: value => value === 0 ? '0%' : '-' + value + '%' }, splitLine: { lineStyle: { type: 'dashed', color: '#eee' } } },
                 yAxis: { type: 'category', data: chartDataBot.map(d => d.name), axisLabel: { fontWeight: 'bold' }, axisLine: { show: false }, axisTick: { show: false } },
-                series: [{ type: 'bar', data: chartDataBot.map(d => ({ value: Math.abs(d.d3).toFixed(2), streak: d.streak })), itemStyle: { color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [{ offset: 0, color: '#388e3c' }, { offset: 1, color: '#c8e6c9' }]) }, label: { show: true, position: 'right', formatter: p => `-${p.value}%${p.data.streak > 1 ? ` (❄️${p.data.streak}连)` : ''}`, color: '#2e7d32', fontSize: 11 }, barWidth: '60%', barMaxWidth: 15 }]
+                series:[{
+                    type: 'bar',
+                    data: chartDataBot.map(d => ({ value: Math.abs(d.d3).toFixed(2), streak: d.streak })),
+                    itemStyle: { color: new echarts.graphic.LinearGradient(1, 0, 0, 0,[{offset: 0, color: '#388e3c'}, {offset: 1, color: '#c8e6c9'}]) },
+                    label: { 
+                        show: true, position: 'right', 
+                        formatter: p => `-${p.value}%${p.data.streak > 1 ? ` (❄️${p.data.streak}连)` : ''}`,
+                        color: '#2e7d32', fontSize: 11
+                    },
+                    barWidth: '60%', barMaxWidth: 15
+                }]
             });
         }
+
         let hasContent = false;
         for (let i = rankingData.length - 1; i >= 0; i--) {
             const dayData = rankingData[i];
             if (dayData.top10.length === 0 && dayData.bottom10.length === 0) continue;
             hasContent = true;
+
             const isLatest = (i === rankingData.length - 1);
             const header = document.createElement('div');
             header.className = 'daily-log-header' + (isLatest ? ' open' : '');
-            header.onclick = function () { toggleDailyLog(this); };
+            header.onclick = function() { toggleDailyLog(this); };
             header.innerHTML = `<div style="font-weight:bold;">${dayData.date}</div><span class="arrow-daily">▶</span>`;
+            
             const body = document.createElement('div');
             body.className = 'daily-log-body' + (isLatest ? ' open' : '');
-            let topHtml = dayData.top10.map(p => `<span class="mom-tag"><span class="name">${p.name}</span><span class="val">+${p.d3.toFixed(2)}%</span>${p.streak > 1 ? `<span class="streak">🔥${p.streak}</span>` : ''}</span>`).join('');
-            let bottomHtml = dayData.bottom10.map(p => `<span class="mom-tag neg"><span class="name">${p.name}</span><span class="val">${p.d3.toFixed(2)}%</span>${p.streak > 1 ? `<span class="streak">❄️${p.streak}</span>` : ''}</span>`).join('');
+            
+            let topHtml = dayData.top10.map(p => `
+                <span class="mom-tag">
+                    <span class="name">${p.name}</span>
+                    <span class="val">+${p.d3.toFixed(2)}%</span>
+                    ${p.streak > 1 ? `<span class="streak">🔥${p.streak}</span>` : ''}
+                </span>`).join('');
+            
+            let bottomHtml = dayData.bottom10.map(p => `
+                <span class="mom-tag neg">
+                    <span class="name">${p.name}</span>
+                    <span class="val">${p.d3.toFixed(2)}%</span>
+                    ${p.streak > 1 ? `<span class="streak">❄️${p.streak}</span>` : ''}
+                </span>`).join('');
+            
             let contentHtml = '';
-            if (dayData.top10.length > 0) contentHtml += `<div style="margin-bottom:12px;"><div style="font-size:11px; color:#d32f2f; margin-bottom:6px; font-weight:bold;">🔥 领涨 Top10</div><div>${topHtml}</div></div>`;
-            if (dayData.bottom10.length > 0) contentHtml += `<div><div style="font-size:11px; color:#2e7d32; margin-bottom:6px; font-weight:bold;">❄️ 领跌 Bottom10</div><div>${bottomHtml}</div></div>`;
+            if (dayData.top10.length > 0) {
+                contentHtml += `<div style="margin-bottom:12px;"><div style="font-size:11px; color:#d32f2f; margin-bottom:6px; font-weight:bold;">🔥 领涨 Top10</div><div>${topHtml}</div></div>`;
+            }
+            if (dayData.bottom10.length > 0) {
+                contentHtml += `<div><div style="font-size:11px; color:#2e7d32; margin-bottom:6px; font-weight:bold;">❄️ 领跌 Bottom10</div><div>${bottomHtml}</div></div>`;
+            }
+
             body.innerHTML = contentHtml;
-            container.appendChild(header); container.appendChild(body);
+            container.appendChild(header);
+            container.appendChild(body);
         }
+        
         if (!hasContent) container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无数据</div>';
     }
 
     function updateContribDetailPanel(hist, index) {
-        const item = hist[index]; if (!item) return;
-        window.lastContribHist = hist; window.lastContribIndex = index;
-        let list = [];
+        const item = hist[index]; if(!item) return;
+        window.lastContribHist = hist;
+        window.lastContribIndex = index;
+
+        let list =[];
         Object.keys(item.contribBreakdown).forEach(name => {
             let valCum = item.contribBreakdown[name] || 0;
-            let val1d = valCum - (hist[index - 1] ? (hist[index - 1].contribBreakdown[name] || 0) : 0);
-            let val3d = valCum - (hist[index - 3] ? (hist[index - 3].contribBreakdown[name] || 0) : 0);
-            let val5d = valCum - (hist[index - 5] ? (hist[index - 5].contribBreakdown[name] || 0) : 0);
-            if (Math.abs(valCum) > 0.0001 || Math.abs(val1d) > 0.0001) { list.push({ name: name, cum: valCum * 100, d1: val1d * 100, d3: val3d * 100, d5: val5d * 100 }); }
+            let val1d = valCum - (hist[index-1] ? (hist[index-1].contribBreakdown[name] || 0) : 0);
+            let val3d = valCum - (hist[index-3] ? (hist[index-3].contribBreakdown[name] || 0) : 0);
+            let val5d = valCum - (hist[index-5] ? (hist[index-5].contribBreakdown[name] || 0) : 0);
+            
+            if (Math.abs(valCum) > 0.0001 || Math.abs(val1d) > 0.0001) { 
+                list.push({name: name, cum: valCum * 100, d1: val1d * 100, d3: val3d * 100, d5: val5d * 100}); 
+            }
         });
-        list.sort((a, b) => { if (currentContribSortMode === '1d') return b.d1 - a.d1; if (currentContribSortMode === '3d') return b.d3 - a.d3; if (currentContribSortMode === '5d') return b.d5 - a.d5; return b.cum - a.cum; });
+        
+        list.sort((a, b) => {
+            if (currentContribSortMode === '1d') return b.d1 - a.d1;
+            if (currentContribSortMode === '3d') return b.d3 - a.d3;
+            if (currentContribSortMode === '5d') return b.d5 - a.d5;
+            return b.cum - a.cum;
+        });
+
         const headerBar = document.querySelector('#contribution-detail-panel .detail-header-bar');
-        if (headerBar) headerBar.innerHTML = `<span style="font-size:12px;">${item.date} (${list.length}只)</span><span style="font-size:11px; color:#999; font-weight:normal;">点击下方表头可排序</span>`;
-        let html = `<div class="detail-row" style="background:#f8f9fa; position:sticky; top:0; z-index:2; border-bottom:1px solid #ddd; padding:8px 8px;"><div class="contrib-grid" style="font-weight:bold;"><div>股票名称</div><div class="sort-header ${currentContribSortMode === '1d' ? 'active' : ''}" onclick="currentContribSortMode='1d'; updateContribDetailPanel(window.lastContribHist, window.lastContribIndex)">当日</div><div class="sort-header ${currentContribSortMode === '3d' ? 'active' : ''}" onclick="currentContribSortMode='3d'; updateContribDetailPanel(window.lastContribHist, window.lastContribIndex)">近3日</div><div class="sort-header ${currentContribSortMode === '5d' ? 'active' : ''}" onclick="currentContribSortMode='5d'; updateContribDetailPanel(window.lastContribHist, window.lastContribIndex)">近5日</div><div class="sort-header ${currentContribSortMode === 'cum' ? 'active' : ''}" onclick="currentContribSortMode='cum'; updateContribDetailPanel(window.lastContribHist, window.lastContribIndex)">累计</div></div></div>`;
+        if (headerBar) {
+            headerBar.innerHTML = `<span style="font-size:12px;">${item.date} (${list.length}只)</span><span style="font-size:11px; color:#999; font-weight:normal;">点击下方表头可排序</span>`;
+        }
+        
+        let html = `
+        <div class="detail-row" style="background:#f8f9fa; position:sticky; top:0; z-index:2; border-bottom:1px solid #ddd; padding:8px 8px;">
+            <div class="contrib-grid" style="font-weight:bold;">
+                <div>股票名称</div>
+                <div class="sort-header ${currentContribSortMode==='1d'?'active':''}" onclick="currentContribSortMode='1d'; updateContribDetailPanel(window.lastContribHist, window.lastContribIndex)">当日</div>
+                <div class="sort-header ${currentContribSortMode==='3d'?'active':''}" onclick="currentContribSortMode='3d'; updateContribDetailPanel(window.lastContribHist, window.lastContribIndex)">近3日</div>
+                <div class="sort-header ${currentContribSortMode==='5d'?'active':''}" onclick="currentContribSortMode='5d'; updateContribDetailPanel(window.lastContribHist, window.lastContribIndex)">近5日</div>
+                <div class="sort-header ${currentContribSortMode==='cum'?'active':''}" onclick="currentContribSortMode='cum'; updateContribDetailPanel(window.lastContribHist, window.lastContribIndex)">累计</div>
+            </div>
+        </div>`;
+
         list.forEach((p, i) => {
-            const cCum = p.cum >= 0 ? '#d32f2f' : '#2e7d32', c1d = p.d1 >= 0 ? '#d32f2f' : '#2e7d32', c3d = p.d3 >= 0 ? '#d32f2f' : '#2e7d32', c5d = p.d5 >= 0 ? '#d32f2f' : '#2e7d32';
-            html += `<div class="detail-row" style="padding: 8px 8px;"><div class="contrib-grid"><div style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${p.name}"><span style="color:#999; font-size:10px;">${i + 1}.</span> ${p.name}</div><div style="color:${c1d}">${p.d1 > 0 ? '+' : ''}${p.d1.toFixed(2)}%</div><div style="color:${c3d}">${p.d3 > 0 ? '+' : ''}${p.d3.toFixed(2)}%</div><div style="color:${c5d}">${p.d5 > 0 ? '+' : ''}${p.d5.toFixed(2)}%</div><div style="color:${cCum}; font-weight:bold;">${p.cum > 0 ? '+' : ''}${p.cum.toFixed(2)}%</div></div></div>`;
+            const cCum = p.cum >= 0 ? '#d32f2f' : '#2e7d32';
+            const c1d = p.d1 >= 0 ? '#d32f2f' : '#2e7d32';
+            const c3d = p.d3 >= 0 ? '#d32f2f' : '#2e7d32';
+            const c5d = p.d5 >= 0 ? '#d32f2f' : '#2e7d32';
+            
+            const sCum = p.cum > 0 ? '+' : '';
+            const s1d = p.d1 > 0 ? '+' : '';
+            const s3d = p.d3 > 0 ? '+' : '';
+            const s5d = p.d5 > 0 ? '+' : '';
+
+            html += `
+            <div class="detail-row" style="padding: 8px 8px;">
+                <div class="contrib-grid">
+                    <div style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${p.name}">
+                        <span style="color:#999; font-size:10px;">${i+1}.</span> ${p.name}
+                    </div>
+                    <div style="color:${c1d}">${s1d}${p.d1.toFixed(2)}%</div>
+                    <div style="color:${c3d}">${s3d}${p.d3.toFixed(2)}%</div>
+                    <div style="color:${c5d}">${s5d}${p.d5.toFixed(2)}%</div>
+                    <div style="color:${cCum}; font-weight:bold;">${sCum}${p.cum.toFixed(2)}%</div>
+                </div>
+            </div>`;
         });
         if (list.length === 0) html = '<div style="padding:20px; text-align:center; color:#999;">无数据</div>';
         document.getElementById('contrib-detail-list-content').innerHTML = html;
@@ -1741,72 +1772,54 @@
     }
 
     function renderContributionChart(hist) {
-        const dom = document.getElementById('contribution-chart');
-        if (contributionChart) contributionChart.dispose();
-        contributionChart = echarts.init(dom); contributionChart.group = 'stockGroup';
-        const dates = hist.map(h => h.date);
-        const allNames = batchResults.map(r => r.stockName);
+        const dom = document.getElementById('contribution-chart'); if (contributionChart) contributionChart.dispose(); contributionChart = echarts.init(dom); contributionChart.group = 'stockGroup';
+        const dates = hist.map(h => h.date); const allNames = batchResults.map(r => r.stockName);
         const seriesData = allNames.map(name => ({ name: name, type: 'line', stack: 'Total', areaStyle: {}, showSymbol: false, lineStyle: { width: 0 }, data: hist.map(h => h.contribBreakdown[name] || 0) }));
         contributionChart.setOption({
-            tooltip: { trigger: 'axis', axisPointer: { type: 'cross' }, formatter: function (params) { let sum = params.reduce((a, b) => a + parseFloat(b.value), 0); return `<div style="font-weight:bold">${params[0].name}</div>总累计盈亏: ${(sum * 100).toFixed(2)}%<div style="font-size:10px; color:#aaa;">⬇️ 下方查看明细</div>`; } },
-            legend: { data: allNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } },
-            grid: { left: '12%', right: '8%', bottom: '45px', containLabel: false },
-            xAxis: { type: 'category', boundaryGap: false, data: dates },
-            yAxis: { type: 'value', axisLabel: { formatter: (val) => (val * 100).toFixed(0) + '%' } },
-            dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 0, height: 20 }],
-            series: seriesData
+            tooltip: { trigger: 'axis', axisPointer: { type: 'cross' }, formatter: function (params) { let sum = params.reduce((a,b)=>a+parseFloat(b.value),0); return `<div style="font-weight:bold">${params[0].name}</div>总累计盈亏: ${(sum*100).toFixed(2)}%<div style="font-size:10px; color:#aaa;">⬇️ 下方查看明细</div>`; } },
+            legend: { data: allNames, type: 'scroll', top: 0, textStyle: { fontSize: 10 } }, grid: { left: '12%', right: '8%', bottom: '45px', containLabel: false }, xAxis: { type: 'category', boundaryGap: false, data: dates }, yAxis: { type: 'value', axisLabel: { formatter: (val) => (val*100).toFixed(0)+'%' } }, dataZoom:[{type:'inside'}, {type:'slider', bottom:0, height:20}], series: seriesData
         });
-        contributionChart.on('updateAxisPointer', function (event) { const xInfo = event.axesInfo && event.axesInfo[0]; if (xInfo) updateContribDetailPanel(hist, xInfo.value); });
-        if (hist.length > 0) updateContribDetailPanel(hist, hist.length - 1);
+
+        contributionChart.on('updateAxisPointer', function (event) { 
+            const xInfo = event.axesInfo && event.axesInfo[0]; 
+            if (xInfo) updateContribDetailPanel(hist, xInfo.value); 
+        });
+        if(hist.length > 0) updateContribDetailPanel(hist, hist.length - 1);
     }
 
     function searchStock() {
-        const val = document.getElementById('inName').value.trim(); if (!val) return;
+        const val = document.getElementById('inName').value.trim(); if(!val) return;
         const s = document.createElement('script');
         s.src = `https://searchapi.eastmoney.com/api/suggest/get?input=${encodeURIComponent(val)}&type=14&token=D43BF722C8E33BD5D50F639205545E43&cb=handleSearch`;
-        window.handleSearch = (d) => {
-            if (d?.QuotationCodeTable?.Data?.[0]) {
-                let r = d.QuotationCodeTable.Data[0], suffix = "";
-                if (/^\d{5}$/.test(r.Code)) suffix = r.Code.startsWith('6') ? ".SH" : ".SZ";
-                else if (!/^\d+$/.test(r.Code)) suffix = ".US";
-                else { if (r.MarketType == "1") suffix = ".SH"; else if (r.MarketType == "2") suffix = ".SZ"; else if (r.MarketType == "5") suffix = ".HK"; }
-                document.getElementById('inCode').value = r.Code + suffix;
-                document.getElementById('inName').value = r.Name;
-            } else alert("未找到");
-            s.remove();
-        }
+        window.handleSearch = (d) => { if(d?.QuotationCodeTable?.Data?.[0]) { let r = d.QuotationCodeTable.Data[0], suffix = ""; if (/^\d{5}$/.test(r.Code)) suffix = r.Code.startsWith('6') ? ".SH" : ".SZ"; else if (!/^\d+$/.test(r.Code)) suffix = ".US"; else { if(r.MarketType == "1") suffix = ".SH"; else if(r.MarketType == "2") suffix = ".SZ"; else if(r.MarketType == "5") suffix = ".HK"; } document.getElementById('inCode').value = r.Code + suffix; document.getElementById('inName').value = r.Name; } else alert("未找到"); s.remove(); }
         document.body.appendChild(s);
     }
-
     function saveStock() {
         const code = document.getElementById('inCode').value, name = document.getElementById('inName').value;
         const min = parseFloat(document.getElementById('inMin').value), max = parseFloat(document.getElementById('inMax').value);
-        if (!code || isNaN(min)) return alert("请填写完整");
-        const item = { code, name, minCap: min, maxCap: max, lastMod: new Date().toISOString().split('T')[0] };
-        const idx = stocks.findIndex(s => s.code === code);
-        if (idx >= 0) stocks[idx] = item; else stocks.push(item);
+        if(!code || isNaN(min)) return alert("请填写完整");
+        const item = { code, name, minCap: min, maxCap: max, lastMod: new Date().toISOString().split('T')[0] }; 
+        const idx = stocks.findIndex(s => s.code === code); if(idx >= 0) stocks[idx] = item; else stocks.push(item); 
         APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(true); alert("已保存");
     }
-
     function renderTable() {
         const tb = document.getElementById('stock-tbody');
-        tb.innerHTML = stocks.map((s, i) => `<tr><td><b>${s.name}</b> <span style="color:#999;font-size:12px">${s.code}</span></td><td>${Math.round(s.minCap)}-${Math.round(s.maxCap)}亿<div style="font-size:10px; color:#aaa; margin-top:2px;">${s.lastMod || ''}</div></td><td style="text-align:center;"><div class="op-btn-group"><button class="btn btn-edit-yellow btn-icon-square" onclick="editStock(${i})">✎</button><button class="btn btn-del-red btn-icon-square" onclick="delStock(${i})">✕</button></div></td><td style="text-align:center;"><input type="checkbox" class="stock-chk" value="${i}" checked></td></tr>`).join('');
+        tb.innerHTML = stocks.map((s, i) => `<tr> <td><b>${s.name}</b> <span style="color:#999;font-size:12px">${s.code}</span></td> <td> ${Math.round(s.minCap)}-${Math.round(s.maxCap)}亿 <div style="font-size:10px; color:#aaa; margin-top:2px;">${s.lastMod || ''}</div> </td> <td style="text-align:center;"><div class="op-btn-group"><button class="btn btn-edit-yellow btn-icon-square" onclick="editStock(${i})">✎</button><button class="btn btn-del-red btn-icon-square" onclick="delStock(${i})">✕</button></div></td> <td style="text-align:center;"><input type="checkbox" class="stock-chk" value="${i}" checked></td> </tr>`).join('');
         filterStockList(); checkAllState();
     }
-
-    function toggleAllStocks(el) {
-        document.querySelectorAll('#stock-tbody tr').forEach(row => {
-            if (row.style.display !== 'none') { const chk = row.querySelector('.stock-chk'); if (chk) chk.checked = el.checked; }
-        });
+    function toggleAllStocks(el) { 
+        document.querySelectorAll('#stock-tbody tr').forEach(row => { 
+            if (row.style.display !== 'none') { const chk = row.querySelector('.stock-chk'); if (chk) chk.checked = el.checked; } 
+        }); 
     }
-    function checkAllState() {
-        const rows = Array.from(document.querySelectorAll('#stock-tbody tr')).filter(r => r.style.display !== 'none');
-        if (rows.length === 0) { document.getElementById('check-all').checked = false; return; }
-        document.getElementById('check-all').checked = (rows.filter(r => r.querySelector('.stock-chk').checked).length === rows.length);
+    function checkAllState() { 
+        const rows = Array.from(document.querySelectorAll('#stock-tbody tr')).filter(r => r.style.display !== 'none'); 
+        if (rows.length === 0) { document.getElementById('check-all').checked = false; return; } 
+        document.getElementById('check-all').checked = (rows.filter(r => r.querySelector('.stock-chk').checked).length === rows.length); 
     }
-    document.addEventListener('change', function (e) { if (e.target.classList.contains('stock-chk')) checkAllState(); });
-    function editStock(i) { const s = stocks[i]; document.getElementById('inName').value = s.name; document.getElementById('inCode').value = s.code; document.getElementById('inMin').value = s.minCap; document.getElementById('inMax').value = s.maxCap; document.getElementById('card-config').scrollIntoView({ behavior: 'smooth' }); }
-    function delStock(i) { if (confirm("确认删除？")) { stocks.splice(i, 1); APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(true); } }
+    document.addEventListener('change', function(e){ if(e.target.classList.contains('stock-chk')) checkAllState(); });
+    function editStock(i) { const s = stocks[i]; document.getElementById('inName').value = s.name; document.getElementById('inCode').value = s.code; document.getElementById('inMin').value = s.minCap; document.getElementById('inMax').value = s.maxCap; document.getElementById('card-config').scrollIntoView({behavior: 'smooth'}); }
+    function delStock(i) { if(confirm("确认删除？")) { stocks.splice(i, 1); APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(true); } }
 
     function appendSummaryRow(res, index) {
         const tr = document.createElement('tr'); tr.id = `row-${index}`; tr.onclick = () => showDetail(index);
@@ -1814,71 +1827,51 @@
         tr.innerHTML = `<td><b>${res.stockName}</b><br><span style="color:#999;font-size:10px">${res.stockCode}</span></td><td class="${res.stats.ret >= 0 ? 'val-pos' : 'val-neg'}">${res.stats.ret.toFixed(1)}%</td><td style="color:#555;">${res.stats.maxDD.toFixed(1)}%</td><td><div style="display:flex; flex-direction:column; align-items:flex-end; justify-content:center;">${lastLog.action}<span style="font-size:10px; color:#888; margin-top:3px; font-family:monospace;">${lastLog.val}</span></div></td><td style="text-align:left; padding-left:10px; max-width:220px;"><span style="font-size:11px; color:#333; display:block; line-height:1.4; white-space:normal;">${lastLog.reason}</span></td>`;
         document.getElementById('summary-tbody').appendChild(tr);
     }
-
     function showDetail(index) {
-        const res = batchResults.find(r => r.index === index); if (!res) return;
-        document.querySelectorAll('.summary-table tr').forEach(r => r.classList.remove('selected'));
-        document.getElementById(`row-${index}`)?.classList.add('selected');
+        const res = batchResults.find(r => r.index === index); if(!res) return;
+        document.querySelectorAll('.summary-table tr').forEach(r => r.classList.remove('selected')); document.getElementById(`row-${index}`)?.classList.add('selected');
         document.getElementById('detail-view').style.display = 'block';
-        const input = document.getElementById('detail-combo-input');
-        if (input) { input.value = `${res.stockName} (${res.stockCode})`; document.querySelectorAll('.combo-option').forEach(opt => opt.classList.remove('active')); document.querySelector(`.combo-option[data-index="${index}"]`)?.classList.add('active'); }
-        document.getElementById('val-ret').innerText = res.stats.ret.toFixed(2) + '%'; document.getElementById('val-ret').className = 'stat-val ' + (res.stats.ret >= 0 ? 'win' : 'loss');
-        document.getElementById('val-stock').innerText = res.stats.stockRet.toFixed(2) + '%'; document.getElementById('val-stock').className = 'stat-val ' + (res.stats.stockRet >= 0 ? 'win' : 'loss');
+        const input = document.getElementById('detail-combo-input'); if(input) { input.value = `${res.stockName} (${res.stockCode})`; document.querySelectorAll('.combo-option').forEach(opt => opt.classList.remove('active')); document.querySelector(`.combo-option[data-index="${index}"]`)?.classList.add('active'); }
+        document.getElementById('val-ret').innerText = res.stats.ret.toFixed(2) + '%'; document.getElementById('val-ret').className = 'stat-val ' + (res.stats.ret>=0?'win':'loss');
+        document.getElementById('val-stock').innerText = res.stats.stockRet.toFixed(2) + '%'; document.getElementById('val-stock').className = 'stat-val ' + (res.stats.stockRet>=0?'win':'loss');
         document.getElementById('val-lev').innerText = res.stats.avgLev.toFixed(2) + 'x';
-        renderChart(res.history); renderLog(res.logs); if (myChart) myChart.resize();
+        renderChart(res.history); renderLog(res.logs); if(myChart) myChart.resize();
     }
-
     function renderLog(logs) {
-        const tbody = document.getElementById('log-tbody');
-        document.getElementById('log-count').innerText = `(${logs.length})`;
-        if (logs.length === 0) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">期间无操作</td></tr>'; return; }
+        const tbody = document.getElementById('log-tbody'); document.getElementById('log-count').innerText = `(${logs.length})`;
+        if(logs.length === 0) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">期间无操作</td></tr>'; return; }
         tbody.innerHTML = logs.slice().reverse().map(l => `<tr><td class="log-col-date" style="color:#666;">${l.date}</td><td class="log-col-action">${l.action}</td><td class="log-col-val" style="font-family:monospace;">${l.val}</td><td class="log-col-mas">${l.mas}</td><td class="log-col-reason" style="color:#555;" title="${l.reason}">${l.reason}</td></tr>`).join('');
     }
-
     function renderChart(hist) {
-        const dom = document.getElementById('chart-box');
-        if (myChart) myChart.clear(); else myChart = echarts.init(dom);
+        const dom = document.getElementById('chart-box'); if(myChart) myChart.clear(); else myChart = echarts.init(dom);
         myChart.setOption({
-            tooltip: { trigger: 'axis', axisPointer: { type: 'cross', link: { xAxisIndex: 'all' } }, formatter: p => { if (!p.length) return ''; const i = p[0].dataIndex, d = hist[i]; return `<div style="font-weight:bold">${d.date}</div>股价: ${d.close}<br>净值: ${d.nav.toFixed(3)}<br>杠杆: ${d.leverage.toFixed(2)}x`; } },
-            grid: [{ left: '12%', right: '8%', top: '12%', height: '58%' }, { left: '12%', right: '8%', top: '78%', height: '15%' }],
-            xAxis: [{ type: 'category', data: hist.map(h => h.date), gridIndex: 0, axisLabel: { show: false } }, { type: 'category', data: hist.map(h => h.date), gridIndex: 1, axisLabel: { show: false } }],
-            yAxis: [{ type: 'value', position: 'left' }, { type: 'value', position: 'right' }, { type: 'value', gridIndex: 1, min: 0, max: 2.1 }],
-            dataZoom: [{ type: 'inside', xAxisIndex: [0, 1] }, { type: 'slider', xAxisIndex: [0, 1], bottom: 0, height: 20 }],
-            series: [
-                { name: '股价', type: 'line', yAxisIndex: 0, data: hist.map(h => h.close), itemStyle: { color: '#999' }, showSymbol: false },
-                { name: '净值', type: 'line', yAxisIndex: 1, data: hist.map(h => h.nav), itemStyle: { color: '#d32f2f' }, showSymbol: false },
-                { name: '杠杆', type: 'line', xAxisIndex: 1, yAxisIndex: 2, data: hist.map(h => h.leverage), itemStyle: { color: '#28a745' }, step: 'end', showSymbol: false, areaStyle: { opacity: 0.1 } }
-            ]
+            tooltip: { trigger: 'axis', axisPointer: { type: 'cross', link: { xAxisIndex: 'all' } }, formatter: p => { if(!p.length)return''; const i=p[0].dataIndex, d=hist[i]; return `<div style="font-weight:bold">${d.date}</div>股价: ${d.close}<br>净值: ${d.nav.toFixed(3)}<br>杠杆: ${d.leverage.toFixed(2)}x`; } },
+            grid:[{ left: '12%', right: '8%', top: '12%', height: '58%' }, { left: '12%', right: '8%', top: '78%', height: '15%' }],
+            xAxis:[{type:'category', data: hist.map(h=>h.date), gridIndex:0, axisLabel:{show:false}}, {type:'category', data: hist.map(h=>h.date), gridIndex:1, axisLabel:{show:false}}],
+            yAxis:[{type:'value', position:'left'}, {type:'value', position:'right'}, {type:'value', gridIndex:1, min:0, max:2.1}],
+            dataZoom:[{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
+            series:[{name:'股价', type:'line', yAxisIndex:0, data:hist.map(h=>h.close), itemStyle:{color:'#999'}, showSymbol:false}, {name:'净值', type:'line', yAxisIndex:1, data:hist.map(h=>h.nav), itemStyle:{color:'#d32f2f'}, showSymbol:false}, {name:'杠杆', type:'line', xAxisIndex:1, yAxisIndex:2, data:hist.map(h=>h.leverage), itemStyle:{color:'#28a745'}, step:'end', showSymbol:false, areaStyle:{opacity:0.1}}]
         });
     }
-
-    function renderDetailCombo() {
+    function renderDetailCombo() { 
         const list = document.getElementById('detail-combo-list'); list.innerHTML = '';
-        batchResults.forEach(res => {
-            const div = document.createElement('div'); div.className = 'combo-option';
-            div.innerHTML = `<span>${res.stockName}</span><span class="combo-code">${res.stockCode}</span>`;
-            div.onclick = (e) => { e.stopPropagation(); showDetail(res.index); list.classList.remove('show'); };
-            div.dataset.index = res.index; div.dataset.searchText = (res.stockName + res.stockCode).toLowerCase();
-            list.appendChild(div);
-        });
+        batchResults.forEach(res => { const div = document.createElement('div'); div.className = 'combo-option'; div.innerHTML = `<span>${res.stockName}</span><span class="combo-code">${res.stockCode}</span>`; div.onclick = (e) => { e.stopPropagation(); showDetail(res.index); list.classList.remove('show'); }; div.dataset.index = res.index; div.dataset.searchText = (res.stockName + res.stockCode).toLowerCase(); list.appendChild(div); });
     }
     function openDetailCombo() { document.getElementById('detail-combo-list').classList.add('show'); document.querySelectorAll('.combo-option').forEach(o => o.style.display = 'flex'); }
     function filterDetailCombo() { const term = document.getElementById('detail-combo-input').value.toLowerCase(); document.querySelectorAll('.combo-option').forEach(o => o.style.display = o.dataset.searchText.includes(term) ? 'flex' : 'none'); }
-    function toggleDetailCombo(e) { e.stopPropagation(); const l = document.getElementById('detail-combo-list'); if (l.classList.contains('show')) l.classList.remove('show'); else { document.getElementById('detail-combo-input').focus(); openDetailCombo(); } }
-    document.addEventListener('click', e => { if (!document.getElementById('detail-combo')?.contains(e.target)) document.getElementById('detail-combo-list')?.classList.remove('show'); });
+    function toggleDetailCombo(e) { e.stopPropagation(); const l = document.getElementById('detail-combo-list'); if(l.classList.contains('show')) l.classList.remove('show'); else { document.getElementById('detail-combo-input').focus(); openDetailCombo(); } }
+    document.addEventListener('click', e => { if(!document.getElementById('detail-combo')?.contains(e.target)) document.getElementById('detail-combo-list')?.classList.remove('show'); });
 
-    function updateSummaryFilterOptions() {
-        const sel = document.getElementById('summary-filter-reason'), val = sel.value;
-        let s = new Set(); batchResults.forEach(r => { if (r.logs.length) s.add(r.logs[r.logs.length - 1].reason); });
-        sel.innerHTML = '<option value="">全部原因</option>';
-        Array.from(s).sort().forEach(v => sel.innerHTML += `<option value="${v}">${v}</option>`);
-        sel.value = val;
+    function updateSummaryFilterOptions() { 
+        const sel = document.getElementById('summary-filter-reason'), val = sel.value; let s = new Set(); batchResults.forEach(r => { if(r.logs.length) s.add(r.logs[r.logs.length-1].reason); });
+        sel.innerHTML = '<option value="">全部原因</option>'; Array.from(s).sort().forEach(v => sel.innerHTML += `<option value="${v}">${v}</option>`); sel.value = val;
     }
-    function filterSummaryTable() {
+    function filterSummaryTable() { 
         const txt = document.getElementById('summary-search').value.toLowerCase(), rsn = document.getElementById('summary-filter-reason').value;
-        document.querySelectorAll('#summary-tbody tr').forEach(r => { const m1 = txt === '' || r.innerText.toLowerCase().includes(txt), m2 = rsn === '' || r.cells[4].innerText === rsn; r.style.display = m1 && m2 ? '' : 'none'; });
+        document.querySelectorAll('#summary-tbody tr').forEach(r => { const m1 = txt===''||r.innerText.toLowerCase().includes(txt), m2 = rsn===''||r.cells[4].innerText === rsn; r.style.display = m1&&m2 ? '' : 'none'; });
     }
 
+    // 全局启动 ECharts 联动同步
     echarts.connect('stockGroup');
     window.addEventListener('beforeunload', (e) => { if (APP_STORAGE.getItem('gridHasUnsavedChanges') === 'true') { e.preventDefault(); e.returnValue = ''; } });
 
@@ -1888,13 +1881,21 @@
             updateStatus('syncing');
             try {
                 const u = `https://api.github.com/repos/${cfg.username}/${cfg.repo}/contents/${cfg.path}`;
-                const h = { "Authorization": `token ${cfg.token}`, "Accept": "application/vnd.github.v3+json" };
-                let r = await fetch(u, { headers: h });
-                let d = r.ok
-                    ? JSON.parse(safeB64ToUtf8((await r.json()).content))
+                const h = {"Authorization":`token ${cfg.token}`,"Accept":"application/vnd.github.v3+json"};
+                let r = await fetch(u, {headers:h});
+                let d = r.ok 
+                    ? JSON.parse(safeB64ToUtf8((await r.json()).content)) 
                     : await (await fetch(`https://raw.githubusercontent.com/${cfg.username}/${cfg.repo}/${cfg.branch}/${cfg.path}`)).json();
-                if (Array.isArray(d)) { stocks = d; APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(false); updateStatus('online'); }
-            } catch (e) { updateStatus('error'); }
+                if(Array.isArray(d)) {
+                    stocks = d;
+                    APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks));
+                    renderTable();
+                    setLocalChanges(false);
+                    updateStatus('online');
+                }
+            } catch(e) {
+                updateStatus('error');
+            }
         }
         await autoRunOnLoad();
     })();
