@@ -1,3 +1,4 @@
+html
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -103,7 +104,7 @@
         .log-col-mas { width: 20%; font-size: 10px; color: #888; line-height: 1.2; font-family: monospace; }
         .log-col-reason { width: 40%; }
         .badge { padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #fff; font-weight: normal; }
-        .bg-red { background: #d32f2f; } .bg-green { background: #2e7d32; } .bg-gray { background: #999; }
+        .badge.bg-red { background: #d32f2f; } .badge.bg-green { background: #2e7d32; } .badge.bg-gray { background: #999; }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; }
         .modal-box { background: #fff; padding: 20px; border-radius: 12px; width: 85%; max-width: 320px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 1000; }
         .daily-log-header { padding: 8px 10px; background: #fff; border: 1px solid #eee; margin-top: -1px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 13px; transition: background 0.2s; }
@@ -333,6 +334,38 @@
                 </div>
             </div>
             
+            <!-- 已移动至此：个股回测交易日志 (detail-view) -->
+            <div id="detail-view" style="display:none; border-top: 2px dashed #eee; margin-top: 20px; padding-top: 15px; margin-bottom: 25px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <div class="combo-box" id="detail-combo">
+                        <input type="text" class="combo-input" id="detail-combo-input" placeholder="点击选择或输入搜索..." oninput="filterDetailCombo()" onfocus="openDetailCombo()" onclick="this.select()">
+                        <span class="combo-arrow" onclick="toggleDetailCombo(event)">▼</span>
+                        <div class="combo-options" id="detail-combo-list"></div>
+                    </div>
+                    <span style="font-size:11px; background:#e3f2fd; padding:3px 8px; border-radius:4px; color:#007bff; font-weight:500;">当前选中</span>
+                </div>
+                <div class="stat-grid">
+                    <div class="stat-item"><div class="stat-val" id="val-ret">--</div><div class="stat-lbl">策略收益</div></div>
+                    <div class="stat-item"><div class="stat-val" id="val-stock">--</div><div class="stat-lbl">股价涨跌</div></div>
+                    <div class="stat-item"><div class="stat-val" id="val-lev">--</div><div class="stat-lbl">平均杠杆</div></div>
+                </div>
+                <div id="chart-box"></div>
+                <div style="margin-top:20px;">
+                    <div class="section-header" onclick="toggleSection('log-content', this)">
+                        <span>📜 交易日志 <span id="log-count" style="font-weight:normal; color:#999; font-size:12px;"></span></span> 
+                        <span class="arrow header-arrow">▼</span>
+                    </div>
+                    <div id="log-content" class="section-body collapsed" style="border:1px solid #eee; border-radius:6px; border-top:0;">
+                        <div style="max-height: 300px; overflow: auto; -webkit-overflow-scrolling: touch;">
+                            <table class="log-table">
+                                <thead style="background:#f9f9f9;"><tr><th class="log-col-date">日期</th><th class="log-col-action">动作</th><th class="log-col-val">变动</th><th class="log-col-mas">均线(5/10/20)</th><th class="log-col-reason">原因</th></tr></thead>
+                                <tbody id="log-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <div id="portfolio-section" style="margin-bottom:15px;">
                 <div class="section-header expanded" onclick="toggleSection('portfolio-content', this)">
                     <span>💰 组合策略</span> 
@@ -442,36 +475,6 @@
                     <div id="contribution-detail-panel">
                         <div class="detail-header-bar"><span id="contrib-detail-date-title">贡献详情</span></div>
                         <div class="detail-scroll-box" id="contrib-detail-list-content"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div id="detail-view" style="display:none; border-top: 2px dashed #eee; margin-top: 20px; padding-top: 15px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <div class="combo-box" id="detail-combo">
-                    <input type="text" class="combo-input" id="detail-combo-input" placeholder="点击选择或输入搜索..." oninput="filterDetailCombo()" onfocus="openDetailCombo()" onclick="this.select()">
-                    <span class="combo-arrow" onclick="toggleDetailCombo(event)">▼</span>
-                    <div class="combo-options" id="detail-combo-list"></div>
-                </div>
-                <span style="font-size:11px; background:#e3f2fd; padding:3px 8px; border-radius:4px; color:#007bff; font-weight:500;">当前选中</span>
-            </div>
-            <div class="stat-grid">
-                <div class="stat-item"><div class="stat-val" id="val-ret">--</div><div class="stat-lbl">策略收益</div></div>
-                <div class="stat-item"><div class="stat-val" id="val-stock">--</div><div class="stat-lbl">股价涨跌</div></div>
-                <div class="stat-item"><div class="stat-val" id="val-lev">--</div><div class="stat-lbl">平均杠杆</div></div>
-            </div>
-            <div id="chart-box"></div>
-            <div style="margin-top:20px;">
-                <div class="section-header" onclick="toggleSection('log-content', this)">
-                    <span>📜 交易日志 <span id="log-count" style="font-weight:normal; color:#999; font-size:12px;"></span></span> 
-                    <span class="arrow header-arrow">▼</span>
-                </div>
-                <div id="log-content" class="section-body collapsed" style="border:1px solid #eee; border-radius:6px; border-top:0;">
-                    <div style="max-height: 300px; overflow: auto; -webkit-overflow-scrolling: touch;">
-                        <table class="log-table">
-                            <thead style="background:#f9f9f9;"><tr><th class="log-col-date">日期</th><th class="log-col-action">动作</th><th class="log-col-val">变动</th><th class="log-col-mas">均线(5/10/20)</th><th class="log-col-reason">原因</th></tr></thead>
-                            <tbody id="log-tbody"></tbody>
-                        </table>
                     </div>
                 </div>
             </div>
@@ -931,7 +934,7 @@
         return result;
     }
 
-    // 核心升级：超敏锐“1日动量 + 强制越级翻转”机制
+    // 核心升级：超敏阅“1日动量 + 强制越级翻转”机制
     function getGlobalMarketStageMap(results) {
         if (!results || results.length === 0) return {};
         let statsMap = {}; let allDates = new Set();
@@ -1844,13 +1847,56 @@
     }
     function renderChart(hist) {
         const dom = document.getElementById('chart-box'); if(myChart) myChart.clear(); else myChart = echarts.init(dom);
+        
+        // 解析历史持仓生成买入和卖出交易信号点
+        let markPoints = [];
+        for (let i = 1; i < hist.length; i++) {
+            let prevL = hist[i - 1].leverage;
+            let currL = hist[i].leverage;
+            let diff = currL - prevL;
+            if (diff > 0.005) {
+                // 买入/加仓操作
+                markPoints.push({
+                    name: '加仓',
+                    coord: [hist[i].date, hist[i].close],
+                    value: '买',
+                    itemStyle: { color: '#d32f2f' }
+                });
+            } else if (diff < -0.005) {
+                // 卖出/减仓操作
+                markPoints.push({
+                    name: '减仓',
+                    coord: [hist[i].date, hist[i].close],
+                    value: '卖',
+                    itemStyle: { color: '#2e7d32' }
+                });
+            }
+        }
+
         myChart.setOption({
             tooltip: { trigger: 'axis', axisPointer: { type: 'cross', link: { xAxisIndex: 'all' } }, formatter: p => { if(!p.length)return''; const i=p[0].dataIndex, d=hist[i]; return `<div style="font-weight:bold">${d.date}</div>股价: ${d.close}<br>净值: ${d.nav.toFixed(3)}<br>杠杆: ${d.leverage.toFixed(2)}x`; } },
             grid:[{ left: '12%', right: '8%', top: '12%', height: '58%' }, { left: '12%', right: '8%', top: '78%', height: '15%' }],
             xAxis:[{type:'category', data: hist.map(h=>h.date), gridIndex:0, axisLabel:{show:false}}, {type:'category', data: hist.map(h=>h.date), gridIndex:1, axisLabel:{show:false}}],
             yAxis:[{type:'value', position:'left'}, {type:'value', position:'right'}, {type:'value', gridIndex:1, min:0, max:2.1}],
             dataZoom:[{type:'inside', xAxisIndex:[0,1]}, {type:'slider', xAxisIndex:[0,1], bottom:0, height:20}],
-            series:[{name:'股价', type:'line', yAxisIndex:0, data:hist.map(h=>h.close), itemStyle:{color:'#999'}, showSymbol:false}, {name:'净值', type:'line', yAxisIndex:1, data:hist.map(h=>h.nav), itemStyle:{color:'#d32f2f'}, showSymbol:false}, {name:'杠杆', type:'line', xAxisIndex:1, yAxisIndex:2, data:hist.map(h=>h.leverage), itemStyle:{color:'#28a745'}, step:'end', showSymbol:false, areaStyle:{opacity:0.1}}]
+            series:[
+                {
+                    name:'股价', 
+                    type:'line', 
+                    yAxisIndex:0, 
+                    data:hist.map(h=>h.close), 
+                    itemStyle:{color:'#999'}, 
+                    showSymbol:false,
+                    markPoint: {
+                        symbol: 'circle',
+                        symbolSize: 8,
+                        label: { show: false }, // 不显示默认标签文本，仅保留直观的颜色圆点
+                        data: markPoints
+                    }
+                }, 
+                {name:'净值', type:'line', yAxisIndex:1, data:hist.map(h=>h.nav), itemStyle:{color:'#d32f2f'}, showSymbol:false}, 
+                {name:'杠杆', type:'line', xAxisIndex:1, yAxisIndex:2, data:hist.map(h=>h.leverage), itemStyle:{color:'#28a745'}, step:'end', showSymbol:false, areaStyle:{opacity:0.1}}
+            ]
         });
     }
     function renderDetailCombo() { 
