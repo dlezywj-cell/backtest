@@ -334,33 +334,39 @@ html
                 </div>
             </div>
             
-            <!-- 已移动至此：个股回测交易日志 (detail-view) -->
-            <div id="detail-view" style="display:none; border-top: 2px dashed #eee; margin-top: 20px; padding-top: 15px; margin-bottom: 25px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <div class="combo-box" id="detail-combo">
-                        <input type="text" class="combo-input" id="detail-combo-input" placeholder="点击选择或输入搜索..." oninput="filterDetailCombo()" onfocus="openDetailCombo()" onclick="this.select()">
-                        <span class="combo-arrow" onclick="toggleDetailCombo(event)">▼</span>
-                        <div class="combo-options" id="detail-combo-list"></div>
-                    </div>
-                    <span style="font-size:11px; background:#e3f2fd; padding:3px 8px; border-radius:4px; color:#007bff; font-weight:500;">当前选中</span>
+            <!-- 个股回测详情已移动至此且默认折叠 -->
+            <div id="detail-view" style="display:none; margin-bottom:15px;">
+                <div class="section-header" onclick="toggleSection('detail-view-content', this)" id="detail-view-header">
+                    <span>🔍 个股回测详情</span> 
+                    <span class="arrow header-arrow">▼</span>
                 </div>
-                <div class="stat-grid">
-                    <div class="stat-item"><div class="stat-val" id="val-ret">--</div><div class="stat-lbl">策略收益</div></div>
-                    <div class="stat-item"><div class="stat-val" id="val-stock">--</div><div class="stat-lbl">股价涨跌</div></div>
-                    <div class="stat-item"><div class="stat-val" id="val-lev">--</div><div class="stat-lbl">平均杠杆</div></div>
-                </div>
-                <div id="chart-box"></div>
-                <div style="margin-top:20px;">
-                    <div class="section-header" onclick="toggleSection('log-content', this)">
-                        <span>📜 交易日志 <span id="log-count" style="font-weight:normal; color:#999; font-size:12px;"></span></span> 
-                        <span class="arrow header-arrow">▼</span>
+                <div id="detail-view-content" class="section-body collapsed" style="background: #fff; padding: 10px; border: 1px solid #eee; border-top: none;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <div class="combo-box" id="detail-combo">
+                            <input type="text" class="combo-input" id="detail-combo-input" placeholder="点击选择或输入搜索..." oninput="filterDetailCombo()" onfocus="openDetailCombo()" onclick="this.select()">
+                            <span class="combo-arrow" onclick="toggleDetailCombo(event)">▼</span>
+                            <div class="combo-options" id="detail-combo-list"></div>
+                        </div>
+                        <span style="font-size:11px; background:#e3f2fd; padding:3px 8px; border-radius:4px; color:#007bff; font-weight:500;">当前选中</span>
                     </div>
-                    <div id="log-content" class="section-body collapsed" style="border:1px solid #eee; border-radius:6px; border-top:0;">
-                        <div style="max-height: 300px; overflow: auto; -webkit-overflow-scrolling: touch;">
-                            <table class="log-table">
-                                <thead style="background:#f9f9f9;"><tr><th class="log-col-date">日期</th><th class="log-col-action">动作</th><th class="log-col-val">变动</th><th class="log-col-mas">均线(5/10/20)</th><th class="log-col-reason">原因</th></tr></thead>
-                                <tbody id="log-tbody"></tbody>
-                            </table>
+                    <div class="stat-grid">
+                        <div class="stat-item"><div class="stat-val" id="val-ret">--</div><div class="stat-lbl">策略收益</div></div>
+                        <div class="stat-item"><div class="stat-val" id="val-stock">--</div><div class="stat-lbl">股价涨跌</div></div>
+                        <div class="stat-item"><div class="stat-val" id="val-lev">--</div><div class="stat-lbl">平均杠杆</div></div>
+                    </div>
+                    <div id="chart-box"></div>
+                    <div style="margin-top:20px;">
+                        <div class="section-header" onclick="toggleSection('log-content', this)">
+                            <span>📜 交易日志 <span id="log-count" style="font-weight:normal; color:#999; font-size:12px;"></span></span> 
+                            <span class="arrow header-arrow">▼</span>
+                        </div>
+                        <div id="log-content" class="section-body collapsed" style="border:1px solid #eee; border-radius:6px; border-top:0;">
+                            <div style="max-height: 300px; overflow: auto; -webkit-overflow-scrolling: touch;">
+                                <table class="log-table">
+                                    <thead style="background:#f9f9f9;"><tr><th class="log-col-date">日期</th><th class="log-col-action">动作</th><th class="log-col-val">变动</th><th class="log-col-mas">均线(5/10/20)</th><th class="log-col-reason">原因</th></tr></thead>
+                                    <tbody id="log-tbody"></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -790,6 +796,7 @@ html
             if (contentId === 'holdings-content' && holdingsChart) holdingsChart.resize();
             if (contentId === 'status-dist-content' && statusChart) statusChart.resize();
             if (contentId === 'contribution-content' && contributionChart) contributionChart.resize();
+            if (contentId === 'detail-view-content' && myChart) myChart.resize();
             if (contentId === 'ranking-log-content') { if(momentumChartTop) momentumChartTop.resize(); if(momentumChartBottom) momentumChartBottom.resize(); }
         }, 50);
     }
@@ -934,7 +941,7 @@ html
         return result;
     }
 
-    // 核心升级：超敏阅“1日动量 + 强制越级翻转”机制
+    // 核心升级：超敏锐“1日动量 + 强制越级翻转”机制
     function getGlobalMarketStageMap(results) {
         if (!results || results.length === 0) return {};
         let statsMap = {}; let allDates = new Set();
@@ -1198,7 +1205,7 @@ html
         if(batchResults.length > 0) {
             document.getElementById('results-container').style.display = 'block';
             updateSummaryFilterOptions(); toggleSection('summary-content', document.querySelector('#batch-summary-box .section-header'));
-            runPortfolioStrategy(); renderStatusDistribution(); renderTrendLog(); renderDetailCombo(); renderStatusDetails(); showDetail(batchResults[0].index);
+            runPortfolioStrategy(); renderStatusDistribution(); renderTrendLog(); renderDetailCombo(); renderStatusDetails(); showDetail(batchResults[0].index, false);
         }
     }
 
@@ -1545,7 +1552,7 @@ html
         Object.keys(groups).forEach(key => {
             const g = groups[key];
             let html = `<div style="flex:1; min-width:160px; background:${g.bg}; border:1px solid ${g.color}30; border-radius:6px; padding:10px;"><div style="font-weight:bold; color:${g.color}; margin-bottom:8px;">${g.icon} ${key} <span style="font-size:11px; opacity:0.8">(${g.items.length})</span></div><div style="display:flex; flex-wrap:wrap; gap:5px;">`;
-            if (g.items.length === 0) html += `<span style="font-size:11px; color:#999;">无</span>`; else g.items.forEach(item => { html += `<span onclick="showDetail(${item.index})" style="background:#fff; font-size:11px; padding:3px 6px; border-radius:4px; border:1px solid #ddd; cursor:pointer;">${item.stockName}</span>`; });
+            if (g.items.length === 0) html += `<span style="font-size:11px; color:#999;">无</span>`; else g.items.forEach(item => { html += `<span onclick="showDetail(${item.index}, true)" style="background:#fff; font-size:11px; padding:3px 6px; border-radius:4px; border:1px solid #ddd; cursor:pointer;">${item.stockName}</span>`; });
             html += `</div></div>`; container.innerHTML += html;
         });
     }
@@ -1790,6 +1797,7 @@ html
         if(hist.length > 0) updateContribDetailPanel(hist, hist.length - 1);
     }
 
+    // 修复了查询功能中的异步载入逻辑
     function searchStock() {
         const val = document.getElementById('inName').value.trim(); if(!val) return;
         const s = document.createElement('script');
@@ -1825,20 +1833,36 @@ html
     function delStock(i) { if(confirm("确认删除？")) { stocks.splice(i, 1); APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(true); } }
 
     function appendSummaryRow(res, index) {
-        const tr = document.createElement('tr'); tr.id = `row-${index}`; tr.onclick = () => showDetail(index);
+        const tr = document.createElement('tr'); tr.id = `row-${index}`; tr.onclick = () => showDetail(index, true);
         const lastLog = res.logs && res.logs.length > 0 ? res.logs[res.logs.length - 1] : { action: '-', val: '-', reason: '无数据' };
         tr.innerHTML = `<td><b>${res.stockName}</b><br><span style="color:#999;font-size:10px">${res.stockCode}</span></td><td class="${res.stats.ret >= 0 ? 'val-pos' : 'val-neg'}">${res.stats.ret.toFixed(1)}%</td><td style="color:#555;">${res.stats.maxDD.toFixed(1)}%</td><td><div style="display:flex; flex-direction:column; align-items:flex-end; justify-content:center;">${lastLog.action}<span style="font-size:10px; color:#888; margin-top:3px; font-family:monospace;">${lastLog.val}</span></div></td><td style="text-align:left; padding-left:10px; max-width:220px;"><span style="font-size:11px; color:#333; display:block; line-height:1.4; white-space:normal;">${lastLog.reason}</span></td>`;
         document.getElementById('summary-tbody').appendChild(tr);
     }
-    function showDetail(index) {
+    function showDetail(index, autoExpand = true) {
         const res = batchResults.find(r => r.index === index); if(!res) return;
         document.querySelectorAll('.summary-table tr').forEach(r => r.classList.remove('selected')); document.getElementById(`row-${index}`)?.classList.add('selected');
         document.getElementById('detail-view').style.display = 'block';
+        
+        // 主动触发时（如点击列表行）展开模块并确保展开状态标志对应
+        if (autoExpand) {
+            const content = document.getElementById('detail-view-content');
+            const header = document.getElementById('detail-view-header');
+            if (content && content.classList.contains('collapsed')) {
+                content.classList.remove('collapsed');
+                header.classList.add('expanded');
+            }
+        }
+
         const input = document.getElementById('detail-combo-input'); if(input) { input.value = `${res.stockName} (${res.stockCode})`; document.querySelectorAll('.combo-option').forEach(opt => opt.classList.remove('active')); document.querySelector(`.combo-option[data-index="${index}"]`)?.classList.add('active'); }
         document.getElementById('val-ret').innerText = res.stats.ret.toFixed(2) + '%'; document.getElementById('val-ret').className = 'stat-val ' + (res.stats.ret>=0?'win':'loss');
         document.getElementById('val-stock').innerText = res.stats.stockRet.toFixed(2) + '%'; document.getElementById('val-stock').className = 'stat-val ' + (res.stats.stockRet>=0?'win':'loss');
         document.getElementById('val-lev').innerText = res.stats.avgLev.toFixed(2) + 'x';
-        renderChart(res.history); renderLog(res.logs); if(myChart) myChart.resize();
+        renderChart(res.history); renderLog(res.logs); 
+        
+        // 只有非折叠状态时才调用 resize 调整 ECharts 图表，避免隐藏容器尺寸计算错误
+        if (!document.getElementById('detail-view-content').classList.contains('collapsed')) {
+            if(myChart) myChart.resize();
+        }
     }
     function renderLog(logs) {
         const tbody = document.getElementById('log-tbody'); document.getElementById('log-count').innerText = `(${logs.length})`;
@@ -1848,14 +1872,13 @@ html
     function renderChart(hist) {
         const dom = document.getElementById('chart-box'); if(myChart) myChart.clear(); else myChart = echarts.init(dom);
         
-        // 解析历史持仓生成买入和卖出交易信号点
+        // 自动解析买卖交易点
         let markPoints = [];
         for (let i = 1; i < hist.length; i++) {
             let prevL = hist[i - 1].leverage;
             let currL = hist[i].leverage;
             let diff = currL - prevL;
             if (diff > 0.005) {
-                // 买入/加仓操作
                 markPoints.push({
                     name: '加仓',
                     coord: [hist[i].date, hist[i].close],
@@ -1863,7 +1886,6 @@ html
                     itemStyle: { color: '#d32f2f' }
                 });
             } else if (diff < -0.005) {
-                // 卖出/减仓操作
                 markPoints.push({
                     name: '减仓',
                     coord: [hist[i].date, hist[i].close],
@@ -1889,8 +1911,8 @@ html
                     showSymbol:false,
                     markPoint: {
                         symbol: 'circle',
-                        symbolSize: 4,
-                        label: { show: false }, // 不显示默认标签文本，仅保留直观的颜色圆点
+                        symbolSize: 5, // 优雅的微型圆点尺寸
+                        label: { show: false },
                         data: markPoints
                     }
                 }, 
@@ -1901,7 +1923,7 @@ html
     }
     function renderDetailCombo() { 
         const list = document.getElementById('detail-combo-list'); list.innerHTML = '';
-        batchResults.forEach(res => { const div = document.createElement('div'); div.className = 'combo-option'; div.innerHTML = `<span>${res.stockName}</span><span class="combo-code">${res.stockCode}</span>`; div.onclick = (e) => { e.stopPropagation(); showDetail(res.index); list.classList.remove('show'); }; div.dataset.index = res.index; div.dataset.searchText = (res.stockName + res.stockCode).toLowerCase(); list.appendChild(div); });
+        batchResults.forEach(res => { const div = document.createElement('div'); div.className = 'combo-option'; div.innerHTML = `<span>${res.stockName}</span><span class="combo-code">${res.stockCode}</span>`; div.onclick = (e) => { e.stopPropagation(); showDetail(res.index, true); list.classList.remove('show'); }; div.dataset.index = res.index; div.dataset.searchText = (res.stockName + res.stockCode).toLowerCase(); list.appendChild(div); });
     }
     function openDetailCombo() { document.getElementById('detail-combo-list').classList.add('show'); document.querySelectorAll('.combo-option').forEach(o => o.style.display = 'flex'); }
     function filterDetailCombo() { const term = document.getElementById('detail-combo-input').value.toLowerCase(); document.querySelectorAll('.combo-option').forEach(o => o.style.display = o.dataset.searchText.includes(term) ? 'flex' : 'none'); }
