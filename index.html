@@ -83,9 +83,24 @@ html
         .filter-btn { border: 1px solid #ddd; background: #fff; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; color: #555; transition: all 0.2s; white-space: nowrap; }
         .filter-btn:hover { background: #f8f9fa; }
         .filter-btn.active { background: #007bff; color: #fff; border-color: #007bff; font-weight: 500; }
+        .stock-group-bar { padding:10px 15px; background:#f7f9fc; border-bottom:1px solid #e8edf3; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+        .stock-group-label { font-size:12px; color:#4f5b67; font-weight:600; white-space:nowrap; }
+        .stock-group-select, .stock-group-name { height:34px; box-sizing:border-box; border:1px solid #dce2e8; border-radius:6px; background:#fff; color:#333; font-size:12px; outline:none; }
+        .stock-group-select { min-width:180px; flex:1; padding:0 8px; }
+        .stock-group-name { min-width:150px; flex:1; padding:0 9px; }
+        .stock-group-select:focus, .stock-group-name:focus { border-color:#007bff; box-shadow:0 0 0 2px rgba(0,123,255,0.1); }
+        .stock-group-action { height:34px; border:none; border-radius:6px; padding:0 10px; cursor:pointer; color:#fff; font-size:12px; white-space:nowrap; }
+        .stock-group-action.save { background:#1976d2; }
+        .stock-group-action.new { background:#607d8b; }
+        .stock-group-action.delete { background:#ef5350; }
+        .stock-group-action:disabled { opacity:0.45; cursor:not-allowed; }
+        .stock-group-status { width:100%; min-height:16px; color:#7b8794; font-size:11px; }
         @media (max-width: 600px) {
             .market-filter-group { width: 100%; margin-top: 5px; justify-content: space-between; }
             .filter-btn { flex: 1; text-align: center; }
+            .stock-group-label { width:100%; }
+            .stock-group-select, .stock-group-name { min-width:100%; }
+            .stock-group-action { flex:1; padding:0 6px; }
         }
         .table-scroll-box { overflow-x: auto; overflow-y: auto; max-height: 420px; }
         .base-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
@@ -259,11 +274,20 @@ html
             <span style="font-size:14px">🔍</span>
             <input type="text" id="list-search-input" placeholder="输入名称或代码筛选..." oninput="filterStockList()">
             <div class="market-filter-group">
-                <button class="filter-btn" onclick="setMarketFilter('ALL', this)">全部</button>
-                <button class="filter-btn active" onclick="setMarketFilter('A', this)">A股</button>
-                <button class="filter-btn" onclick="setMarketFilter('HK', this)">港股</button>
-                <button class="filter-btn" onclick="setMarketFilter('US', this)">美股</button>
+                <button class="filter-btn" data-market="ALL" onclick="setMarketFilter('ALL', this)">全部</button>
+                <button class="filter-btn active" data-market="A" onclick="setMarketFilter('A', this)">A股</button>
+                <button class="filter-btn" data-market="HK" onclick="setMarketFilter('HK', this)">港股</button>
+                <button class="filter-btn" data-market="US" onclick="setMarketFilter('US', this)">美股</button>
             </div>
+        </div>
+        <div class="stock-group-bar">
+            <span class="stock-group-label">📁 回测组合</span>
+            <select id="stock-group-select" class="stock-group-select" onchange="applyStockGroup(this.value)" aria-label="选择回测组合"></select>
+            <input id="stock-group-name" class="stock-group-name" type="text" maxlength="40" placeholder="输入组合名称，如：AI算力核心">
+            <button class="stock-group-action save" onclick="saveCurrentStockGroup()">保存当前勾选</button>
+            <button class="stock-group-action new" onclick="startNewStockGroup()">＋ 新组合</button>
+            <button id="stock-group-delete" class="stock-group-action delete" onclick="deleteCurrentStockGroup()" disabled>删除</button>
+            <div id="stock-group-status" class="stock-group-status">可将当前用于回测的股票保存为组合，下次一键恢复。</div>
         </div>
         <div class="table-scroll-box">
             <table class="base-table">
@@ -552,6 +576,9 @@ html
     }
 
     let stocks = JSON.parse(APP_STORAGE.getItem('gridStocks')) ||[];
+    const STOCK_GROUPS_KEY = 'gridStockGroups';
+    let stockGroups = loadStockGroups();
+    let activeStockGroupId = null;
     let myChart = null;
     let batchResults =[];
     let benchmarkResults =[]; 
@@ -593,7 +620,7 @@ html
         const d = new Date(); document.getElementById('inEndDate').value = d.toISOString().split('T')[0];
         d.setFullYear(d.getFullYear() - 1); document.getElementById('inStartDate').value = d.toISOString().split('T')[0];
     }
-    initDates(); checkUnsavedStatus(); renderTable();
+    initDates(); checkUnsavedStatus(); renderStockGroupOptions(); renderTable();
 
     function setQuickDate(range) {
         const end = new Date();
@@ -770,6 +797,165 @@ html
         APP_STORAGE.setItem('grid_sys_token', t);
         closeSettingsModal(); 
         syncFromGithub();
+    }
+
+    function normalizeStockCode(code) {
+        return String(code || '').trim().toUpperCase();
+    }
+
+    function loadStockGroups() {
+        try {
+            const saved = JSON.parse(APP_STORAGE.getItem(STOCK_GROUPS_KEY) || '[]');
+            if (!Array.isArray(saved)) return [];
+            return saved.filter(group => group && group.id && group.name && Array.isArray(group.codes)).map(group => ({
+                id: String(group.id),
+                name: String(group.name).trim().slice(0, 40),
+                codes: [...new Set(group.codes.map(normalizeStockCode).filter(Boolean))],
+                updatedAt: group.updatedAt || ''
+            })).filter(group => group.name && group.codes.length > 0);
+        } catch (e) {
+            console.warn('读取回测组合失败，已使用空列表', e);
+            return [];
+        }
+    }
+
+    function persistStockGroups() {
+        APP_STORAGE.setItem(STOCK_GROUPS_KEY, JSON.stringify(stockGroups));
+    }
+
+    function renderStockGroupOptions() {
+        const select = document.getElementById('stock-group-select');
+        if (!select) return;
+        const selectedValue = activeStockGroupId || select.value || '';
+        select.innerHTML = '';
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = '选择已保存组合…';
+        select.appendChild(placeholder);
+        const allOption = document.createElement('option');
+        allOption.value = '__ALL__';
+        allOption.textContent = `全部股票（${stocks.length}只）`;
+        select.appendChild(allOption);
+        stockGroups.forEach(group => {
+            const option = document.createElement('option');
+            option.value = group.id;
+            option.textContent = `${group.name}（${group.codes.length}只）`;
+            select.appendChild(option);
+        });
+        select.value = stockGroups.some(group => group.id === selectedValue) || selectedValue === '__ALL__' ? selectedValue : '';
+        const deleteBtn = document.getElementById('stock-group-delete');
+        if (deleteBtn) deleteBtn.disabled = !activeStockGroupId;
+    }
+
+    function resetStockListFilters() {
+        document.getElementById('list-search-input').value = '';
+        currentMarketFilter = 'ALL';
+        document.querySelectorAll('.filter-btn').forEach(button => button.classList.toggle('active', button.dataset.market === 'ALL'));
+        filterStockList();
+    }
+
+    function setStockCheckboxesByCodes(codes) {
+        const selectedCodes = new Set(codes.map(normalizeStockCode));
+        document.querySelectorAll('.stock-chk').forEach(checkbox => {
+            const stock = stocks[Number(checkbox.value)];
+            checkbox.checked = !!stock && selectedCodes.has(normalizeStockCode(stock.code));
+        });
+        checkAllState();
+    }
+
+    function getSelectedVisibleStocks() {
+        return Array.from(document.querySelectorAll('#stock-tbody tr')).filter(row => row.style.display !== 'none' && row.querySelector('.stock-chk')?.checked).map(row => stocks[Number(row.querySelector('.stock-chk').value)]).filter(Boolean);
+    }
+
+    function applyStockGroup(groupId) {
+        const status = document.getElementById('stock-group-status');
+        if (!groupId) {
+            activeStockGroupId = null;
+            document.getElementById('stock-group-name').value = '';
+            document.getElementById('stock-group-delete').disabled = true;
+            status.textContent = '请选择一个组合，或勾选股票后保存为新组合。';
+            return;
+        }
+        resetStockListFilters();
+        if (groupId === '__ALL__') {
+            activeStockGroupId = null;
+            document.getElementById('stock-group-name').value = '';
+            document.querySelectorAll('.stock-chk').forEach(checkbox => { checkbox.checked = true; });
+            checkAllState();
+            document.getElementById('stock-group-delete').disabled = true;
+            status.textContent = `已选择全部 ${stocks.length} 只股票，可直接开始回测。`;
+            return;
+        }
+        const group = stockGroups.find(item => item.id === groupId);
+        if (!group) return renderStockGroupOptions();
+        activeStockGroupId = group.id;
+        document.getElementById('stock-group-name').value = group.name;
+        setStockCheckboxesByCodes(group.codes);
+        const poolCodes = new Set(stocks.map(stock => normalizeStockCode(stock.code)));
+        const availableCount = group.codes.filter(code => poolCodes.has(code)).length;
+        const missingCount = group.codes.length - availableCount;
+        document.getElementById('stock-group-delete').disabled = false;
+        status.textContent = `已应用“${group.name}”：选中 ${availableCount} 只股票${missingCount ? `，另有 ${missingCount} 只已不在当前股票池` : ''}。`;
+    }
+
+    function startNewStockGroup() {
+        activeStockGroupId = null;
+        document.getElementById('stock-group-select').value = '';
+        document.getElementById('stock-group-name').value = '';
+        document.getElementById('stock-group-delete').disabled = true;
+        document.getElementById('stock-group-status').textContent = '保留当前勾选不变；输入新名称后点击“保存当前勾选”。';
+        document.getElementById('stock-group-name').focus();
+    }
+
+    function saveCurrentStockGroup() {
+        const nameInput = document.getElementById('stock-group-name');
+        const name = nameInput.value.trim();
+        if (!name) return alert('请先输入组合名称');
+        if (name === '全部股票') return alert('“全部股票”是系统选项，请换一个组合名称');
+        const selectedStocks = getSelectedVisibleStocks();
+        if (selectedStocks.length === 0) return alert('当前没有勾选可保存的股票');
+        const codes = [...new Set(selectedStocks.map(stock => normalizeStockCode(stock.code)).filter(Boolean))];
+        if (codes.length === 0) return alert('所选股票缺少有效代码，暂时无法保存组合');
+        let target = activeStockGroupId ? stockGroups.find(group => group.id === activeStockGroupId) : null;
+        const sameName = stockGroups.find(group => group.name.toLowerCase() === name.toLowerCase() && group.id !== target?.id);
+        if (sameName) {
+            if (target) return alert('已有同名组合，请换一个名称');
+            if (!confirm(`组合“${sameName.name}”已存在，是否用当前勾选覆盖？`)) return;
+            target = sameName;
+        }
+        if (target) {
+            target.name = name;
+            target.codes = codes;
+            target.updatedAt = new Date().toISOString();
+        } else {
+            target = { id:`group_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, name, codes, updatedAt:new Date().toISOString() };
+            stockGroups.push(target);
+        }
+        activeStockGroupId = target.id;
+        persistStockGroups();
+        renderStockGroupOptions();
+        document.getElementById('stock-group-select').value = target.id;
+        document.getElementById('stock-group-delete').disabled = false;
+        document.getElementById('stock-group-status').textContent = `已保存“${target.name}”，共 ${codes.length} 只股票。`;
+    }
+
+    function deleteCurrentStockGroup() {
+        const group = stockGroups.find(item => item.id === activeStockGroupId);
+        if (!group || !confirm(`确认删除组合“${group.name}”？股票池本身不会被删除。`)) return;
+        stockGroups = stockGroups.filter(item => item.id !== group.id);
+        activeStockGroupId = null;
+        persistStockGroups();
+        renderStockGroupOptions();
+        document.getElementById('stock-group-name').value = '';
+        document.getElementById('stock-group-status').textContent = `已删除组合“${group.name}”，当前股票勾选保持不变。`;
+    }
+
+    function markStockGroupSelectionChanged() {
+        const status = document.getElementById('stock-group-status');
+        if (!status) return;
+        const count = getSelectedVisibleStocks().length;
+        const group = stockGroups.find(item => item.id === activeStockGroupId);
+        status.textContent = group ? `“${group.name}”的勾选已调整（当前 ${count} 只），点击“保存当前勾选”即可更新。` : `当前已勾选 ${count} 只股票，可输入名称保存为组合。`;
     }
 
     function setMarketFilter(type, btn) {
@@ -1873,19 +2059,22 @@ html
     function renderTable() {
         const tb = document.getElementById('stock-tbody');
         tb.innerHTML = stocks.map((s, i) => `<tr> <td><b>${s.name}</b> <span style="color:#999;font-size:12px">${s.code}</span></td> <td> ${Math.round(s.minCap)}-${Math.round(s.maxCap)}亿 <div style="font-size:10px; color:#aaa; margin-top:2px;">${s.lastMod || ''}</div> </td> <td style="text-align:center;"><div class="op-btn-group"><button class="btn btn-edit-yellow btn-icon-square" onclick="editStock(${i})">✎</button><button class="btn btn-del-red btn-icon-square" onclick="delStock(${i})">✕</button></div></td> <td style="text-align:center;"><input type="checkbox" class="stock-chk" value="${i}" checked></td> </tr>`).join('');
-        filterStockList(); checkAllState();
+        const activeGroup = stockGroups.find(group => group.id === activeStockGroupId);
+        if (activeGroup) setStockCheckboxesByCodes(activeGroup.codes);
+        renderStockGroupOptions(); filterStockList(); checkAllState();
     }
     function toggleAllStocks(el) { 
         document.querySelectorAll('#stock-tbody tr').forEach(row => { 
             if (row.style.display !== 'none') { const chk = row.querySelector('.stock-chk'); if (chk) chk.checked = el.checked; } 
         }); 
+        markStockGroupSelectionChanged();
     }
     function checkAllState() { 
         const rows = Array.from(document.querySelectorAll('#stock-tbody tr')).filter(r => r.style.display !== 'none'); 
         if (rows.length === 0) { document.getElementById('check-all').checked = false; return; } 
         document.getElementById('check-all').checked = (rows.filter(r => r.querySelector('.stock-chk').checked).length === rows.length); 
     }
-    document.addEventListener('change', function(e){ if(e.target.classList.contains('stock-chk')) checkAllState(); });
+    document.addEventListener('change', function(e){ if(e.target.classList.contains('stock-chk')) { checkAllState(); markStockGroupSelectionChanged(); } });
     function editStock(i) { const s = stocks[i]; document.getElementById('inName').value = s.name; document.getElementById('inCode').value = s.code; document.getElementById('inMin').value = s.minCap; document.getElementById('inMax').value = s.maxCap; document.getElementById('card-config').scrollIntoView({behavior: 'smooth'}); }
     function delStock(i) { if(confirm("确认删除？")) { stocks.splice(i, 1); APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(true); } }
 
