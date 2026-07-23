@@ -107,14 +107,33 @@ html
         .badge.bg-red { background: #d32f2f; } .badge.bg-green { background: #2e7d32; } .badge.bg-gray { background: #999; }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; }
         .modal-box { background: #fff; padding: 20px; border-radius: 12px; width: 85%; max-width: 320px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 1000; }
-        .daily-log-header { padding: 8px 10px; background: #fff; border: 1px solid #eee; margin-top: -1px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 13px; transition: background 0.2s; }
+        .daily-log-header { padding: 10px 12px; background: #fff; border: 1px solid #eee; margin-top: -1px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 13px; transition: background 0.2s; }
         .daily-log-header:hover { background: #f9f9f9; }
-        .daily-log-body { display: none; padding: 8px 10px; background: #fafafa; border: 1px solid #eee; border-top: none; }
+        .daily-log-body { display: none; padding: 10px 12px; background: #fafafa; border: 1px solid #eee; border-top: none; }
         .daily-log-body.open { display: block; }
         .daily-item { display: flex; justify-content: space-between; margin-bottom: 4px; border-bottom: 1px dashed #eee; padding-bottom: 4px; font-size: 12px; }
         .daily-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
         .arrow-daily { font-size: 10px; color: #999; transform: rotate(0deg); transition: transform 0.2s; }
         .daily-log-header.open .arrow-daily { transform: rotate(90deg); }
+        .trade-day-title { display:flex; align-items:center; gap:10px; flex-wrap:wrap; min-width:0; }
+        .trade-total-position { color:#333; font-size:12px; font-weight:normal; }
+        .trade-change-pill { display:inline-flex; align-items:center; padding:2px 7px; border-radius:10px; font-size:11px; font-weight:bold; white-space:nowrap; }
+        .trade-summary { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; margin-bottom:10px; }
+        .trade-summary-card { background:#fff; border:1px solid #e7e7e7; border-radius:7px; padding:9px 10px; }
+        .trade-summary-label { color:#888; font-size:10px; margin-bottom:3px; }
+        .trade-summary-value { color:#222; font-size:17px; font-weight:bold; }
+        .trade-position-table { background:#fff; border:1px solid #e7e7e7; border-radius:7px; overflow:hidden; }
+        .trade-position-row { display:grid; grid-template-columns:minmax(120px, 1fr) 84px 84px; column-gap:10px; align-items:center; padding:8px 10px; border-bottom:1px solid #f0f0f0; font-size:12px; }
+        .trade-position-row:last-child { border-bottom:none; }
+        .trade-position-head { background:#f6f7f8; color:#888; font-size:10px; padding-top:6px; padding-bottom:6px; }
+        .trade-position-number { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+        .trade-stock-name { color:#333; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .trade-stock-meta { color:#aaa; font-size:10px; font-weight:normal; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .trade-zero-tag { color:#777; background:#eee; border-radius:3px; padding:1px 4px; margin-left:4px; font-size:9px; font-weight:normal; }
+        @media (max-width: 520px) {
+            .trade-position-row { grid-template-columns:minmax(90px, 1fr) 70px 70px; column-gap:6px; padding-left:8px; padding-right:8px; }
+            .trade-day-title { gap:6px; }
+        }
         .combo-box { position: relative; max-width: 70%; flex: 1; }
         .combo-input { width: 100%; padding: 8px 30px 8px 10px; border: 1px solid #ddd; border-radius: 6px; outline: none; font-weight: bold; color: #333; box-sizing: border-box; font-size: 16px; background: #fff; transition: border 0.2s; }
         .combo-input:focus { border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.1); }
@@ -1509,26 +1528,64 @@ html
 
     function renderTradeLog(hist, dateMap) {
         const container = document.getElementById('trade-log-list'); container.innerHTML = ''; const maxLev = parseFloat(document.getElementById('pMaxLev').value) || 2.0;
-        for (let i = hist.length - 1; i > 0; i--) {
-            const today = hist[i], yesterday = hist[i-1]; let changes =[], dailyNetChange = 0; 
-            new Set([...Object.keys(today.breakdown), ...Object.keys(yesterday.breakdown)]).forEach(name => {
-                const nowPos = (today.breakdown[name] || 0) / maxLev * 100, prevPos = (yesterday.breakdown[name] || 0) / maxLev * 100, diffPos = nowPos - prevPos;
-                if (Math.abs(diffPos) > 0.1) { 
-                    let levStr = "", isPassive = false, reasonStr = "";
-                    if(dateMap) { const dNow = dateMap[today.date]?.stocks[name], dPrev = dateMap[yesterday.date]?.stocks[name]; const lNow = dNow ? dNow.idealLev : 0, lPrev = dPrev ? dPrev.idealLev : 0; reasonStr = dNow ? dNow.reason : ""; if (Math.abs(lNow - lPrev) < 0.01) { levStr = `${lNow.toFixed(1)}x`; isPassive = true; } else { levStr = `<span style="color:${lNow > lPrev ? '#d32f2f' : '#2e7d32'}; font-weight:bold;">${lPrev.toFixed(1)}x → ${lNow.toFixed(1)}x</span>`; } }
-                    changes.push({name, diffPos, nowPos, prevPos, levStr, isPassive, reasonStr}); dailyNetChange += diffPos; 
-                }
-            });
-            const isLatest = (i === hist.length - 1); if (changes.length === 0 && !isLatest) continue;
-            changes.sort((a,b) => a.isPassive !== b.isPassive ? (a.isPassive ? 1 : -1) : Math.abs(b.diffPos) - Math.abs(a.diffPos));
-            const header = document.createElement('div'); header.className = 'daily-log-header' + (isLatest ? ' open' : ''); header.onclick = function() { toggleDailyLog(this); }; 
-            header.innerHTML = `<div style="font-weight:bold;">${today.date} <span style="font-size:11px; margin-left:8px; color:#fff; background:${dailyNetChange > 0 ? '#d32f2f' : '#2e7d32'}; padding:2px 6px; border-radius:4px;">合计: ${dailyNetChange > 0 ? '+' : ''}${dailyNetChange.toFixed(1)}%</span><span style="font-weight:normal; font-size:11px; color:#999; margin-left:5px;">(${changes.length})</span></div><span class="arrow-daily">▶</span>`;
+        const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
+        const totalPosition = day => Object.values(day.breakdown || {}).reduce((sum, value) => sum + (parseFloat(value) || 0), 0) / maxLev * 100;
+        const changeStyle = value => Math.abs(value) < 0.05
+            ? { color:'#777', background:'#eeeeee' }
+            : value > 0
+                ? { color:'#c62828', background:'#ffebee' }
+                : { color:'#2e7d32', background:'#e8f5e9' };
+        const formatChange = value => `${value > 0.004 ? '+' : ''}${value.toFixed(1)}%`;
+
+        for (let i = hist.length - 1; i >= 0; i--) {
+            const today = hist[i], yesterday = i > 0 ? hist[i-1] : null;
+            const todayTotal = totalPosition(today), yesterdayTotal = yesterday ? totalPosition(yesterday) : 0;
+            const totalChange = yesterday ? todayTotal - yesterdayTotal : null;
+            const positionNames = new Set([
+                ...Object.keys(today.breakdown || {}),
+                ...Object.keys(yesterday?.breakdown || {})
+            ]);
+            const positions = [...positionNames].map(name => {
+                const nowPos = (today.breakdown?.[name] || 0) / maxLev * 100;
+                const prevPos = (yesterday?.breakdown?.[name] || 0) / maxLev * 100;
+                const diffPos = nowPos - prevPos;
+                const dNow = dateMap?.[today.date]?.stocks?.[name];
+                const dPrev = yesterday ? dateMap?.[yesterday.date]?.stocks?.[name] : null;
+                const lNow = dNow ? dNow.idealLev : 0, lPrev = dPrev ? dPrev.idealLev : 0;
+                let signal = `信号 ${Number(lNow).toFixed(1)}x`;
+                if (yesterday && Math.abs(lNow - lPrev) >= 0.01) signal = `信号 ${Number(lPrev).toFixed(1)}x → ${Number(lNow).toFixed(1)}x`;
+                return { name, nowPos, prevPos, diffPos, signal, reason: dNow?.reason || '' };
+            }).sort((a, b) => b.nowPos - a.nowPos || Math.abs(b.diffPos) - Math.abs(a.diffPos) || a.name.localeCompare(b.name, 'zh-CN'));
+
+            const isLatest = i === hist.length - 1;
+            const changedCount = yesterday ? positions.filter(item => Math.abs(item.diffPos) >= 0.05).length : 0;
+            const totalChangeVisual = totalChange === null ? { color:'#777', background:'#eeeeee' } : changeStyle(totalChange);
+            const totalChangeText = totalChange === null ? '首个交易日' : `较昨日 ${formatChange(totalChange)}`;
+            const header = document.createElement('div');
+            header.className = 'daily-log-header' + (isLatest ? ' open' : '');
+            header.onclick = function() { toggleDailyLog(this); };
+            header.innerHTML = `<div class="trade-day-title"><b>${escapeHtml(today.date)}</b><span class="trade-total-position">总仓位 <b>${todayTotal.toFixed(1)}%</b></span><span class="trade-change-pill" style="color:${totalChangeVisual.color}; background:${totalChangeVisual.background};">${totalChangeText}</span><span style="color:#aaa; font-size:10px;">${positions.filter(item => item.nowPos > 0.004).length}只持仓${yesterday ? ` · ${changedCount}只变动` : ''}</span></div><span class="arrow-daily">▶</span>`;
             const body = document.createElement('div'); body.className = 'daily-log-body' + (isLatest ? ' open' : '');
-            if (changes.length === 0) body.innerHTML = `<div style="text-align:center; color:#999;">无调仓</div>`; 
-            else body.innerHTML = changes.map(c => `<div class="daily-item"><div style="display:flex; align-items:center; gap:8px;"><span style="font-weight:500;">${c.name}</span><span style="font-size:11px;">${c.levStr}</span><span style="font-size:10px; color:#aaa;" title="${c.reasonStr}">${c.reasonStr}</span></div><span><span style="color:${c.diffPos > 0 ? '#d32f2f' : '#2e7d32'}; font-weight:bold;">${c.diffPos > 0 ? '+' : ''}${c.diffPos.toFixed(1)}%</span></span></div>`).join('');
+            const summaryChange = totalChange === null ? '—' : formatChange(totalChange);
+            const summaryChangeColor = totalChange === null ? '#777' : changeStyle(totalChange).color;
+            let bodyHtml = `<div class="trade-summary"><div class="trade-summary-card"><div class="trade-summary-label">当日总仓位</div><div class="trade-summary-value">${todayTotal.toFixed(1)}%</div></div><div class="trade-summary-card"><div class="trade-summary-label">相比昨日${yesterday ? `（昨日 ${yesterdayTotal.toFixed(1)}%）` : ''}</div><div class="trade-summary-value" style="color:${summaryChangeColor};">${summaryChange}</div></div></div>`;
+            if (positions.length === 0) {
+                bodyHtml += `<div style="padding:14px; text-align:center; color:#999; background:#fff; border:1px solid #eee; border-radius:7px;">当日空仓</div>`;
+            } else {
+                bodyHtml += `<div class="trade-position-table"><div class="trade-position-row trade-position-head"><div>股票</div><div class="trade-position-number">当前仓位</div><div class="trade-position-number">较昨日</div></div>`;
+                bodyHtml += positions.map(item => {
+                    const itemChange = yesterday ? formatChange(item.diffPos) : '—';
+                    const itemColor = yesterday ? changeStyle(item.diffPos).color : '#777';
+                    const soldTag = item.nowPos <= 0.004 && item.prevPos > 0.004 ? '<span class="trade-zero-tag">清仓</span>' : '';
+                    const meta = [item.signal, item.reason].filter(Boolean).map(escapeHtml).join(' · ');
+                    return `<div class="trade-position-row"><div><div class="trade-stock-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}${soldTag}</div><div class="trade-stock-meta" title="${meta}">${meta}</div></div><div class="trade-position-number"><b>${item.nowPos.toFixed(1)}%</b></div><div class="trade-position-number" style="color:${itemColor}; font-weight:bold;">${itemChange}</div></div>`;
+                }).join('');
+                bodyHtml += `</div>`;
+            }
+            body.innerHTML = bodyHtml;
             container.appendChild(header); container.appendChild(body);
         }
-        if (container.innerHTML === '') container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">无调仓记录</div>';
+        if (container.innerHTML === '') container.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">暂无持仓记录</div>';
     }
 
     function renderStatusDistribution() {
