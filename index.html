@@ -543,7 +543,7 @@ html
             <div class="form-group">
                 <label>仓库名</label>
                 <input type="text" id="cfg-repo" placeholder="仓库名">
-                <div class="settings-tip">数据将自动保存为: data.json (不与主页串台)</div>
+                <div class="settings-tip">股票池和回测组合将同步到: data.json</div>
             </div>
             <div class="form-group">
                 <label>分支</label>
@@ -806,21 +806,59 @@ html
     function loadStockGroups() {
         try {
             const saved = JSON.parse(APP_STORAGE.getItem(STOCK_GROUPS_KEY) || '[]');
-            if (!Array.isArray(saved)) return [];
-            return saved.filter(group => group && group.id && group.name && Array.isArray(group.codes)).map(group => ({
-                id: String(group.id),
-                name: String(group.name).trim().slice(0, 40),
-                codes: [...new Set(group.codes.map(normalizeStockCode).filter(Boolean))],
-                updatedAt: group.updatedAt || ''
-            })).filter(group => group.name && group.codes.length > 0);
+            return normalizeStockGroups(saved);
         } catch (e) {
             console.warn('读取回测组合失败，已使用空列表', e);
             return [];
         }
     }
 
+    function normalizeStockGroups(groups) {
+        if (!Array.isArray(groups)) return [];
+        return groups.filter(group => group && group.id && group.name && Array.isArray(group.codes)).map(group => ({
+            id: String(group.id),
+            name: String(group.name).trim().slice(0, 40),
+            codes: [...new Set(group.codes.map(normalizeStockCode).filter(Boolean))],
+            updatedAt: group.updatedAt || ''
+        })).filter(group => group.name && group.codes.length > 0);
+    }
+
     function persistStockGroups() {
         APP_STORAGE.setItem(STOCK_GROUPS_KEY, JSON.stringify(stockGroups));
+    }
+
+    function buildGithubSyncPayload() {
+        return {
+            schemaVersion: 2,
+            updatedAt: new Date().toISOString(),
+            stocks,
+            stockGroups
+        };
+    }
+
+    function parseGithubSyncPayload(data) {
+        if (Array.isArray(data)) return { stocks:data, stockGroups:null, isLegacy:true };
+        if (data && typeof data === 'object' && Array.isArray(data.stocks)) {
+            return {
+                stocks: data.stocks,
+                stockGroups: normalizeStockGroups(data.stockGroups || []),
+                isLegacy: false
+            };
+        }
+        throw new Error('GitHub 数据格式无效');
+    }
+
+    function applyGithubSyncPayload(data) {
+        const payload = parseGithubSyncPayload(data);
+        stocks = payload.stocks;
+        APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks));
+        if (payload.stockGroups !== null) {
+            stockGroups = payload.stockGroups;
+            activeStockGroupId = null;
+            persistStockGroups();
+        }
+        renderTable();
+        return payload;
     }
 
     function renderStockGroupOptions() {
@@ -933,6 +971,7 @@ html
         }
         activeStockGroupId = target.id;
         persistStockGroups();
+        setLocalChanges(true);
         renderStockGroupOptions();
         document.getElementById('stock-group-select').value = target.id;
         document.getElementById('stock-group-delete').disabled = false;
@@ -945,6 +984,7 @@ html
         stockGroups = stockGroups.filter(item => item.id !== group.id);
         activeStockGroupId = null;
         persistStockGroups();
+        setLocalChanges(true);
         renderStockGroupOptions();
         document.getElementById('stock-group-name').value = '';
         document.getElementById('stock-group-status').textContent = `已删除组合“${group.name}”，当前股票勾选保持不变。`;
@@ -1422,8 +1462,10 @@ html
             const url = `https://api.github.com/repos/${cfg.username}/${cfg.repo}/contents/${cfg.path}`;
             const get = await fetch(url, { headers: { "Authorization": `token ${cfg.token}` } });
             let sha = null; if (get.ok) sha = (await get.json()).sha;
-            await fetch(url, { method: "PUT", headers: { "Authorization": `token ${cfg.token}` }, body: JSON.stringify({ message: "Update", content: utf8ToB64(JSON.stringify(stocks, null, 2)), sha, branch: cfg.branch }) });
-            alert("✅ 同步成功!"); setLocalChanges(false); updateStatus('online', '已同步');
+            const syncPayload = buildGithubSyncPayload();
+            const upload = await fetch(url, { method: "PUT", headers: { "Authorization": `token ${cfg.token}`, "Content-Type":"application/json" }, body: JSON.stringify({ message: "Update stocks and backtest groups", content: utf8ToB64(JSON.stringify(syncPayload, null, 2)), sha, branch: cfg.branch }) });
+            if (!upload.ok) { const detail = await upload.json().catch(() => ({})); throw new Error(detail.message || `GitHub 返回 ${upload.status}`); }
+            alert(`✅ 同步成功！\n股票池 ${stocks.length} 只，回测组合 ${stockGroups.length} 个。`); setLocalChanges(false); updateStatus('online', '已同步');
         } catch (e) { alert("❌ 同步失败: " + e.message); updateStatus('error', '上传失败'); } finally { btn.innerText = origin; btn.disabled = false; }
     }
 
@@ -1437,7 +1479,13 @@ html
             let res = await fetch(url, { headers });
             let data; if (res.ok) data = JSON.parse(safeB64ToUtf8((await res.json()).content)); 
             else { const raw = await fetch(`https://raw.githubusercontent.com/${cfg.username}/${cfg.repo}/${cfg.branch}/${cfg.path}?t=${Date.now()}`); if(!raw.ok) throw new Error("无数据"); data = await raw.json(); }
-            if(Array.isArray(data) && confirm(`覆盖本地 ${stocks.length} 条数据?`)) { stocks = data; APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks)); renderTable(); setLocalChanges(false); updateStatus('online', '已同步'); }
+            const incoming = parseGithubSyncPayload(data);
+            const groupMessage = incoming.isLegacy ? '这是旧版数据，仅覆盖股票池并保留本地组合。' : `同时覆盖为 GitHub 中的 ${incoming.stockGroups.length} 个回测组合。`;
+            if (confirm(`GitHub 中有 ${incoming.stocks.length} 只股票。\n${groupMessage}\n\n确认覆盖本地数据？`)) {
+                applyGithubSyncPayload(data);
+                setLocalChanges(false);
+                updateStatus('online', '已同步');
+            }
             ensureStockCodes();
         } catch (e) { alert("❌ 拉取失败: " + e.message); updateStatus('error', '拉取失败'); } finally { btn.innerText = origin; btn.disabled = false; }
     }
@@ -2191,7 +2239,8 @@ html
 
     (async function init() {
         const cfg = getGbConfig();
-        if (cfg.token) {
+        const hasUnsavedLocalChanges = APP_STORAGE.getItem('gridHasUnsavedChanges') === 'true';
+        if (cfg.token && !hasUnsavedLocalChanges) {
             updateStatus('syncing');
             try {
                 const u = `https://api.github.com/repos/${cfg.username}/${cfg.repo}/contents/${cfg.path}`;
@@ -2200,13 +2249,9 @@ html
                 let d = r.ok 
                     ? JSON.parse(safeB64ToUtf8((await r.json()).content)) 
                     : await (await fetch(`https://raw.githubusercontent.com/${cfg.username}/${cfg.repo}/${cfg.branch}/${cfg.path}`)).json();
-                if(Array.isArray(d)) {
-                    stocks = d;
-                    APP_STORAGE.setItem('gridStocks', JSON.stringify(stocks));
-                    renderTable();
-                    setLocalChanges(false);
-                    updateStatus('online');
-                }
+                applyGithubSyncPayload(d);
+                setLocalChanges(false);
+                updateStatus('online');
             } catch(e) {
                 updateStatus('error');
             }
