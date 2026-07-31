@@ -1111,13 +1111,16 @@ html
     }
 
     async function fetchHistoryKline(secId) {
-        const todayStr = new Date().toISOString().split('T')[0]; 
+        // 缓存按浏览器本地日期划分；不要用 UTC 日期，否则亚洲时区的凌晨会过早复用/淘汰美股日线缓存。
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const cacheKey = `kline_${secId}`; 
         const cached = await getCache(cacheKey);
         if (cached && cached.date === todayStr) return cached.data;
         
         let baseParams = `fields1=f1&fields2=f51,f53&klt=101&end=20500101&lmt=600`;
-        let url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&${baseParams}&fqt=1`;
+        // K 线在收盘后会更新。添加请求版本号，避免浏览器将旧的日线响应当成当天最新收盘价。
+        let url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secId}&${baseParams}&fqt=1&_=${Date.now()}`;
         
         try {
             let json = await jsonpRequest(url);
@@ -1159,20 +1162,39 @@ html
                     expandedChunk.push(id.replace('105.', '107.')); 
                 } 
             });
-            const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${expandedChunk.join(',')}&fields=f12,f2,f20,f124,f3&invt=2&fltt=2&_=${Date.now()}`;
+            // f13 是东财市场编号。美股同一 ticker 可能同时存在于 105/106/107，不能仅用 ticker 作 key。
+            const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?secids=${expandedChunk.join(',')}&fields=f12,f13,f2,f20,f124,f3&invt=2&fltt=2&_=${Date.now()}`;
             try {
                 const json = await jsonpRequest(url);
                 const diff = json?.data?.diff;
                 if (diff) { 
                     (Array.isArray(diff) ? diff : Object.values(diff)).forEach(item => { 
                         if (item && item.f2 > 0) {
-                            resultMap[item.f12] = { price: item.f2, totalShares: (item.f20 / item.f2) / 100000000, timestamp: item.f124, pctChange: item.f3 }; 
+                            const quoteSecId = `${item.f13}.${item.f12}`;
+                            resultMap[quoteSecId] = { price: item.f2, totalShares: (item.f20 / item.f2) / 100000000, timestamp: item.f124, pctChange: item.f3 };
                         }
                     }); 
                 }
             } catch (e) { console.error(e); }
         }
         return resultMap;
+    }
+
+    function getMarketTimeZone(stockCode) {
+        const code = (stockCode || '').toUpperCase();
+        if (code.endsWith('.US')) return 'America/New_York';
+        if (code.endsWith('.HK')) return 'Asia/Hong_Kong';
+        return 'Asia/Shanghai';
+    }
+
+    function getMarketDate(timestamp, stockCode) {
+        const ms = Number(timestamp) * 1000;
+        const date = Number.isFinite(ms) && ms > 0 ? new Date(ms) : new Date();
+        const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone: getMarketTimeZone(stockCode), year: 'numeric', month: '2-digit', day: '2-digit'
+        }).formatToParts(date);
+        const value = type => parts.find(part => part.type === type)?.value;
+        return `${value('year')}-${value('month')}-${value('day')}`;
     }
 
     function calculateMA_Array(data, dayCount) {
@@ -1338,7 +1360,9 @@ html
         const klines = await fetchHistoryKline(emSecId); if(!klines || klines.length === 0) throw new Error("无K线数据");
         let rawData =[];
         const minCap = stock.minCap, maxCap = stock.maxCap, midCap = (minCap + maxCap) / 2.0;
-        let totalShares = realtimeData[rawCode]?.totalShares || 100.0;
+        // 对美股优先取主市场 105，若主市场没有报价再使用 106/107；全程以 secid 匹配，避免同 ticker 串价。
+        const rt = realtimeData[emSecId] || (stock.code.toUpperCase().endsWith('.US') && (realtimeData[`106.${rawCode}`] || realtimeData[`107.${rawCode}`]));
+        let totalShares = rt?.totalShares || 100.0;
         klines.forEach(k => {
             const p = k.split(','); 
             if (p[0] >= startDate && p[0] <= endDate) {
@@ -1349,9 +1373,9 @@ html
         });
         if (rawData.length === 0) throw new Error("区间无数据");
 
-        const rt = realtimeData[rawCode];
         if (rt) {
-            let rtDate = (rt.timestamp && rt.timestamp > 0) ? new Date(rt.timestamp * 1000).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+            // 交易日必须按交易所时区计算：美股纽约收盘在中国次日凌晨，UTC/本地日期都会在某些时段错位。
+            let rtDate = getMarketDate(rt.timestamp, stock.code);
             if (rtDate <= endDate) {
                 const rtMv = rt.price * rt.totalShares; 
                 const item = { date: rtDate, close: rt.price, mv: rtMv, valScore: (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap)) };
