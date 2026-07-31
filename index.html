@@ -1116,7 +1116,8 @@ html
         const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const cacheKey = `kline_${secId}`; 
         const cached = await getCache(cacheKey);
-        if (cached && cached.date === todayStr) return cached.data;
+        // 回测最后一个交易日会参与“今日涨跌”和净值，不能直接复用当天较早写入的缓存。
+        // 缓存仅作为网络失败时的兜底，正常情况下每次运行都重新拉取日线。
         
         let baseParams = `fields1=f1&fields2=f51,f53&klt=101&end=20500101&lmt=600`;
         // K 线在收盘后会更新。添加请求版本号，避免浏览器将旧的日线响应当成当天最新收盘价。
@@ -1378,7 +1379,11 @@ html
             let rtDate = getMarketDate(rt.timestamp, stock.code);
             if (rtDate <= endDate) {
                 const rtMv = rt.price * rt.totalShares; 
-                const item = { date: rtDate, close: rt.price, mv: rtMv, valScore: (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap)) };
+                const item = {
+                    date: rtDate, close: rt.price, mv: rtMv,
+                    reportedReturn: Number.isFinite(Number(rt.pctChange)) ? Number(rt.pctChange) : null,
+                    valScore: (rtMv<=minCap)?1:(rtMv>=maxCap)?-1:((rtMv<=midCap)?(midCap-rtMv)/(midCap-minCap):-(rtMv-midCap)/(maxCap-midCap))
+                };
                 const lastK = rawData[rawData.length - 1];
                 if (rtDate > lastK.date) rawData.push(item); 
                 else if (rtDate === lastK.date) rawData[rawData.length - 1] = item;
@@ -1388,7 +1393,7 @@ html
         const ma5 = calculateMA_Array(rawData, 5), ma10 = calculateMA_Array(rawData, 10), ma20 = calculateMA_Array(rawData, 20);
         const getLev = (mv) => (mv <= minCap) ? maxLev : (mv >= maxCap) ? 0.0 : maxLev * Math.exp(-2.5 * ((mv - minCap) / (maxCap - minCap)));
         let nav = 1.0, peak = 1.0, prevL = getLev(rawData[0].mv), inProt = false, history =[], logs =[], maxDD = 0;
-        history.push({date: rawData[0].date, nav:1.0, close:rawData[0].close, leverage:prevL, status: "震荡整理", reason: "初始建仓"});
+        history.push({date: rawData[0].date, nav:1.0, close:rawData[0].close, leverage:prevL, status: "震荡整理", reason: "初始建仓", reportedReturn: rawData[0].reportedReturn});
         
         for(let i=1; i<rawData.length; i++) {
             const d = rawData[i], prevD = rawData[i-1]; const r = d.close / prevD.close - 1;
@@ -1416,7 +1421,7 @@ html
             const diff = newL - prevL;
             let actHtml = diff > 0.005 ? `<span class="badge bg-red">加仓</span>` : diff < -0.005 ? `<span class="badge bg-green">减仓</span>` : `<span class="badge bg-gray">持仓</span>`;
             logs.push({ date: d.date, action: actHtml, val: `${prevL.toFixed(2)}→${newL.toFixed(2)}`, reason, mas: `M5:${m5?.toFixed(2)}<br>M10:${m10?.toFixed(2)}` }); 
-            history.push({date: d.date, nav, close: d.close, leverage: newL, status, reason}); prevL = newL;
+            history.push({date: d.date, nav, close: d.close, leverage: newL, status, reason, reportedReturn: d.reportedReturn}); prevL = newL;
         }
         return { stockName: stock.name, stockCode: stock.code, history, logs, stats: { ret: (nav-1)*100, stockRet: (history[history.length-1].close/history[0].close-1)*100, maxDD: maxDD * 100, avgLev: history.reduce((a,b)=>a+b.leverage,0)/history.length } };
     }
@@ -1591,7 +1596,13 @@ html
         if (!resultsInput || resultsInput.length === 0) return null;
         let minPosThreshold = parseFloat(document.getElementById('pMinPos').value) || 0.4; 
         let dateMap = {}; 
-        resultsInput.forEach((res) => { res.history.forEach(day => { if (!dateMap[day.date]) dateMap[day.date] = { date: day.date, stocks: {} }; dateMap[day.date].stocks[res.stockName] = { close: day.close, idealLev: day.leverage, reason: day.reason }; }); });
+        resultsInput.forEach((res) => { res.history.forEach(day => {
+            if (!dateMap[day.date]) dateMap[day.date] = { date: day.date, stocks: {} };
+            dateMap[day.date].stocks[res.stockName] = {
+                close: day.close, idealLev: day.leverage, reason: day.reason,
+                reportedReturn: day.reportedReturn
+            };
+        }); });
         const sortedDates = Object.keys(dateMap).sort(); if (sortedDates.length < 2) return null;
         let portNav = 1.0, portHistory =[], maxDD = 0, peak = 1.0; 
         let lastValidData = {}, prevAllocatedLevs = {}, accContribution = {}; 
@@ -1622,7 +1633,10 @@ html
                 const sPrev = prevValidData[res.stockName];
                 
                 if (sCurr && sPrev && sPrev.close > 0) {
-                    dailyStockReturns[res.stockName] = ((sCurr.close - sPrev.close) / sPrev.close) * 100;
+                    // 最新实时行情提供的 f3 与交易所口径一致；历史日仍使用相邻收盘价计算。
+                    dailyStockReturns[res.stockName] = Number.isFinite(sCurr.reportedReturn)
+                        ? sCurr.reportedReturn
+                        : ((sCurr.close - sPrev.close) / sPrev.close) * 100;
                 } else {
                     dailyStockReturns[res.stockName] = 0;
                 }
