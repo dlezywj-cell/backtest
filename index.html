@@ -85,12 +85,18 @@ html
         .filter-btn.active { background: #007bff; color: #fff; border-color: #007bff; font-weight: 500; }
         .stock-group-bar { padding:10px 15px; background:#f7f9fc; border-bottom:1px solid #e8edf3; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
         .stock-group-label { font-size:12px; color:#4f5b67; font-weight:600; white-space:nowrap; }
-        .stock-group-select, .stock-group-name { height:34px; box-sizing:border-box; border:1px solid #dce2e8; border-radius:6px; background:#fff; color:#333; font-size:12px; outline:none; }
-        .stock-group-select { min-width:180px; flex:1; min-height:34px; height:auto; padding:5px 8px; display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
-        .stock-group-option { display:flex; align-items:center; gap:4px; white-space:nowrap; cursor:pointer; }
+        .stock-group-dropdown { min-width:180px; flex:1; position:relative; }
+        .stock-group-trigger, .stock-group-name { height:34px; box-sizing:border-box; border:1px solid #dce2e8; border-radius:6px; background:#fff; color:#333; font-size:12px; outline:none; }
+        .stock-group-trigger { width:100%; padding:0 10px; display:flex; align-items:center; justify-content:space-between; gap:8px; cursor:pointer; text-align:left; }
+        .stock-group-trigger-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .stock-group-arrow { color:#7b8794; font-size:10px; transition:transform .2s; }
+        .stock-group-dropdown.open .stock-group-arrow { transform:rotate(180deg); }
+        .stock-group-select { display:none; position:absolute; z-index:20; top:calc(100% + 4px); left:0; right:0; max-height:240px; overflow-y:auto; box-sizing:border-box; padding:6px 8px; border:1px solid #dce2e8; border-radius:6px; background:#fff; box-shadow:0 5px 14px rgba(0,0,0,.14); }
+        .stock-group-dropdown.open .stock-group-select { display:block; }
+        .stock-group-option { display:flex; align-items:center; gap:4px; min-height:28px; white-space:nowrap; cursor:pointer; }
         .stock-group-option input { margin:0; }
         .stock-group-name { min-width:150px; flex:1; padding:0 9px; }
-        .stock-group-select:focus, .stock-group-name:focus { border-color:#007bff; box-shadow:0 0 0 2px rgba(0,123,255,0.1); }
+        .stock-group-trigger:focus, .stock-group-name:focus { border-color:#007bff; box-shadow:0 0 0 2px rgba(0,123,255,0.1); }
         .stock-group-action { height:34px; border:none; border-radius:6px; padding:0 10px; cursor:pointer; color:#fff; font-size:12px; white-space:nowrap; }
         .stock-group-action.save { background:#1976d2; }
         .stock-group-action.new { background:#607d8b; }
@@ -101,7 +107,7 @@ html
             .market-filter-group { width: 100%; margin-top: 5px; justify-content: space-between; }
             .filter-btn { flex: 1; text-align: center; }
             .stock-group-label { width:100%; }
-            .stock-group-select, .stock-group-name { min-width:100%; }
+            .stock-group-dropdown, .stock-group-name { min-width:100%; }
             .stock-group-action { flex:1; padding:0 6px; }
         }
         .table-scroll-box { overflow-x: auto; overflow-y: auto; max-height: 420px; }
@@ -284,7 +290,12 @@ html
         </div>
         <div class="stock-group-bar">
             <span class="stock-group-label">📁 回测组合</span>
-            <div id="stock-group-select" class="stock-group-select" role="group" aria-label="选择回测组合（可多选）"></div>
+            <div id="stock-group-dropdown" class="stock-group-dropdown">
+                <button id="stock-group-trigger" class="stock-group-trigger" type="button" onclick="toggleStockGroupDropdown(event)" aria-expanded="false" aria-controls="stock-group-select">
+                    <span id="stock-group-trigger-label" class="stock-group-trigger-label">选择回测组合（可多选）</span><span class="stock-group-arrow">▼</span>
+                </button>
+                <div id="stock-group-select" class="stock-group-select" role="group" aria-label="选择回测组合（可多选）"></div>
+            </div>
             <input id="stock-group-name" class="stock-group-name" type="text" maxlength="40" placeholder="输入组合名称，如：AI算力核心">
             <button class="stock-group-action save" onclick="saveCurrentStockGroup()">保存当前勾选</button>
             <button class="stock-group-action new" onclick="startNewStockGroup()">＋ 新组合</button>
@@ -886,8 +897,34 @@ html
             label.append(input, document.createTextNode(option.label));
             select.appendChild(label);
         });
+        updateStockGroupTrigger([...selectedSet]);
         const deleteBtn = document.getElementById('stock-group-delete');
         if (deleteBtn) deleteBtn.disabled = !activeStockGroupId;
+    }
+
+    function updateStockGroupTrigger(selectedIds = selectedStockGroupIds) {
+        const label = document.getElementById('stock-group-trigger-label');
+        if (!label) return;
+        if (selectedIds.includes('__ALL__')) {
+            label.textContent = `全部股票（${stocks.length}只）`;
+            return;
+        }
+        const selectedGroups = selectedIds.map(id => stockGroups.find(group => group.id === id)).filter(Boolean);
+        label.textContent = selectedGroups.length === 0 ? '选择回测组合（可多选）' : selectedGroups.length === 1 ? selectedGroups[0].name : `已选 ${selectedGroups.length} 个组合`;
+    }
+
+    function toggleStockGroupDropdown(event) {
+        event.stopPropagation();
+        const dropdown = document.getElementById('stock-group-dropdown');
+        const isOpen = dropdown.classList.toggle('open');
+        document.getElementById('stock-group-trigger').setAttribute('aria-expanded', String(isOpen));
+    }
+
+    function closeStockGroupDropdown() {
+        const dropdown = document.getElementById('stock-group-dropdown');
+        if (!dropdown) return;
+        dropdown.classList.remove('open');
+        document.getElementById('stock-group-trigger')?.setAttribute('aria-expanded', 'false');
     }
 
     function resetStockListFilters() {
@@ -928,6 +965,7 @@ html
             document.querySelectorAll('.stock-chk').forEach(checkbox => { checkbox.checked = true; });
             checkAllState();
             document.getElementById('stock-group-delete').disabled = true;
+            updateStockGroupTrigger();
             status.textContent = `已选择全部 ${stocks.length} 只股票，可直接开始回测。`;
             return;
         }
@@ -936,6 +974,7 @@ html
             selectedStockGroupIds = [];
             document.getElementById('stock-group-name').value = '';
             document.getElementById('stock-group-delete').disabled = true;
+            updateStockGroupTrigger();
             status.textContent = '请选择一个或多个组合，或勾选股票后保存为新组合。';
             return;
         }
@@ -951,6 +990,7 @@ html
         const availableCount = codes.filter(code => poolCodes.has(code)).length;
         const missingCount = codes.length - availableCount;
         document.getElementById('stock-group-delete').disabled = groups.length !== 1;
+        updateStockGroupTrigger();
         status.textContent = groups.length === 1
             ? `已应用“${groups[0].name}”：选中 ${availableCount} 只股票${missingCount ? `，另有 ${missingCount} 只已不在当前股票池` : ''}。`
             : `已合并 ${groups.length} 个组合：选中 ${availableCount} 只股票${missingCount ? `，另有 ${missingCount} 只已不在当前股票池` : ''}。`;
@@ -960,6 +1000,7 @@ html
         activeStockGroupId = null;
         selectedStockGroupIds = [];
         document.querySelectorAll('#stock-group-select input').forEach(input => { input.checked = false; });
+        updateStockGroupTrigger();
         document.getElementById('stock-group-name').value = '';
         document.getElementById('stock-group-delete').disabled = true;
         document.getElementById('stock-group-status').textContent = '保留当前勾选不变；输入新名称后点击“保存当前勾选”。';
@@ -996,6 +1037,7 @@ html
         setLocalChanges(true);
         renderStockGroupOptions();
         document.querySelectorAll('#stock-group-select input').forEach(input => { input.checked = input.value === target.id; });
+        updateStockGroupTrigger();
         document.getElementById('stock-group-delete').disabled = false;
         document.getElementById('stock-group-status').textContent = `已保存“${target.name}”，共 ${codes.length} 只股票。`;
     }
@@ -2287,7 +2329,10 @@ html
     function openDetailCombo() { document.getElementById('detail-combo-list').classList.add('show'); document.querySelectorAll('.combo-option').forEach(o => o.style.display = 'flex'); }
     function filterDetailCombo() { const term = document.getElementById('detail-combo-input').value.toLowerCase(); document.querySelectorAll('.combo-option').forEach(o => o.style.display = o.dataset.searchText.includes(term) ? 'flex' : 'none'); }
     function toggleDetailCombo(e) { e.stopPropagation(); const l = document.getElementById('detail-combo-list'); if(l.classList.contains('show')) l.classList.remove('show'); else { document.getElementById('detail-combo-input').focus(); openDetailCombo(); } }
-    document.addEventListener('click', e => { if(!document.getElementById('detail-combo')?.contains(e.target)) document.getElementById('detail-combo-list')?.classList.remove('show'); });
+    document.addEventListener('click', e => {
+        if (!document.getElementById('detail-combo')?.contains(e.target)) document.getElementById('detail-combo-list')?.classList.remove('show');
+        if (!document.getElementById('stock-group-dropdown')?.contains(e.target)) closeStockGroupDropdown();
+    });
 
     function updateSummaryFilterOptions() { 
         const sel = document.getElementById('summary-filter-reason'), val = sel.value; let s = new Set(); batchResults.forEach(r => { if(r.logs.length) s.add(r.logs[r.logs.length-1].reason); });
