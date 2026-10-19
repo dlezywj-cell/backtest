@@ -2681,9 +2681,11 @@ html
   }
   function marketHint() {
     try {
-      const pool = window.stocks || [];
+      // 注意：stocks / currentMarketFilter 是页面顶层的 let 声明，不会挂到 window 上，必须直接引用
+      const pool = (typeof stocks !== 'undefined' && stocks) || [];
+      const filter = (typeof currentMarketFilter !== 'undefined') ? currentMarketFilter : '';
       const nonA = pool.filter((s) => /\.(HK|US)$/i.test(String(s.code || ''))).length;
-      if (nonA > 0 && window.currentMarketFilter === 'A') {
+      if (nonA > 0 && filter === 'A') {
         return `<br>⚠️ 当前列表筛选是「A股」，点「运行选中」只会跑 A 股；要跑全部请先把列表上方切到「全部」（池里有港股/美股 ${nonA} 只）。`;
       }
     } catch (e) { }
